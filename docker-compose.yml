@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vpm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vpm}
+      POSTGRES_USER: ${POSTGRES_USER:-vpm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpm_local_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The backend must not start before the database is actually accepting
+      # connections. "container running" is not the same as "ready".
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vpm} -d ${POSTGRES_DB:-vpm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------
+  # Keycloak: arrives in PHASE 5. Left here as a reminder.
+  # Do not uncomment yet — it costs ~1GB of RAM for nothing until
+  # there is something to authorise.
+  # ---------------------------------------------------------------
+  # keycloak:
+  #   image: quay.io/keycloak/keycloak:26.0
+  #   container_name: vpm-keycloak
+  #   command: start-dev --import-realm
+  #   environment:
+  #     KC_BOOTSTRAP_ADMIN_USERNAME: admin
+  #     KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+  #   ports:
+  #     - "8081:8080"
+  #   volumes:
+  #     - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+
+volumes:
+  pgdata:

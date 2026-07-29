@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: vpm
+
+  profiles:
+    default: dev
+
+  datasource:
+    # Defaults match .env.example so the app starts with zero configuration.
+    # Docker Compose reads .env automatically; Spring Boot does not.
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:vpm}
+    username: ${POSTGRES_USER:vpm}
+    password: ${POSTGRES_PASSWORD:vpm_local_dev}
+
+  jpa:
+    hibernate:
+      # "validate", not "update": Flyway owns the schema. With "update"
+      # Hibernate silently alters the database and migrations stop being
+      # the source of truth. Better to fail fast on startup when the
+      # entities and the schema disagree.
+      ddl-auto: validate
+    # Prevents lazy queries from firing while the response is being
+    # rendered, outside the transaction. Turning it off is the right
+    # default for an API.
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+  error:
+    # No stack traces and no internal messages leak to the client.
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health is exposed. The other actuator endpoints leak
+        # configuration, beans and environment variables.
+        include: health
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    it: DEBUG
+
+---
+# ============================================================
+# dev profile: loads sample data and shows the generated SQL
+# ============================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  flyway:
+    # The seed folder is added here only. Production runs with the
+    # default profile and never sees these files.
+    locations: classpath:db/migration,classpath:db/seed
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
