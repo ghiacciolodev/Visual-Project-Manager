@@ -45,7 +45,7 @@ CREATE TABLE tasks (
     priority    VARCHAR(16)  NOT NULL DEFAULT 'MEDIUM',
     start_date  DATE         NOT NULL,
     end_date    DATE         NOT NULL,
-    color       CHAR(7)      NOT NULL DEFAULT '#3B82F6',
+    color       VARCHAR(7)   NOT NULL DEFAULT '#3B82F6',
     assignee_id BIGINT       REFERENCES users(id) ON DELETE SET NULL,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),

@@ -1,0 +1,102 @@
+<!--
+  The form arrives as a panel from the right rather than a centred modal: it
+  belongs beside the schedule you are editing, not on top of it.
+-->
+<div class="scrim" (click)="cancel.emit()">
+  <aside class="panel"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="panel-title"
+         (click)="$event.stopPropagation()">
+
+    <header class="panel__head">
+      <p class="label panel__eyebrow">{{ task() ? 'Edit' : 'New' }}</p>
+      <h2 class="panel__title" id="panel-title">
+        {{ task() ? task()!.title : 'Task' }}
+      </h2>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="panel__body">
+
+      <div class="field">
+        <label class="label" for="title">Title</label>
+        <input id="title" type="text" formControlName="title" autocomplete="off">
+        @if (hasError('title', 'required')) {
+          <small class="field__error">Enter a title.</small>
+        }
+        @if (hasError('title', 'maxlength')) {
+          <small class="field__error">Keep it under 120 characters.</small>
+        }
+        @if (serverErrors()['title']; as message) {
+          <small class="field__error">{{ message }}</small>
+        }
+      </div>
+
+      <div class="field">
+        <label class="label" for="description">Notes</label>
+        <textarea id="description" rows="3" formControlName="description"></textarea>
+      </div>
+
+      <div class="field-pair">
+        <div class="field">
+          <label class="label" for="status">Status</label>
+          <select id="status" formControlName="status">
+            @for (status of statuses; track status) {
+              <option [value]="status">{{ status }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="priority">Priority</label>
+          <select id="priority" formControlName="priority">
+            @for (priority of priorities; track priority) {
+              <option [value]="priority">{{ priority }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="field-pair">
+        <div class="field">
+          <label class="label" for="startDate">Starts</label>
+          <input id="startDate" type="date" formControlName="startDate" class="mono">
+        </div>
+
+        <div class="field">
+          <label class="label" for="endDate">Ends</label>
+          <input id="endDate" type="date" formControlName="endDate" class="mono">
+          <!--
+            The start <= end rule is not repeated here: it is a cross-field
+            constraint the server validator already reports against endDate.
+            Duplicating it would mean two places to keep in step.
+          -->
+          @if (serverErrors()['endDate']; as message) {
+            <small class="field__error">{{ message }}</small>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="color">Marker colour</label>
+        <div class="swatch">
+          <input id="color" type="color" formControlName="color">
+          <span class="swatch__value mono">{{ form.controls.color.value }}</span>
+          <span class="swatch__hint">Shown in the margin and on the chart</span>
+        </div>
+        @if (serverErrors()['color']; as message) {
+          <small class="field__error">{{ message }}</small>
+        }
+      </div>
+
+      <footer class="panel__foot">
+        <button type="button" class="ghost label" (click)="cancel.emit()" [disabled]="submitting()">
+          Cancel
+        </button>
+        <button type="submit" class="action" [disabled]="submitting()">
+          {{ submitting() ? 'Saving…' : 'Save task' }}
+        </button>
+      </footer>
+    </form>
+  </aside>
+</div>

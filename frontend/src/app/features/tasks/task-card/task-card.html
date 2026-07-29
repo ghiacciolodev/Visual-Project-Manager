@@ -1,0 +1,75 @@
+<!--
+  A ruled line in a document, not a card. The colour is carried by the gutter
+  block on the left; everything else stays in ink so the sheet reads as one
+  continuous schedule rather than a stack of tiles.
+-->
+<div class="row" [style.--task-color]="task().color" [style.--gutter-text]="gutterText()">
+
+  <!-- Row number reversed out of the task colour. The colour is a physical
+       marker in the margin, the way a strip of tape marks a planning board. -->
+  <div class="row__gutter mono">{{ rowNumber() }}</div>
+
+  <div class="row__identity">
+    <h2 class="row__title">{{ task().title }}</h2>
+
+    <div class="row__meta">
+      <!-- The square encodes progress by how much of it is filled: empty,
+           half, solid. Colour is not doing the work, so it reads the same
+           for a colour-blind user. -->
+      <span class="state" [attr.data-state]="task().status">
+        <i class="state__box" aria-hidden="true"></i>
+        <span class="label">{{ task().status }}</span>
+      </span>
+
+      <!-- Only HIGH is emphasised. Marking all three priorities equally is
+           the same as marking none. -->
+      @if (task().priority === 'HIGH') {
+        <span class="label priority priority--high">High</span>
+      } @else {
+        <span class="label priority">{{ task().priority }}</span>
+      }
+
+      @if (task().description) {
+        <span class="row__note">{{ task().description }}</span>
+      }
+    </div>
+  </div>
+
+  <!-- Signature element: the same day grid the Gantt will use, one row tall.
+       Overlaps between tasks are visible without leaving the page. -->
+  <div class="row__schedule">
+    @if (bar(); as geometry) {
+      <div class="track" role="img"
+           [attr.aria-label]="'Runs ' + startLabel() + ' to ' + endLabel() + ', ' + duration() + ' days'">
+        <div class="track__bar"
+             [style.left.%]="geometry.left"
+             [style.width.%]="geometry.width"></div>
+
+        @if (todayMark(); as position) {
+          <div class="track__now" [style.left.%]="position"></div>
+        }
+      </div>
+    }
+
+    <div class="dates mono">
+      <span>{{ startLabel() }}</span>
+      <span class="dates__arrow" aria-hidden="true">→</span>
+      <span>{{ endLabel() }}</span>
+      <span class="dates__duration">{{ duration() }}d</span>
+    </div>
+  </div>
+
+  <div class="row__actions">
+    <select class="select label"
+            [value]="task().status"
+            (change)="onStatusChange($event)"
+            [attr.aria-label]="'Status of ' + task().title">
+      <option value="TODO">To do</option>
+      <option value="DOING">Doing</option>
+      <option value="DONE">Done</option>
+    </select>
+
+    <button type="button" class="link label" (click)="edit.emit(task())">Edit</button>
+    <button type="button" class="link label link--danger" (click)="remove.emit(task())">Delete</button>
+  </div>
+</div>

@@ -1,1 +1,85 @@
-/* You can add global styles to this file, and also import other style files */
+/* ===================================================================
+   Direction: a production-scheduling sheet, not a dashboard. Cool
+   drafting paper, ruling ink, and exactly one signal colour reserved
+   for the present moment — the red cursor that used to slide along a
+   wall planner.
+   =================================================================== */
+
+:root {
+  /* Surfaces */
+  --paper:        #e8ecef;   /* the sheet the schedule is drawn on */
+  --sheet:        #f7f9fa;   /* row surface, one step lighter */
+  --sheet-hover:  #ffffff;
+
+  /* Ink */
+  --ink:          #14202b;
+  --ink-2:        #55697a;
+  --ink-3:        #8fa1af;
+  --ink-invert:   #f7f9fa;
+
+  /* Ruling */
+  --rule:         #cbd6de;
+  --rule-strong:  #a8b8c4;
+
+  /* The only saturated colour in the system. Reserved for "now".
+     Spending it anywhere else would make the today marker ordinary. */
+  --now:          #c4331d;
+
+  /* Type */
+  --font-label: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+  --font-body:  'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:  'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Rhythm. 4px base: the same unit the timeline grid divides by. */
+  --u: 4px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numerals are data here, not prose: they must align in a column. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Labels borrow the compressed lettering of technical drawings. */
+.label {
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Keyboard focus is never removed, only restyled to match the ink. */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,65 @@
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="masthead__identity">
+      <p class="masthead__eyebrow label">Schedule</p>
+      <h1 class="masthead__title">Demo Project</h1>
+    </div>
+
+    <div class="masthead__readout">
+      @if (spanLabel(); as summary) {
+        <p class="masthead__span mono">{{ summary }}</p>
+      }
+      <p class="masthead__counts mono">
+        {{ taskService.counts().done }}/{{ taskService.counts().total }} complete
+      </p>
+    </div>
+
+    <button type="button" class="action" (click)="openCreate()">New task</button>
+  </header>
+
+  <!--
+    An error explains what happened and what to do about it, in the interface's
+    voice. It does not apologise and it is not vague.
+  -->
+  @if (taskService.error(); as message) {
+    <div class="notice" role="alert">
+      <span>{{ message }}</span>
+      <button type="button" class="link label" (click)="taskService.clearError()">Dismiss</button>
+    </div>
+  }
+
+  @if (taskService.loading()) {
+    <p class="state mono">Loading schedule…</p>
+  } @else if (taskService.isEmpty()) {
+    <!-- An empty screen is an invitation to act, not a shrug. -->
+    <div class="state state--empty">
+      <p class="state__line">Nothing scheduled yet.</p>
+      <button type="button" class="action" (click)="openCreate()">Add the first task</button>
+    </div>
+  } @else {
+    <div class="ledger">
+      <!--
+        track by id, not by index: with an index key, deleting an item makes
+        Angular reuse the wrong DOM nodes and the rows below inherit stale state.
+      -->
+      @for (task of taskService.tasks(); track task.id; let i = $index) {
+        <app-task-row
+          [task]="task"
+          [index]="i"
+          [span]="span()"
+          (edit)="openEdit($event)"
+          (remove)="onDelete($event)"
+          (statusChange)="onStatusChange($event)" />
+      }
+    </div>
+  }
+
+  @if (formOpen()) {
+    <app-task-form
+      [task]="editing()"
+      [submitting]="submitting()"
+      (save)="onSave($event)"
+      (cancel)="closeForm()" />
+  }
+</div>

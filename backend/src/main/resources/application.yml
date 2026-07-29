@@ -52,7 +52,9 @@ management:
 logging:
   level:
     it: DEBUG
-
+app:
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
 ---
 # ============================================================
 # dev profile: loads sample data and shows the generated SQL

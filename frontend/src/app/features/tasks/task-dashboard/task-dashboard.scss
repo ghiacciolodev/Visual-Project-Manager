@@ -1,0 +1,141 @@
+.sheet {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: calc(var(--u) * 12) calc(var(--u) * 6) calc(var(--u) * 20);
+}
+
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--u) * 6);
+  padding-bottom: calc(var(--u) * 3);
+
+  // A heavier rule under the masthead, lighter rules between rows: the weight
+  // of a line says how big a division it marks.
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: calc(var(--u) * 6);
+
+  &__identity {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  &__title {
+    margin: calc(var(--u)) 0 0;
+    font-family: var(--font-label);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  &__readout {
+    text-align: right;
+  }
+
+  &__span,
+  &__counts {
+    margin: 0;
+    font-size: 11px;
+    color: var(--ink-2);
+  }
+
+  &__counts {
+    color: var(--ink-3);
+    margin-top: calc(var(--u));
+  }
+}
+
+.ledger {
+  // The top rule closes the sheet; each row supplies its own bottom rule.
+  border-top: 1px solid var(--rule);
+}
+
+.action {
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-invert);
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+  padding: calc(var(--u) * 2.5) calc(var(--u) * 4);
+  cursor: pointer;
+  transition: background 0.12s linear;
+
+  &:hover {
+    background: var(--ink-2);
+  }
+}
+
+.state {
+  padding: calc(var(--u) * 16) 0;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 12px;
+
+  &__line {
+    margin: 0 0 calc(var(--u) * 4);
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 4);
+  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  margin-bottom: calc(var(--u) * 4);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--sheet);
+  border-left: 3px solid var(--now);
+}
+
+.link {
+  font-size: 10px;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+@media (max-width: 700px) {
+  .sheet {
+    padding: calc(var(--u) * 8) calc(var(--u) * 4) calc(var(--u) * 16);
+  }
+
+  .masthead {
+    flex-wrap: wrap;
+    align-items: flex-start;
+
+    &__title {
+      font-size: 24px;
+    }
+
+    &__readout {
+      text-align: left;
+      width: 100%;
+      order: 3;
+    }
+  }
+}
