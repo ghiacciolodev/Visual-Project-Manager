@@ -3,12 +3,9 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from './api.config';
-import { ProblemDetail, Task, TaskRequest, TaskStatus } from '../models/task.model';
+import { ProblemDetail, Task, TaskRef, TaskRequest, TaskStatus } from '../models/task.model';
 
-/**
- * Thrown when the server rejects a payload. Carries the field-keyed map from
- * the Problem Details response so a form can attach each message to its input.
- */
+/** Thrown when the server rejects a payload field by field (400). */
 export class ValidationError extends Error {
   constructor(public readonly fieldErrors: Record<string, string>) {
     super('Validation failed');
@@ -16,12 +13,25 @@ export class ValidationError extends Error {
 }
 
 /**
+ * Thrown when the request is well formed but the graph forbids it (409):
+ * a cycle, or finishing a task whose prerequisites are unfinished.
+ *
+ * Separate from ValidationError because the UI reacts differently: a
+ * validation error belongs under an input, a conflict belongs at the top of
+ * the form with the offending tasks named.
+ */
+export class ConflictError extends Error {
+  constructor(message: string, public readonly offenders: TaskRef[] = []) {
+    super(message);
+  }
+}
+
+/**
  * Single source of truth for task state.
  *
  * State lives in signals held by the service, not inside a component. The
- * dashboard and the Gantt chart must show the same data at the same time
- * (requirement: editing in one view updates the other), and that is only
- * guaranteed when both read the same signal instead of fetching separately.
+ * dashboard and the Gantt chart must show the same data at the same time, and
+ * that is only guaranteed when both read the same signal.
  */
 @Injectable({ providedIn: 'root' })
 export class TaskService {
@@ -29,9 +39,6 @@ export class TaskService {
   private readonly http = inject(HttpClient);
   private readonly url = `${API_BASE_URL}/tasks`;
 
-  // Writable signals stay private; components get read-only views. Without
-  // this, any component could call .set() and the single source of truth
-  // quietly stops being single.
   private readonly _tasks = signal<Task[]>([]);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
@@ -49,6 +56,7 @@ export class TaskService {
       todo: tasks.filter(t => t.status === 'TODO').length,
       doing: tasks.filter(t => t.status === 'DOING').length,
       done: tasks.filter(t => t.status === 'DONE').length,
+      blocked: tasks.filter(t => t.blockedBy.length > 0).length,
     };
   });
 
@@ -56,8 +64,7 @@ export class TaskService {
     this._loading.set(true);
     this._error.set(null);
     try {
-      const tasks = await firstValueFrom(this.http.get<Task[]>(this.url));
-      this._tasks.set(tasks);
+      this._tasks.set(await firstValueFrom(this.http.get<Task[]>(this.url)));
     } catch (err) {
       this._error.set(this.readMessage(err, 'Could not load tasks'));
     } finally {
@@ -66,20 +73,40 @@ export class TaskService {
   }
 
   /**
+   * Re-fetches without showing the loading state.
+   *
+   * Needed because blocking is a *derived* property of the whole graph, not of
+   * one row: finishing a task unblocks all of its successors, and none of
+   * those rows were touched by the request. Patching one task locally would
+   * leave every other row's lock icon stale, so after any graph-affecting
+   * change the list is reconciled with the server. Quietly, so the chart does
+   * not blink on every status click.
+   */
+  private async refresh(): Promise<void> {
+    try {
+      this._tasks.set(await firstValueFrom(this.http.get<Task[]>(this.url)));
+    } catch {
+      // A failed background refresh is not worth interrupting the user over:
+      // the visible row is already correct, only derived state may lag.
+    }
+  }
+
+  /**
    * Server-first, not optimistic: the response carries the id assigned by the
    * database, and inventing a temporary one only to reconcile it later buys
    * nothing on an action the user expects to take a moment.
    */
-  async create(request: TaskRequest): Promise<void> {
+  async create(request: TaskRequest): Promise<Task> {
     try {
       const created = await firstValueFrom(this.http.post<Task>(this.url, request));
       this._tasks.update(tasks => this.sorted([...tasks, created]));
+      return created;
     } catch (err) {
       throw this.toError(err);
     }
   }
 
-  async update(id: number, request: TaskRequest): Promise<void> {
+  async update(id: number, request: TaskRequest): Promise<Task> {
     try {
       const updated = await firstValueFrom(
         this.http.put<Task>(`${this.url}/${id}`, request)
@@ -87,6 +114,8 @@ export class TaskService {
       this._tasks.update(tasks =>
         this.sorted(tasks.map(t => (t.id === id ? updated : t)))
       );
+      void this.refresh();
+      return updated;
     } catch (err) {
       throw this.toError(err);
     }
@@ -96,8 +125,9 @@ export class TaskService {
    * Optimistic, with rollback.
    *
    * Changing a status is a one-click action; waiting for a round trip before
-   * the badge moves makes the UI feel broken. The previous state is captured
-   * first so a failed request can put it back exactly as it was.
+   * the marker moves makes the UI feel broken. The previous state is captured
+   * first so a failed request can put it back exactly as it was — and a
+   * rejected DONE is a normal outcome here, not an exception.
    */
   async changeStatus(task: Task, status: TaskStatus): Promise<void> {
     const previous = this._tasks();
@@ -110,46 +140,111 @@ export class TaskService {
       await firstValueFrom(
         this.http.put<Task>(`${this.url}/${task.id}`, { ...this.toRequest(task), status })
       );
+      void this.refresh();
     } catch (err) {
       this._tasks.set(previous);
       this._error.set(this.readMessage(err, 'Could not update the task'));
     }
   }
 
-  /** Optimistic as well: removal should feel instant. */
   async delete(id: number): Promise<void> {
     const previous = this._tasks();
     this._tasks.update(tasks => tasks.filter(t => t.id !== id));
 
     try {
       await firstValueFrom(this.http.delete<void>(`${this.url}/${id}`));
+      // Deleting a task drops its edges, so other rows may stop being blocked.
+      void this.refresh();
     } catch (err) {
       this._tasks.set(previous);
       this._error.set(this.readMessage(err, 'Could not delete the task'));
     }
   }
 
+  /* --- dependencies --------------------------------------------------- */
+
+  async addDependency(taskId: number, predecessorId: number): Promise<void> {
+    try {
+      const updated = await firstValueFrom(
+        this.http.post<Task>(`${this.url}/${taskId}/dependencies`, { predecessorId })
+      );
+      this._tasks.update(tasks => tasks.map(t => (t.id === taskId ? updated : t)));
+    } catch (err) {
+      throw this.toError(err);
+    }
+  }
+
+  async removeDependency(taskId: number, predecessorId: number): Promise<void> {
+    try {
+      const updated = await firstValueFrom(
+        this.http.delete<Task>(`${this.url}/${taskId}/dependencies/${predecessorId}`)
+      );
+      this._tasks.update(tasks => tasks.map(t => (t.id === taskId ? updated : t)));
+    } catch (err) {
+      throw this.toError(err);
+    }
+  }
+
+  /**
+   * Applies a whole set of predecessors at once, as a diff against what the
+   * task already has.
+   *
+   * The form collects edges without touching the server, so Save is the single
+   * moment anything changes — including Cancel meaning nothing changed.
+   * Removals run before additions: freeing an edge first can be what makes a
+   * new one legal instead of a cycle.
+   */
+  async syncDependencies(taskId: number, wanted: number[]): Promise<void> {
+    const current = this._tasks().find(t => t.id === taskId)?.dependsOn ?? [];
+    const currentIds = current.map(ref => ref.id);
+
+    for (const id of currentIds.filter(id => !wanted.includes(id))) {
+      await this.removeDependency(taskId, id);
+    }
+    for (const id of wanted.filter(id => !currentIds.includes(id))) {
+      await this.addDependency(taskId, id);
+    }
+
+    await this.refresh();
+  }
+
   clearError(): void {
     this._error.set(null);
   }
 
-  /** Strips the id: the server assigns it and must never receive it back. */
+  /* --- internals ------------------------------------------------------ */
+
+  /** Strips server-owned fields: the API must never receive them back. */
   private toRequest(task: Task): TaskRequest {
-    const { id, ...request } = task;
-    return request;
+    return {
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      startDate: task.startDate,
+      endDate: task.endDate,
+      color: task.color,
+    };
   }
 
-  // Same ordering the backend applies, so an item inserted locally lands where
+  // Same ordering the backend applies, so a locally inserted item lands where
   // a reload would put it. Without this the list jumps around on refresh.
   private sorted(tasks: Task[]): Task[] {
     return [...tasks].sort((a, b) => a.startDate.localeCompare(b.startDate));
   }
 
   private toError(err: unknown): Error {
-    if (err instanceof HttpErrorResponse && err.status === 400) {
+    if (err instanceof HttpErrorResponse) {
       const problem = err.error as ProblemDetail;
-      if (problem?.errors) {
+
+      if (err.status === 400 && problem?.errors) {
         return new ValidationError(problem.errors);
+      }
+      if (err.status === 409) {
+        return new ConflictError(
+          problem?.detail ?? 'That change conflicts with the current schedule',
+          problem?.offenders ?? []
+        );
       }
     }
     return new Error(this.readMessage(err, 'Something went wrong'));
@@ -157,10 +252,10 @@ export class TaskService {
 
   private readMessage(err: unknown, fallback: string): string {
     if (err instanceof HttpErrorResponse) {
-      // status 0 means the request never reached the server: backend down,
-      // or CORS rejected it before the response was readable.
+      // status 0 means the request never reached the server: backend down, or
+      // CORS rejected it before the response was readable.
       if (err.status === 0) {
-        return 'Cannot reach the server. Is the backend running?';
+        return 'Cannot reach the server. Check that the backend is running on port 8080.';
       }
       const problem = err.error as ProblemDetail;
       return problem?.detail ?? problem?.title ?? fallback;

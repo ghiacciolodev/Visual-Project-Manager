@@ -82,6 +82,13 @@ export class TaskCard {
     return luminance > 0.55 ? '#14202b' : '#f7f9fa';
   });
 
+  /** Blocker names as a sentence: "A", "A and B", "A, B and C". */
+  readonly blockerNames = computed(() => {
+    const names = this.task().blockedBy.map(ref => ref.title);
+    if (names.length <= 1) return names[0] ?? '';
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  });
+
   onStatusChange(event: Event): void {
     const status = (event.target as HTMLSelectElement).value as TaskStatus;
     this.statusChange.emit({ task: this.task(), status });

@@ -18,6 +18,21 @@
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="panel__body">
 
+      <!-- A conflict is about the shape of the schedule, not about one field,
+           so it sits above the form and names the tasks involved. -->
+      @if (conflict(); as problem) {
+        <div class="conflict" role="alert">
+          <p class="conflict__message">{{ problem.message }}</p>
+          @if (problem.offenders.length) {
+            <ul class="conflict__list">
+              @for (offender of problem.offenders; track offender.id) {
+                <li class="mono">{{ offender.title }} — {{ offender.status }}</li>
+              }
+            </ul>
+          }
+        </div>
+      }
+
       <div class="field">
         <label class="label" for="title">Title</label>
         <input id="title" type="text" formControlName="title" autocomplete="off">
@@ -66,11 +81,8 @@
         <div class="field">
           <label class="label" for="endDate">Ends</label>
           <input id="endDate" type="date" formControlName="endDate" class="mono">
-          <!--
-            The start <= end rule is not repeated here: it is a cross-field
-            constraint the server validator already reports against endDate.
-            Duplicating it would mean two places to keep in step.
-          -->
+          <!-- The start <= end rule is not repeated here: it is a cross-field
+               constraint the server already reports against endDate. -->
           @if (serverErrors()['endDate']; as message) {
             <small class="field__error">{{ message }}</small>
           }
@@ -86,6 +98,39 @@
         </div>
         @if (serverErrors()['color']; as message) {
           <small class="field__error">{{ message }}</small>
+        }
+      </div>
+
+      <!-- Dependencies read as a list of prerequisites rather than a
+           multi-select: the order they were added carries no meaning, but
+           being able to see and drop each one individually does. -->
+      <div class="deps">
+        <label class="label deps__label" for="add-dep">Waits for</label>
+
+        @if (picked().length) {
+          <ul class="deps__list">
+            @for (ref of picked(); track ref.id) {
+              <li class="dep">
+                <i class="dep__state" [attr.data-state]="ref.status" aria-hidden="true"></i>
+                <span class="dep__title">{{ ref.title }}</span>
+                <button type="button"
+                        class="dep__drop"
+                        [attr.aria-label]="'Stop waiting for ' + ref.title"
+                        (click)="removeDependency(ref.id)">×</button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="deps__none">Starts whenever you like.</p>
+        }
+
+        @if (available().length) {
+          <select id="add-dep" class="deps__add" (change)="addDependency($event)">
+            <option value="">Add a prerequisite…</option>
+            @for (candidate of available(); track candidate.id) {
+              <option [value]="candidate.id">{{ candidate.title }}</option>
+            }
+          </select>
         }
       </div>
 

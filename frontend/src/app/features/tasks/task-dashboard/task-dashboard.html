@@ -10,9 +10,12 @@
       @if (spanLabel(); as summary) {
         <p class="masthead__span mono">{{ summary }}</p>
       }
-      <p class="masthead__counts mono">
-        {{ taskService.counts().done }}/{{ taskService.counts().total }} complete
-      </p>
+        <p class="masthead__counts mono">
+                {{ taskService.counts().done }}/{{ taskService.counts().total }} complete
+                @if (taskService.counts().blocked) {
+                · {{ taskService.counts().blocked }} waiting
+                }
+        </p>
     </div>
 
     <button type="button" class="action" (click)="openCreate()">New task</button>
@@ -55,9 +58,10 @@
     </div>
   }
 
-  @if (formOpen()) {
+@if (formOpen()) {
     <app-task-form
       [task]="editing()"
+      [allTasks]="taskService.tasks()"
       [submitting]="submitting()"
       (save)="onSave($event)"
       (cancel)="closeForm()" />

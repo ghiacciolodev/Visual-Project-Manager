@@ -1,5 +1,6 @@
 package it.ghiacciolodev.vpm.task;
 
+import it.ghiacciolodev.vpm.task.dto.DependencyRequest;
 import it.ghiacciolodev.vpm.task.dto.TaskRequest;
 import it.ghiacciolodev.vpm.task.dto.TaskResponse;
 import jakarta.validation.Valid;
@@ -62,5 +63,27 @@ public class TaskController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /* --- dependencies --------------------------------------------------- */
+
+    /**
+     * Dependencies are a sub-resource of the task they belong to, not a
+     * top-level collection: an edge has no meaning without its successor, and
+     * the URL should say so.
+     *
+     * Both methods return the updated task rather than 204, so the client can
+     * refresh one row without a second request.
+     */
+    @PostMapping("/{id}/dependencies")
+    public TaskResponse addDependency(@PathVariable Long id,
+                                      @Valid @RequestBody DependencyRequest request) {
+        return service.addDependency(id, request.predecessorId());
+    }
+
+    @DeleteMapping("/{id}/dependencies/{predecessorId}")
+    public TaskResponse removeDependency(@PathVariable Long id,
+                                         @PathVariable Long predecessorId) {
+        return service.removeDependency(id, predecessorId);
     }
 }

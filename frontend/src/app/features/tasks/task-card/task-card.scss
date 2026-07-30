@@ -226,3 +226,24 @@
     }
   }
 }
+
+.blocked {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.5);
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ink-2);
+
+  &__mark {
+    color: var(--ink-3);
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

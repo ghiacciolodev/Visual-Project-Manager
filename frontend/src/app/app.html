@@ -1,1 +1,12 @@
+<!--
+  A thin rail rather than a sidebar: with two views, a sidebar would spend a
+  fifth of the screen restating what a pair of words already says.
+-->
+<nav class="rail">
+  <span class="rail__mark label">VPM</span>
+
+  <a class="rail__tab label" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
+  <a class="rail__tab label" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
+</nav>
+
 <router-outlet />

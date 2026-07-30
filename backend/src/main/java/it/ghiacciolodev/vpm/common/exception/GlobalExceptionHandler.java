@@ -28,6 +28,21 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setTitle("Conflicting request");
+        problem.setDetail(ex.getMessage());
+
+        // The offending tasks travel with the error so the UI can say
+        // "Blocked by: Database Setup" instead of a generic refusal.
+        if (!ex.getOffenders().isEmpty()) {
+            problem.setProperty("offenders", ex.getOffenders());
+        }
+
+        return problem;
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);

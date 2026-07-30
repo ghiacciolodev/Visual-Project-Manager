@@ -2,3 +2,42 @@
   display: block;
   min-height: 100vh;
 }
+
+.rail {
+  display: flex;
+  align-items: stretch;
+  gap: calc(var(--u) * 6);
+  padding: 0 calc(var(--u) * 6);
+  background: var(--ink);
+
+  &__mark {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink-invert);
+    letter-spacing: 0.14em;
+    padding-right: calc(var(--u) * 2);
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    font-size: 10px;
+    color: var(--ink-3);
+    text-decoration: none;
+    padding: calc(var(--u) * 3) 0;
+
+    // The current view is marked by a rule under it, in the paper colour: the
+    // tab looks cut out of the sheet below.
+    border-bottom: 2px solid transparent;
+
+    &:hover {
+      color: var(--ink-invert);
+    }
+
+    &.is-current {
+      color: var(--ink-invert);
+      border-bottom-color: var(--paper);
+    }
+  }
+}

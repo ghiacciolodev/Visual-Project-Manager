@@ -1,14 +1,21 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import {
   Task,
   TaskPriority,
+  TaskRef,
   TaskRequest,
   TaskStatus,
   TASK_PRIORITIES,
   TASK_STATUSES,
 } from '../../../models/task.model';
+
+/** What the form hands back: the fields, plus the predecessors it wants. */
+export interface TaskFormResult {
+  request: TaskRequest;
+  dependencies: number[];
+}
 
 @Component({
   selector: 'app-task-form',
@@ -23,26 +30,54 @@ export class TaskForm {
   readonly task = input<Task | null>(null);
   readonly submitting = input(false);
 
-  readonly save = output<TaskRequest>();
+  /** Everything in the project, so predecessors can be offered. */
+  readonly allTasks = input<Task[]>([]);
+
+  readonly save = output<TaskFormResult>();
   readonly cancel = output<void>();
 
   readonly statuses = TASK_STATUSES;
   readonly priorities = TASK_PRIORITIES;
 
-  /** Field errors returned by the server, merged into the template's messages. */
+  /** Field errors from a 400. */
   readonly serverErrors = signal<Record<string, string>>({});
+
+  /** Message and culprits from a 409. Shown at the top: a cycle is about the
+   *  whole graph, not about one input. */
+  readonly conflict = signal<{ message: string; offenders: TaskRef[] } | null>(null);
+
+  /**
+   * Predecessors chosen but not yet sent. Nothing reaches the server until
+   * Save, so Cancel genuinely cancels — including the dependency edits.
+   */
+  readonly picked = signal<TaskRef[]>([]);
+
+  /**
+   * Tasks that may still be chosen: not this one, and not already picked.
+   *
+   * Tasks that would close a cycle are *not* filtered out here. Working that
+   * out client-side would mean shipping a second copy of the reachability
+   * logic and keeping it in step with the recursive query; the server refuses
+   * with a message that names both tasks, which is more useful than an option
+   * that silently is not there.
+   */
+  readonly available = computed(() => {
+    const current = this.task();
+    const pickedIds = new Set(this.picked().map(ref => ref.id));
+
+    return this.allTasks().filter(
+      candidate => candidate.id !== current?.id && !pickedIds.has(candidate.id)
+    );
+  });
 
   private readonly fb = inject(FormBuilder);
 
   // Validators deliberately mirror the backend's. This is duplication, and it
   // is the right kind: the client copy exists for fast feedback, the server
-  // copy is the one that actually enforces anything. The server is never
-  // trusted to the client, and the client is never trusted by the server.
+  // copy is the one that enforces anything.
   //
-  // Note "as TaskStatus" rather than "as const": the latter would pin the
-  // control's type to the literal 'TODO' and reject every other value on
-  // patchValue. The cast widens it to the full union, which is what a select
-  // bound to this control actually produces.
+  // "as TaskStatus" rather than "as const": the latter would pin the control
+  // to the literal 'TODO' and reject every other value on patchValue.
   readonly form = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(120)]],
     description: ['', [Validators.maxLength(2000)]],
@@ -54,10 +89,11 @@ export class TaskForm {
   });
 
   constructor() {
-    // Fills the form when a task is passed in for editing. An effect rather
-    // than ngOnChanges because the input is a signal.
+    // Fills the form when a task is passed in. An effect rather than
+    // ngOnChanges because the input is a signal.
     effect(() => {
       const task = this.task();
+
       if (task) {
         this.form.patchValue({
           title: task.title,
@@ -68,6 +104,7 @@ export class TaskForm {
           endDate: task.endDate,
           color: task.color,
         });
+        this.picked.set([...task.dependsOn]);
       } else {
         this.form.reset({
           title: '',
@@ -78,29 +115,54 @@ export class TaskForm {
           endDate: this.today(),
           color: '#3B82F6',
         });
+        this.picked.set([]);
       }
+
       this.serverErrors.set({});
+      this.conflict.set(null);
     });
+  }
+
+  addDependency(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const id = Number(select.value);
+    select.value = '';   // return the control to its prompt
+    if (!id) return;
+
+    const task = this.allTasks().find(t => t.id === id);
+    if (task) {
+      this.picked.update(refs => [
+        ...refs,
+        { id: task.id, title: task.title, status: task.status },
+      ]);
+    }
+  }
+
+  removeDependency(id: number): void {
+    this.picked.update(refs => refs.filter(ref => ref.id !== id));
   }
 
   onSubmit(): void {
     if (this.form.invalid) {
       // Angular only shows errors on touched controls, so an untouched form
-      // submitted by pressing Enter would silently do nothing.
+      // submitted with Enter would silently do nothing.
       this.form.markAllAsTouched();
       return;
     }
 
     const value = this.form.getRawValue();
     this.save.emit({
-      ...value,
-      description: value.description.trim() || null,
+      request: { ...value, description: value.description.trim() || null },
+      dependencies: this.picked().map(ref => ref.id),
     });
   }
 
-  /** Called by the parent when the API rejects the payload. */
   applyServerErrors(errors: Record<string, string>): void {
     this.serverErrors.set(errors);
+  }
+
+  applyConflict(message: string, offenders: TaskRef[]): void {
+    this.conflict.set({ message, offenders });
   }
 
   hasError(field: string, error: string): boolean {
@@ -109,7 +171,7 @@ export class TaskForm {
   }
 
   private today(): string {
-    // yyyy-MM-dd, the format <input type="date"> and the backend both expect.
+    // yyyy-MM-dd, what <input type="date"> and the backend both expect.
     return new Date().toISOString().slice(0, 10);
   }
 }

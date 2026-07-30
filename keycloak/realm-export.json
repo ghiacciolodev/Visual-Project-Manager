@@ -1,0 +1,69 @@
+{
+  "realm": "vpm",
+  "enabled": true,
+  "displayName": "Visual Project Manager",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "failureFactor": 5,
+  "roles": {
+    "realm": [
+      {
+        "name": "vpm-user",
+        "description": "May sign in to Visual Project Manager"
+      }
+    ]
+  },
+  "defaultRoles": ["vpm-user"],
+  "clients": [
+    {
+      "clientId": "vpm-frontend",
+      "name": "VPM Angular client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:4200/*"],
+      "webOrigins": ["http://localhost:4200"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "ada",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ada@example.com",
+      "firstName": "Ada",
+      "lastName": "Lovelace",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["vpm-user"]
+    },
+    {
+      "username": "grace",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "grace@example.com",
+      "firstName": "Grace",
+      "lastName": "Hopper",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["vpm-user"]
+    }
+  ]
+}

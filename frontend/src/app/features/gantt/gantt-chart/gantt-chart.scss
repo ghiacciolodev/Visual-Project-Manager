@@ -1,0 +1,476 @@
+/* Header heights and column widths live here so the fixed name column and the
+   scrolling timeline stay locked together. Two grids, one set of measurements.
+   --row-h and --day-width are set inline by the component: the connector
+   geometry is computed from the row height, so a second copy here could
+   silently disagree with the drawn arrows. */
+.chart {
+  --month-h: 24px;
+  --days-h: 22px;
+  --names-w: 200px;
+  --head-h: calc(var(--month-h) + var(--days-h));
+
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--rule-strong);
+  background: var(--sheet);
+
+  &__names {
+    flex: 0 0 var(--names-w);
+    border-right: 2px solid var(--ink);
+    background: var(--sheet);
+    z-index: 2;
+  }
+
+  &__names-head {
+    height: var(--head-h);
+    display: flex;
+    align-items: flex-end;
+    padding: 0 calc(var(--u) * 3) calc(var(--u) * 1.5);
+    font-size: 10px;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  &__scroll {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+}
+
+.name {
+  height: var(--row-h);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 2);
+  padding: 0 calc(var(--u) * 3);
+  border-bottom: 1px solid var(--rule);
+
+  &__chip {
+    flex: 0 0 auto;
+    width: 20px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+
+  &__title {
+    font-family: var(--font-label);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__float {
+    margin-left: auto;
+    font-size: 9px;
+    color: var(--ink-3);
+  }
+
+  // Waiting work is set in the lighter ink: present, legible, and visibly not
+  // the thing to start next.
+  &--blocked &__title {
+    color: var(--ink-2);
+    font-style: italic;
+  }
+
+  &--critical &__title {
+    font-weight: 700;
+  }
+}
+
+/* --- timeline ----------------------------------------------------------- */
+
+.tl {
+  position: relative;
+  width: calc(var(--day-count) * var(--day-width));
+  min-width: 100%;
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(var(--day-count), var(--day-width));
+    pointer-events: none;
+  }
+
+  &__col {
+    border-right: 1px solid var(--rule);
+
+    // Weekends are shaded because they explain the gap between a bar's length
+    // and the working days inside it. Information, not decoration.
+    &--weekend {
+      background: rgb(20 32 43 / 4%);
+    }
+
+    // A month boundary is a bigger division than a day, so it gets a heavier
+    // rule. Line weight encodes hierarchy.
+    &--month {
+      border-left: 1px solid var(--rule-strong);
+    }
+  }
+
+  // The cursor that used to be a red slider on a wall planner. Still the only
+  // saturated colour in the interface.
+  &__now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--index) * var(--day-width));
+    width: 1px;
+    background: var(--now);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -3px;
+      border-left: 3.5px solid transparent;
+      border-right: 3.5px solid transparent;
+      border-top: 5px solid var(--now);
+    }
+  }
+
+  &__head {
+    position: relative;
+    z-index: 1;
+    height: var(--head-h);
+    border-bottom: 1px solid var(--rule-strong);
+    background: var(--sheet);
+  }
+
+  &__months,
+  &__days {
+    display: grid;
+    grid-template-columns: repeat(var(--day-count), var(--day-width));
+  }
+
+  &__months {
+    height: var(--month-h);
+  }
+
+  &__month {
+    display: flex;
+    align-items: center;
+    padding-left: calc(var(--u) * 1.5);
+    font-size: 10px;
+    color: var(--ink-2);
+    border-left: 1px solid var(--rule-strong);
+    border-bottom: 1px solid var(--rule);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  &__days {
+    height: var(--days-h);
+  }
+
+  &__day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--ink-3);
+    overflow: hidden;
+
+    &--weekend {
+      color: var(--rule-strong);
+    }
+
+    &--today {
+      color: var(--now);
+      font-weight: 600;
+    }
+  }
+
+  &__body {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.lane {
+  display: grid;
+  grid-template-columns: repeat(var(--day-count), var(--day-width));
+  height: var(--row-h);
+  align-items: center;
+  border-bottom: 1px solid var(--rule);
+}
+
+.bar {
+  height: 18px;
+  min-width: 4px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 calc(var(--u) * 1.5);
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  transition: filter 0.12s linear;
+
+  &:hover {
+    filter: brightness(0.92);
+  }
+
+  // Finished work is hatched rather than dimmed: it stays legible and reads as
+  // "struck through" on the sheet.
+  &--done {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgb(255 255 255 / 30%) 0 3px,
+      transparent 3px 6px
+    );
+  }
+
+  // Traced over in heavy pencil, the way a planner used to mark the chain that
+  // decides the end date. Weight, not colour: the one saturated colour in this
+  // interface is spoken for, and adding a second would flatten both.
+  &--critical {
+    box-shadow: 0 3px 0 var(--ink);
+  }
+
+  &__label {
+    font-family: var(--font-label);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+}
+
+.tail {
+  height: 10px;
+  align-self: center;
+  border: 1px solid var(--task-color);
+  border-left: 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--task-color) 0 1px,
+    transparent 1px 4px
+  );
+  opacity: 0.55;
+}
+
+.links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  // Lines must not intercept clicks meant for the bars underneath.
+  pointer-events: none;
+  z-index: 2;
+
+path {
+    fill: none;
+    stroke: var(--ink-2);
+    stroke-width: 1;
+    // Coordinates land on whole pixels, so a 1px stroke would straddle two of
+    // them and render soft. This snaps it to the pixel grid.
+    shape-rendering: crispEdges;
+  }
+
+  marker path {
+    fill: var(--ink-2);
+    stroke: none;
+  }
+}
+
+/* --- page furniture ----------------------------------------------------- */
+
+.sheet {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: calc(var(--u) * 12) calc(var(--u) * 6) calc(var(--u) * 20);
+}
+
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--u) * 6);
+  padding-bottom: calc(var(--u) * 3);
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: calc(var(--u) * 6);
+
+  &__identity {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  &__title {
+    margin: calc(var(--u)) 0 0;
+    font-family: var(--font-label);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  &__tools {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 4);
+  }
+}
+
+.readout {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--u) * 1.5);
+
+  &__figure {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__label {
+    font-size: 9px;
+    color: var(--ink-3);
+  }
+
+  &__aside {
+    font-size: 10px;
+    color: var(--ink-3);
+    padding-left: calc(var(--u) * 2);
+    border-left: 1px solid var(--rule-strong);
+  }
+}
+
+.zoom {
+  display: flex;
+  border: 1px solid var(--rule-strong);
+
+  &__step {
+    font-size: 10px;
+    color: var(--ink-2);
+    background: transparent;
+    border: 0;
+    border-right: 1px solid var(--rule-strong);
+    padding: calc(var(--u) * 1.5) calc(var(--u) * 3);
+    cursor: pointer;
+
+    &:last-child {
+      border-right: 0;
+    }
+
+    &:hover {
+      background: var(--sheet-hover);
+    }
+
+    &.is-current {
+      background: var(--ink);
+      color: var(--ink-invert);
+    }
+  }
+}
+
+// Sits outside the zoom group but borrows its shape: same control vocabulary,
+// separate decision.
+.float-toggle {
+  border: 1px solid var(--rule-strong);
+}
+
+.today-jump {
+  font-size: 10px;
+  color: var(--now);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--now);
+  padding: 0 0 1px;
+  cursor: pointer;
+}
+
+.legend {
+  margin: calc(var(--u) * 3) 0 0;
+  font-size: 10px;
+  color: var(--ink-3);
+  line-height: 1.6;
+}
+
+.state {
+  padding: calc(var(--u) * 16) 0;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 12px;
+
+  &__line {
+    margin: 0 0 calc(var(--u) * 4);
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 4);
+  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  margin-bottom: calc(var(--u) * 4);
+  font-size: 13px;
+  background: var(--sheet);
+  border-left: 3px solid var(--now);
+}
+
+.action {
+  display: inline-block;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink-invert);
+  background: var(--ink);
+  border: 0;
+  padding: calc(var(--u) * 2.5) calc(var(--u) * 4);
+  cursor: pointer;
+}
+
+.link {
+  font-size: 10px;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+@media (max-width: 900px) {
+  .masthead {
+    flex-wrap: wrap;
+
+    &__title {
+      font-size: 24px;
+    }
+
+    &__tools {
+      flex-wrap: wrap;
+      gap: calc(var(--u) * 3);
+    }
+  }
+}
+
+@media (max-width: 700px) {
+  .sheet {
+    padding: calc(var(--u) * 8) calc(var(--u) * 4) calc(var(--u) * 16);
+  }
+
+  .chart {
+    --names-w: 120px;
+  }
+}

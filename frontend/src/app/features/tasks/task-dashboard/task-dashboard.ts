@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 
-import { TaskService, ValidationError } from '../../../core/task.service';
+import { TaskService, ValidationError, ConflictError } from '../../../core/task.service';
 import { Task, TaskRequest, TaskStatus } from '../../../models/task.model';
 import { formatDay, projectSpan } from '../../../core/schedule';
 import { TaskCard } from '../task-card/task-card';
-import { TaskForm } from '../task-form/task-form';
+import { TaskForm, TaskFormResult } from '../task-form/task-form';
 
 @Component({
   selector: 'app-task-dashboard',
@@ -53,21 +53,30 @@ export class TaskDashboard implements OnInit {
     this.editing.set(null);
   }
 
-  async onSave(request: TaskRequest): Promise<void> {
+/**
+   * Saves the fields first, then reconciles the dependencies.
+   *
+   * That order matters: a status change to DONE is rejected while prerequisites
+   * are unfinished, so the task update has to be judged against the graph as it
+   * stood, not against edges added moments earlier in the same save.
+   */
+  async onSave({ request, dependencies }: TaskFormResult): Promise<void> {
     this.submitting.set(true);
     try {
       const editing = this.editing();
-      if (editing) {
-        await this.taskService.update(editing.id, request);
-      } else {
-        await this.taskService.create(request);
-      }
+      const task = editing
+        ? await this.taskService.update(editing.id, request)
+        : await this.taskService.create(request);
+
+      await this.taskService.syncDependencies(task.id, dependencies);
       this.closeForm();
     } catch (err) {
-      // A validation failure keeps the form open with the messages attached to
-      // the offending fields. Closing it would throw away the user's input.
+      // The panel stays open on failure: closing it would throw away the
+      // user's input for a problem they can still fix.
       if (err instanceof ValidationError) {
         this.form()?.applyServerErrors(err.fieldErrors);
+      } else if (err instanceof ConflictError) {
+        this.form()?.applyConflict(err.message, err.offenders);
       } else {
         this.form()?.applyServerErrors({ title: (err as Error).message });
       }

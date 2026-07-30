@@ -1,0 +1,196 @@
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="masthead__identity">
+      <p class="masthead__eyebrow label">Chart</p>
+      <h1 class="masthead__title">Demo Project</h1>
+    </div>
+
+    <div class="masthead__tools">
+      <!-- The one number a planner asks for first: how short can this get? -->
+      @if (schedule.analysis(); as analysis) {
+        @if (analysis.criticalDuration) {
+          <div class="readout mono">
+            <span class="readout__figure">{{ analysis.criticalDuration }}d</span>
+            <span class="readout__label label">critical path</span>
+            @if (analysis.slackInPlan) {
+              <span class="readout__aside">+{{ analysis.slackInPlan }}d slack in plan</span>
+            }
+          </div>
+        }
+      }
+
+      <button type="button" class="zoom__step label float-toggle"
+              [class.is-current]="showFloat()"
+              (click)="toggleFloat()">Float</button>
+
+      <!-- Zoom changes the width of a day column, nothing else. One number
+           drives the whole layout, so the header and the bars cannot drift. -->
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button type="button" class="zoom__step label"
+                [class.is-current]="zoom() === 'days'"
+                (click)="setZoom('days')">Days</button>
+        <button type="button" class="zoom__step label"
+                [class.is-current]="zoom() === 'weeks'"
+                (click)="setZoom('weeks')">Weeks</button>
+        <button type="button" class="zoom__step label"
+                [class.is-current]="zoom() === 'months'"
+                (click)="setZoom('months')">Months</button>
+      </div>
+
+      @if (todayIndex() !== null) {
+        <button type="button" class="today-jump label" (click)="scrollToToday()">
+          Today
+        </button>
+      }
+    </div>
+  </header>
+
+  @if (taskService.error(); as message) {
+    <div class="notice" role="alert">
+      <span>{{ message }}</span>
+      <button type="button" class="link label" (click)="taskService.clearError()">Dismiss</button>
+    </div>
+  }
+
+  @if (taskService.loading()) {
+    <p class="state mono">Drawing chart…</p>
+  } @else if (taskService.isEmpty()) {
+    <div class="state">
+      <p class="state__line">Nothing to plot yet.</p>
+      <a class="action" routerLink="/tasks">Add a task</a>
+    </div>
+  } @else {
+
+    <div class="chart"
+         [style.--day-width]="dayWidth() + 'px'"
+         [style.--row-h]="rowHeight + 'px'">
+
+      <!-- Fixed column. Stays put while the timeline scrolls sideways, so a
+           bar is never separated from the name of its task. -->
+      <div class="chart__names">
+        <div class="chart__names-head label">Task</div>
+
+        @for (row of rows(); track row.task.id; let i = $index) {
+          <div class="name"
+               [class.name--blocked]="row.task.blockedBy.length"
+               [class.name--critical]="isCritical(row.task.id)">
+            <span class="name__chip mono"
+                  [style.background]="row.task.color"
+                  [style.color]="barText(row.task.color)">{{ rowNumber(i) }}</span>
+            <span class="name__title">{{ row.task.title }}</span>
+            @if (!isCritical(row.task.id) && floatOf(row.task.id) > 0) {
+              <span class="name__float mono">+{{ floatOf(row.task.id) }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="chart__scroll" #scroller>
+        <div class="tl" [style.--day-count]="days().length">
+
+          <!-- Backdrop: one element per day for the whole chart, not per row.
+               It carries the ruling, the weekend shading and the today line,
+               so the rows above stay clean. -->
+          <div class="tl__backdrop" aria-hidden="true">
+            @for (day of days(); track day.iso) {
+              <div class="tl__col"
+                   [class.tl__col--weekend]="day.isWeekend"
+                   [class.tl__col--month]="day.isMonthStart"></div>
+            }
+
+            @if (todayIndex(); as index) {
+              <div class="tl__now" [style.--index]="index"></div>
+            }
+          </div>
+
+          <div class="tl__head">
+            <div class="tl__months">
+              @for (month of months(); track month.label) {
+                <div class="tl__month label" [style.grid-column]="'span ' + month.span">
+                  {{ month.label }}
+                </div>
+              }
+            </div>
+
+            @if (showsDayNumbers()) {
+              <div class="tl__days">
+                @for (day of days(); track day.iso) {
+                  <div class="tl__day mono"
+                       [class.tl__day--weekend]="day.isWeekend"
+                       [class.tl__day--today]="day.isToday">
+                    @if (labelsEveryDay() || day.isWeekStart) {
+                      {{ day.dayOfMonth }}
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="tl__body" [style.height.px]="bodyHeight()">
+
+            <!-- One overlay for every connector, not one per row: the lines
+                 cross row boundaries, so they cannot live inside a lane. -->
+            <svg class="links" [attr.height]="bodyHeight()" aria-hidden="true">
+              <defs>
+                <marker id="link-arrow" viewBox="0 0 6 6"
+                        refX="5" refY="3" markerWidth="6" markerHeight="6"
+                        orient="auto-start-reverse">
+                  <path d="M 0 0 L 6 3 L 0 6 z" />
+                </marker>
+              </defs>
+
+              @for (path of connectors(); track path) {
+                <path [attr.d]="path" marker-end="url(#link-arrow)" />
+              }
+            </svg>
+
+            @for (row of rows(); track row.task.id) {
+              <div class="lane">
+                <!--
+                  The float tail sits in its own grid cell immediately after the
+                  bar: hatched, unfilled, showing how far the task could slide
+                  before the project's end date moves. Critical tasks have none,
+                  which is precisely what makes them critical.
+                -->
+                @if (floatColumns(row.task.id) > 0) {
+                  <div class="tail"
+                       [style.grid-column]="(row.offset + row.length + 1) + ' / span ' + floatColumns(row.task.id)"
+                       [style.--task-color]="row.task.color"
+                       aria-hidden="true"></div>
+                }
+
+                <button type="button"
+                        class="bar"
+                        [style.grid-column]="(row.offset + 1) + ' / span ' + row.length"
+                        [style.background]="row.task.color"
+                        [style.color]="barText(row.task.color)"
+                        [class.bar--done]="row.task.status === 'DONE'"
+                        [class.bar--critical]="isCritical(row.task.id)"
+                        [title]="barTitle(row)"
+                        (click)="openEdit(row.task)">
+                  <span class="bar__label">{{ row.task.title }}</span>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="legend mono">
+      Heavy rule marks the critical path · Hatched tails show available float ·
+      Arrows point from a task to what waits on it · Shaded columns are weekends
+    </p>
+  }
+
+  @if (editing(); as task) {
+    <app-task-form
+      [task]="task"
+      [allTasks]="taskService.tasks()"
+      [submitting]="submitting()"
+      (save)="onSave($event)"
+      (cancel)="closeForm()" />
+  }
+</div>

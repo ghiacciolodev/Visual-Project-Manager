@@ -12,6 +12,15 @@ spring:
     username: ${POSTGRES_USER:vpm}
     password: ${POSTGRES_PASSWORD:vpm_local_dev}
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # The only thing the backend needs to know about Keycloak. Spring
+          # fetches the realm's discovery document from here, learns where the
+          # signing keys live, and caches them — including across rotations.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/vpm}
+
   jpa:
     hibernate:
       # "validate", not "update": Flyway owns the schema. With "update"
@@ -49,12 +58,14 @@ management:
     health:
       show-details: when-authorized
 
-logging:
-  level:
-    it: DEBUG
 app:
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
+
+logging:
+  level:
+    it: DEBUG
+
 ---
 # ============================================================
 # dev profile: loads sample data and shows the generated SQL

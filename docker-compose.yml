@@ -12,29 +12,58 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      # The backend must not start before the database is actually accepting
+      # The backend must not start before the database is accepting
       # connections. "container running" is not the same as "ready".
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vpm} -d ${POSTGRES_DB:-vpm}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ---------------------------------------------------------------
-  # Keycloak: arrives in PHASE 5. Left here as a reminder.
-  # Do not uncomment yet — it costs ~1GB of RAM for nothing until
-  # there is something to authorise.
-  # ---------------------------------------------------------------
-  # keycloak:
-  #   image: quay.io/keycloak/keycloak:26.0
-  #   container_name: vpm-keycloak
-  #   command: start-dev --import-realm
-  #   environment:
-  #     KC_BOOTSTRAP_ADMIN_USERNAME: admin
-  #     KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-  #   ports:
-  #     - "8081:8080"
-  #   volumes:
-  #     - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: vpm-keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_local_dev}
+    volumes:
+      - keycloak-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak gets its own database rather than sharing the application's.
+  # An identity provider's schema is its own business: mixing them means a
+  # Flyway migration and a Keycloak upgrade can collide over the same tables.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: vpm-keycloak
+    restart: unless-stopped
+    # start-dev is development only: it disables HTTPS enforcement and runs an
+    # in-memory cache. A deployed instance uses `start` with a certificate.
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_local_dev}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      # The realm is version-controlled and imported on start, so the whole
+      # identity setup is reproducible with one command instead of a page of
+      # click-here instructions.
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  keycloak-pgdata:
