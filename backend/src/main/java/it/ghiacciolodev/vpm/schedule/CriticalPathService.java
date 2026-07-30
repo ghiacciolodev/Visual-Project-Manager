@@ -1,6 +1,6 @@
 package it.ghiacciolodev.vpm.schedule;
 
-import it.ghiacciolodev.vpm.common.ProjectContext;
+import org.springframework.security.access.prepost.PreAuthorize;
 import it.ghiacciolodev.vpm.common.exception.ConflictException;
 import it.ghiacciolodev.vpm.schedule.dto.CriticalPathResponse;
 import it.ghiacciolodev.vpm.schedule.dto.TaskSchedule;
@@ -35,20 +35,17 @@ import java.util.*;
 @Transactional(readOnly = true)
 public class CriticalPathService {
 
+
     private final TaskRepository repository;
     private final DependencyGraphRepository graph;
-    private final ProjectContext projects;
 
-    public CriticalPathService(TaskRepository repository,
-                               DependencyGraphRepository graph,
-                               ProjectContext projects) {
+    public CriticalPathService(TaskRepository repository, DependencyGraphRepository graph) {
         this.repository = repository;
         this.graph = graph;
-        this.projects = projects;
     }
 
-    public CriticalPathResponse analyse() {
-        Long projectId = projects.currentProjectId();
+    @PreAuthorize("@access.canView(#projectId)")
+    public CriticalPathResponse analyse(Long projectId) {
 
         List<Task> tasks =
             repository.findByProjectIdAndDeletedAtIsNullOrderByStartDateAsc(projectId);

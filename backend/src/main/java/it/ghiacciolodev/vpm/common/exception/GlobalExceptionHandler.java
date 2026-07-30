@@ -5,7 +5,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
+import org.springframework.security.access.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,6 +56,20 @@ public class GlobalExceptionHandler {
             .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
         problem.setProperty("errors", errors);
 
+        return problem;
+    }
+
+    /**
+     * A member with insufficient rights. Distinct from the 404 a non-member
+     * gets: this person can see the project, so telling them plainly that the
+     * action needs a higher role is more useful than pretending nothing is
+     * there.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        problem.setTitle("Not allowed");
+        problem.setDetail("Your role in this project does not allow that.");
         return problem;
     }
 }

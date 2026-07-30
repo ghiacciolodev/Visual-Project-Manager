@@ -1,15 +1,15 @@
 package it.ghiacciolodev.vpm;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 
-@Import(TestcontainersConfiguration.class)
-@SpringBootTest
-class VpmApplicationTests {
+/**
+ * The generated smoke test. Inherits the container and the stubbed decoder, so
+ * it verifies that the whole context wires up — which is the one thing it was
+ * ever for.
+ */
+class VpmApplicationTests extends AbstractIT {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    void contextLoads() {
+    }
 }

@@ -1,45 +1,18 @@
 package it.ghiacciolodev.vpm.task;
 
+import it.ghiacciolodev.vpm.AbstractIT;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * Runs against a real PostgreSQL in a container, not H2.
- *
- * This matters more than it looks: the CHECK constraints, the hex regex and —
- * later — the recursive CTEs are PostgreSQL features. A test on H2 would pass
- * while the production query is broken, which is worse than having no test.
- *
- * @ServiceConnection wires the datasource from the container automatically:
- * no @DynamicPropertySource plumbing needed.
- */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Testcontainers
-@ActiveProfiles("dev")   // loads db/seed, so the demo project (id 1) exists
-class TaskApiIT {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @Autowired
-    private MockMvc mockMvc;
+class TaskApiIT extends AbstractIT {
 
     @Test
     void createsATaskAndReadsItBack() throws Exception {
+        Long project = firstProjectOf("nina");
+
         String payload = """
                 {
                   "title": "Write the Gantt renderer",
@@ -52,22 +25,24 @@ class TaskApiIT {
                 }
                 """;
 
-        mockMvc.perform(post("/api/v1/tasks")
+        mockMvc.perform(post("/api/v1/projects/{p}/tasks", project)
+                .with(as("nina"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(payload))
             .andExpect(status().isCreated())
             .andExpect(header().exists("Location"))
-            .andExpect(jsonPath("$.id").exists())
             .andExpect(jsonPath("$.title").value("Write the Gantt renderer"));
 
-        mockMvc.perform(get("/api/v1/tasks"))
+        mockMvc.perform(get("/api/v1/projects/{p}/tasks", project).with(as("nina")))
             .andExpect(status().isOk())
-            // 3 seeded tasks + the one just created
-            .andExpect(jsonPath("$.length()").value(4));
+            // four sample tasks plus the one just created
+            .andExpect(jsonPath("$.length()").value(5));
     }
 
     @Test
     void rejectsAnEndDateBeforeTheStartDate() throws Exception {
+        Long project = firstProjectOf("omar");
+
         String payload = """
                 {
                   "title": "Impossible task",
@@ -79,7 +54,10 @@ class TaskApiIT {
                 }
                 """;
 
-        mockMvc.perform(post("/api/v1/tasks")
+        // Reported against endDate rather than the form as a whole, so the
+        // client can put the message under the offending input.
+        mockMvc.perform(post("/api/v1/projects/{p}/tasks", project)
+                .with(as("omar"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(payload))
             .andExpect(status().isBadRequest())
@@ -87,7 +65,9 @@ class TaskApiIT {
     }
 
     @Test
-    void rejectsAMalformedColor() throws Exception {
+    void rejectsAMalformedColour() throws Exception {
+        Long project = firstProjectOf("pia");
+
         String payload = """
                 {
                   "title": "Bad colour",
@@ -99,10 +79,17 @@ class TaskApiIT {
                 }
                 """;
 
-        mockMvc.perform(post("/api/v1/tasks")
+        mockMvc.perform(post("/api/v1/projects/{p}/tasks", project)
+                .with(as("pia"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(payload))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.errors.color").exists());
+    }
+
+    @Test
+    void refusesAnythingWithoutAToken() throws Exception {
+        mockMvc.perform(get("/api/v1/projects/1/tasks"))
+            .andExpect(status().isUnauthorized());
     }
 }

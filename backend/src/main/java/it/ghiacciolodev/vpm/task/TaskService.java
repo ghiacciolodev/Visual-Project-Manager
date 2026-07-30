@@ -1,11 +1,11 @@
 package it.ghiacciolodev.vpm.task;
 
-import it.ghiacciolodev.vpm.common.ProjectContext;
 import it.ghiacciolodev.vpm.common.exception.ConflictException;
 import it.ghiacciolodev.vpm.common.exception.NotFoundException;
 import it.ghiacciolodev.vpm.task.dto.TaskRef;
 import it.ghiacciolodev.vpm.task.dto.TaskRequest;
 import it.ghiacciolodev.vpm.task.dto.TaskResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,35 +13,34 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Every method takes the project explicitly and is guarded by @PreAuthorize.
+ *
+ * The project used to be resolved from the caller's account, which made
+ * authorisation impossible to get wrong and impossible to demonstrate: a check
+ * that cannot fail is not a check. Now the id arrives from the URL, so
+ * "am I allowed?" has an answer that can be no.
+ *
+ * The guards sit on the service rather than the controller — one layer closer
+ * to the data, and still enforced if a second controller, a scheduled job or a
+ * test calls in.
+ */
 @Service
-@Transactional(readOnly = true)   // read-only by default; writes opt in below
+@Transactional(readOnly = true)
 public class TaskService {
 
     private final TaskRepository repository;
     private final DependencyGraphRepository graph;
 
-    /**
-     * Answers "which project are we working on?". Temporary in its current
-     * form — see ProjectContext. Routing every lookup through one seam is what
-     * keeps phase 5 to a single edit.
-     */
-    private final ProjectContext projects;
-
-    public TaskService(TaskRepository repository,
-                       DependencyGraphRepository graph,
-                       ProjectContext projects) {
-        // Constructor injection, not @Autowired on fields: it makes the
-        // dependencies impossible to forget and the class trivial to test.
+    public TaskService(TaskRepository repository, DependencyGraphRepository graph) {
         this.repository = repository;
         this.graph = graph;
-        this.projects = projects;
     }
 
     /* --- reads ---------------------------------------------------------- */
 
-    public List<TaskResponse> findAll() {
-        Long projectId = projects.currentProjectId();
-
+    @PreAuthorize("@access.canView(#projectId)")
+    public List<TaskResponse> findAll(Long projectId) {
         List<Task> tasks =
             repository.findByProjectIdAndDeletedAtIsNullOrderByStartDateAsc(projectId);
 
@@ -51,22 +50,23 @@ public class TaskService {
 
         return tasks.stream()
             .map(task -> TaskResponse.from(
-                task,
-                predecessors.getOrDefault(task.getId(), List.of())))
+                task, predecessors.getOrDefault(task.getId(), List.of())))
             .toList();
     }
 
-    public TaskResponse findById(Long id) {
-        Task task = loadOrThrow(id);
+    @PreAuthorize("@access.canView(#projectId)")
+    public TaskResponse findById(Long projectId, Long id) {
+        Task task = loadOrThrow(projectId, id);
         return TaskResponse.from(task, graph.findPredecessors(id));
     }
 
     /* --- writes --------------------------------------------------------- */
 
     @Transactional
-    public TaskResponse create(TaskRequest request) {
+    @PreAuthorize("@access.canEdit(#projectId)")
+    public TaskResponse create(Long projectId, TaskRequest request) {
         Task task = new Task();
-        task.setProjectId(projects.currentProjectId());
+        task.setProjectId(projectId);
         apply(request, task);
 
         Task saved = repository.save(task);
@@ -76,8 +76,9 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse update(Long id, TaskRequest request) {
-        Task task = loadOrThrow(id);
+    @PreAuthorize("@access.canEdit(#projectId)")
+    public TaskResponse update(Long projectId, Long id, TaskRequest request) {
+        Task task = loadOrThrow(projectId, id);
 
         // The rule lives here, not in the browser. The frontend disables the
         // control as a courtesy; this is what actually enforces it, including
@@ -93,26 +94,22 @@ public class TaskService {
     }
 
     @Transactional
-    public void delete(Long id) {
-        Task task = loadOrThrow(id);
+    @PreAuthorize("@access.canEdit(#projectId)")
+    public void delete(Long projectId, Long id) {
+        Task task = loadOrThrow(projectId, id);
         graph.unlinkAll(id);
         task.setDeletedAt(Instant.now());
     }
 
     /* --- dependencies --------------------------------------------------- */
 
-    /**
-     * Makes `predecessorId` a prerequisite of `taskId`.
-     *
-     * Four things can go wrong, and each gets its own answer rather than a
-     * generic refusal: the task or the predecessor does not exist (404), they
-     * are the same task, the edge would close a cycle, or the successor is
-     * already DONE while the new predecessor is not (409).
-     */
     @Transactional
-    public TaskResponse addDependency(Long taskId, Long predecessorId) {
-        Task task = loadOrThrow(taskId);
-        Task predecessor = loadOrThrow(predecessorId);
+    @PreAuthorize("@access.canEdit(#projectId)")
+    public TaskResponse addDependency(Long projectId, Long taskId, Long predecessorId) {
+        Task task = loadOrThrow(projectId, taskId);
+        // Loaded through the same project filter, so an edge can never reach
+        // across into somebody else's plan.
+        Task predecessor = loadOrThrow(projectId, predecessorId);
 
         if (taskId.equals(predecessorId)) {
             throw new ConflictException("A task cannot depend on itself");
@@ -143,8 +140,9 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse removeDependency(Long taskId, Long predecessorId) {
-        Task task = loadOrThrow(taskId);
+    @PreAuthorize("@access.canEdit(#projectId)")
+    public TaskResponse removeDependency(Long projectId, Long taskId, Long predecessorId) {
+        Task task = loadOrThrow(projectId, taskId);
 
         if (!graph.unlink(predecessorId, taskId)) {
             throw new NotFoundException(
@@ -169,9 +167,14 @@ public class TaskService {
         }
     }
 
-    private Task loadOrThrow(Long id) {
+    /**
+     * Loads by id *and* project. The pairing is what prevents an IDOR: an id
+     * guessed from another project simply does not resolve, and the caller
+     * learns nothing about whether it exists elsewhere.
+     */
+    private Task loadOrThrow(Long projectId, Long id) {
         return repository
-            .findByIdAndProjectIdAndDeletedAtIsNull(id, projects.currentProjectId())
+            .findByIdAndProjectIdAndDeletedAtIsNull(id, projectId)
             .orElseThrow(() -> new NotFoundException("Task " + id + " not found"));
     }
 
