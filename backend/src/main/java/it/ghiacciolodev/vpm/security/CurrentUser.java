@@ -1,12 +1,10 @@
 package it.ghiacciolodev.vpm.security;
 
-import it.ghiacciolodev.vpm.project.Project;
-import it.ghiacciolodev.vpm.project.ProjectMember;
-import it.ghiacciolodev.vpm.project.ProjectMemberRepository;
 import it.ghiacciolodev.vpm.project.ProjectRepository;
-import it.ghiacciolodev.vpm.project.ProjectRole;
+import it.ghiacciolodev.vpm.project.SampleProjectFactory;
 import it.ghiacciolodev.vpm.user.User;
 import it.ghiacciolodev.vpm.user.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -29,14 +27,14 @@ public class CurrentUser {
 
     private final UserRepository users;
     private final ProjectRepository projects;
-    private final ProjectMemberRepository members;
+    private final SampleProjectFactory sampleProject;
 
     public CurrentUser(UserRepository users,
                        ProjectRepository projects,
-                       ProjectMemberRepository members) {
+                       SampleProjectFactory sampleProject) {
         this.users = users;
         this.projects = projects;
-        this.members = members;
+        this.sampleProject = sampleProject;
     }
 
     /**
@@ -47,7 +45,7 @@ public class CurrentUser {
      * @Transactional(readOnly = true), and joining that transaction would put
      * Hibernate in manual flush mode — the save below would be discarded
      * silently, with no error and no row. The user would appear provisioned
-     * for the length of the request and be gone by the next one.
+     * for the length of one request and be gone by the next.
      *
      * Suspending the caller's transaction and running in a fresh writable one
      * is what makes provisioning survive a request that only meant to read.
@@ -79,6 +77,65 @@ public class CurrentUser {
             .orElseGet(() -> provision(jwt));
     }
 
+    /* --- provisioning --------------------------------------------------- */
+
+    private User provision(Jwt jwt) {
+        try {
+            return insert(jwt);
+        } catch (DataIntegrityViolationException race) {
+            // Another request provisioned the same person a moment ago.
+            //
+            // On a first sign-in the browser fires several requests at once —
+            // /me alongside the first data load — and each one finds no user
+            // and tries to create one. REQUIRES_NEW makes those transactions
+            // genuinely independent, so none of them sees the others' insert;
+            // the unique constraint on keycloak_sub is what lets exactly one
+            // through. That constraint doing its job is not a failure worth
+            // reporting: the caller asked who this person is, and by now
+            // somebody has answered.
+            //
+            // Catching the violation rather than locking up front, because the
+            // collision happens once in an account's lifetime. Paying for a
+            // lock on every request to smooth over a single moment would be
+            // the wrong trade.
+            return users.findByKeycloakSub(jwt.getSubject())
+                .orElseThrow(() -> race);
+        }
+    }
+
+    private User insert(Jwt jwt) {
+        String email = jwt.getClaimAsString("email");
+        String name = jwt.getClaimAsString("name");
+        String sub = jwt.getSubject();
+
+        // An account may predate Keycloak — invited by email before the person
+        // ever signed in. Claiming it by email is what turns an invitation
+        // into a working login instead of a duplicate row.
+        User user = users.findByEmail(email).orElseGet(User::new);
+
+        user.setKeycloakSub(sub);
+        user.setEmail(email);
+        user.setDisplayName(name != null ? name : email);
+
+        // saveAndFlush, not save: the insert has to reach the database inside
+        // the caller's try block. With a deferred flush the violation would
+        // surface at commit, outside the catch, and the losing request would
+        // fail anyway — which is the whole thing being prevented here.
+        User saved = users.saveAndFlush(user);
+
+        // Somewhere to put work. Without this a new user signs in successfully
+        // and lands on an application that shows them nothing and lets them
+        // create nothing — technically correct, practically broken.
+        //
+        // Checked rather than assumed: an invited account already belongs to a
+        // project, and a second empty one would only be in the way.
+        if (projects.findAllForUser(saved.getId()).isEmpty()) {
+            sampleProject.createFor(saved);
+        }
+
+        return saved;
+    }
+
     /* --- internals ------------------------------------------------------ */
 
     private Jwt jwt() {
@@ -92,39 +149,6 @@ public class CurrentUser {
         // means the filter chain was misconfigured, not that a user did
         // something wrong. Failing loudly is the point.
         throw new IllegalStateException("No authenticated JWT in the security context");
-    }
-
-    private User provision(Jwt jwt) {
-        String email = jwt.getClaimAsString("email");
-        String name = jwt.getClaimAsString("name");
-        String sub = jwt.getSubject();
-
-        // An account may predate Keycloak — seeded, or invited by email before
-        // ever signing in. Claiming it by email is what turns an invitation
-        // into a working login instead of a duplicate row.
-        //
-        // It is also what links the seeded demo data to a real account: the
-        // row already exists with keycloak_sub null, and this is where it
-        // stops being a placeholder.
-        User user = users.findByEmail(email).orElseGet(User::new);
-
-        user.setKeycloakSub(sub);
-        user.setEmail(email);
-        user.setDisplayName(name != null ? name : email);
-
-        User saved = users.save(user);
-
-        // Somewhere to put work. Without this a new user signs in successfully
-        // and lands on an application that shows them nothing and lets them
-        // create nothing — technically correct, practically broken.
-        //
-        // Checked rather than assumed: a claimed seed account already has a
-        // project, and a second empty one would only be in the way.
-        if (projects.findAllForUser(saved.getId()).isEmpty()) {
-            createPersonalProject(saved);
-        }
-
-        return saved;
     }
 
     /**
@@ -148,21 +172,5 @@ public class CurrentUser {
         }
 
         return changed ? users.save(user) : user;
-    }
-
-    private void createPersonalProject(User user) {
-        Project project = new Project();
-        project.setName("My Project");
-        project.setDescription("Created automatically on first sign-in");
-        project.setCreatedBy(user.getId());
-
-        Project saved = projects.save(project);
-
-        ProjectMember membership = new ProjectMember();
-        membership.setProjectId(saved.getId());
-        membership.setUserId(user.getId());
-        membership.setRole(ProjectRole.OWNER);
-
-        members.save(membership);
     }
 }

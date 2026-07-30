@@ -14,6 +14,7 @@ import { RouterLink } from '@angular/router';
 
 import { ConflictError, TaskService, ValidationError } from '../../../core/task.service';
 import { ScheduleAnalysisService } from '../../../core/schedule-analysis.service';
+import { ProjectService } from '../../../core/project.service';
 import { Task } from '../../../models/task.model';
 import {
   DayCell,
@@ -68,6 +69,8 @@ export class GanttChart implements OnInit, AfterViewInit {
 
   /** Derived schedule: critical path and float. Never written to, only recomputed. */
   readonly schedule = inject(ScheduleAnalysisService);
+
+  readonly project = inject(ProjectService);
 
   readonly zoom = signal<Zoom>('days');
   readonly dayWidth = computed(() => DAY_WIDTH[this.zoom()]);
@@ -144,7 +147,9 @@ export class GanttChart implements OnInit, AfterViewInit {
   readonly showsDayNumbers = computed(() => this.zoom() !== 'months');
   readonly labelsEveryDay = computed(() => this.zoom() === 'days');
 
-/**
+  /* --- dependency connectors ------------------------------------------- */
+
+  /**
    * Orthogonal connectors between dependent bars.
    *
    * Two routes, because a successor is not always scheduled after its
@@ -234,6 +239,7 @@ export class GanttChart implements OnInit, AfterViewInit {
     // The store may already be populated from the dashboard; calling load()
     // anyway is what keeps a deep link to /gantt working.
     void this.taskService.load();
+    void this.project.load();
   }
 
   ngAfterViewInit(): void {
@@ -263,13 +269,6 @@ export class GanttChart implements OnInit, AfterViewInit {
     this.editing.set(null);
   }
 
-  /**
-   * Saves the fields first, then reconciles the dependencies.
-   *
-   * That order matters: a status change to DONE is rejected while prerequisites
-   * are unfinished, so the task update has to be judged against the graph as it
-   * stood, not against edges added moments earlier in the same save.
-   */
   async onSave({ request, dependencies }: TaskFormResult): Promise<void> {
     const task = this.editing();
     if (!task) return;
@@ -280,8 +279,6 @@ export class GanttChart implements OnInit, AfterViewInit {
       await this.taskService.syncDependencies(task.id, dependencies);
       this.closeForm();
     } catch (err) {
-      // The panel stays open on failure: closing it would throw away the
-      // user's input for a problem they can still fix.
       if (err instanceof ValidationError) {
         this.form()?.applyServerErrors(err.fieldErrors);
       } else if (err instanceof ConflictError) {

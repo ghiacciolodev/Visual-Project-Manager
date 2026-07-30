@@ -63,6 +63,15 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
+    healthcheck:
+      # KC_HEALTH_ENABLED exposes this on the management port. Without a check,
+      # the container reports "Up" as soon as the socket binds, which is well
+      # before Keycloak can answer anything.
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
 
 volumes:
   pgdata:

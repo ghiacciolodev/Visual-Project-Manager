@@ -5,8 +5,42 @@
 <nav class="rail">
   <span class="rail__mark label">VPM</span>
 
-  <a class="rail__tab label" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
-  <a class="rail__tab label" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
+  @if (session.authenticated()) {
+    <a class="rail__tab label" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
+    <a class="rail__tab label" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
+
+    <div class="rail__account">
+      @if (session.profile(); as profile) {
+        <span class="who">
+          <span class="who__initials mono">{{ session.initials() }}</span>
+          <span class="who__name">{{ profile.displayName }}</span>
+        </span>
+      }
+      <button type="button" class="rail__tab label" (click)="session.signOut()">
+        Sign out
+      </button>
+    </div>
+  }
 </nav>
 
-<router-outlet />
+<!--
+  Nothing renders until checkAuth has settled. Routing first would flash the
+  schedule for a frame before the guard redirects, which reads as a glitch.
+-->
+@if (session.ready()) {
+  @if (session.authenticated()) {
+    <router-outlet />
+  } @else {
+    <div class="gate">
+      <p class="gate__eyebrow label">Visual Project Manager</p>
+      <h1 class="gate__title">Plan the work. See what it costs.</h1>
+      <p class="gate__body">
+        Sign in to open your schedule.
+      </p>
+      <button type="button" class="action" (click)="session.signIn()">Sign in</button>
+      <p class="gate__hint mono">Try ada / password</p>
+    </div>
+  }
+} @else {
+  <p class="gate__waiting mono">Checking your session…</p>
+}

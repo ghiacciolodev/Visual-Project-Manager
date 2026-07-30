@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 
-import { TaskService, ValidationError, ConflictError } from '../../../core/task.service';
-import { Task, TaskRequest, TaskStatus } from '../../../models/task.model';
+import { ConflictError, TaskService, ValidationError } from '../../../core/task.service';
+import { ProjectService } from '../../../core/project.service';
+import { Task, TaskStatus } from '../../../models/task.model';
 import { formatDay, projectSpan } from '../../../core/schedule';
 import { TaskCard } from '../task-card/task-card';
 import { TaskForm, TaskFormResult } from '../task-form/task-form';
@@ -15,9 +16,10 @@ import { TaskForm, TaskFormResult } from '../task-form/task-form';
 })
 export class TaskDashboard implements OnInit {
 
-  // Injected as a public field so the template reads its signals directly.
+  // Injected as public fields so the template reads their signals directly.
   // No local copy of the list: duplicating it here is how two views drift.
   readonly taskService = inject(TaskService);
+  readonly project = inject(ProjectService);
 
   readonly formOpen = signal(false);
   readonly editing = signal<Task | null>(null);
@@ -36,6 +38,7 @@ export class TaskDashboard implements OnInit {
 
   ngOnInit(): void {
     void this.taskService.load();
+    void this.project.load();
   }
 
   openCreate(): void {
@@ -53,7 +56,7 @@ export class TaskDashboard implements OnInit {
     this.editing.set(null);
   }
 
-/**
+  /**
    * Saves the fields first, then reconciles the dependencies.
    *
    * That order matters: a status change to DONE is rejected while prerequisites

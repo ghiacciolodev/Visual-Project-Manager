@@ -75,11 +75,6 @@ spring:
     activate:
       on-profile: dev
 
-  flyway:
-    # The seed folder is added here only. Production runs with the
-    # default profile and never sees these files.
-    locations: classpath:db/migration,classpath:db/seed
-
   jpa:
     show-sql: true
 

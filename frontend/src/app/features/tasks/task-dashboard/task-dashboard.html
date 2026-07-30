@@ -3,19 +3,21 @@
   <header class="masthead">
     <div class="masthead__identity">
       <p class="masthead__eyebrow label">Schedule</p>
-      <h1 class="masthead__title">Demo Project</h1>
+      <!-- The name comes from the server. Hard-coding it here was fine while
+           there was one seeded project; now every account has its own. -->
+      <h1 class="masthead__title">{{ project.current()?.name ?? 'Schedule' }}</h1>
     </div>
 
     <div class="masthead__readout">
       @if (spanLabel(); as summary) {
         <p class="masthead__span mono">{{ summary }}</p>
       }
-        <p class="masthead__counts mono">
-                {{ taskService.counts().done }}/{{ taskService.counts().total }} complete
-                @if (taskService.counts().blocked) {
-                · {{ taskService.counts().blocked }} waiting
-                }
-        </p>
+      <p class="masthead__counts mono">
+        {{ taskService.counts().done }}/{{ taskService.counts().total }} complete
+        @if (taskService.counts().blocked) {
+          · {{ taskService.counts().blocked }} waiting
+        }
+      </p>
     </div>
 
     <button type="button" class="action" (click)="openCreate()">New task</button>
@@ -58,7 +60,7 @@
     </div>
   }
 
-@if (formOpen()) {
+  @if (formOpen()) {
     <app-task-form
       [task]="editing()"
       [allTasks]="taskService.tasks()"
