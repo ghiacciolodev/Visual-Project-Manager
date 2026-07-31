@@ -20,5 +20,9 @@ export const routes: Routes = [
       import('./features/gantt/gantt-chart/gantt-chart').then(m => m.GanttChart),
   },
 
+  // Membership is deliberately not a route. It is a panel over whichever view
+  // you were reading, the same as the task form: routing to it would swap the
+  // schedule out for a blank sheet and slide the panel over nothing.
+
   { path: '**', redirectTo: 'tasks' },
 ];

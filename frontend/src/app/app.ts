@@ -1,16 +1,18 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from './core/api.config';
 import { Profile, SessionService } from './core/session.service';
+import { MemberService } from './core/member.service';
 import { ProjectService } from './core/project.service';
 import { TaskService } from './core/task.service';
+import { MembersPanel } from './features/members/members-panel/members-panel';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MembersPanel],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -20,7 +22,11 @@ export class App {
   readonly projects = inject(ProjectService);
 
   private readonly tasks = inject(TaskService);
+  private readonly members = inject(MemberService);
   private readonly http = inject(HttpClient);
+
+  /** The membership panel, which opens over the current view rather than replacing it. */
+  readonly membersOpen = signal(false);
 
   constructor() {
     // Fetches the profile once the session is established. An effect rather
@@ -44,7 +50,43 @@ export class App {
   onProjectChange(event: Event): void {
     const id = Number((event.target as HTMLSelectElement).value);
     this.projects.select(id);
+
+    // The roster belonged to the project just left. Dropping it rather than
+    // refetching keeps the request for whoever actually opens the panel.
+    this.members.clear();
     void this.tasks.reloadFor();
+
+    // A role is a property of the pairing, so the same person can own the
+    // project they left and only read the one they arrived at. The panel is
+    // owner-only, and leaving it open would sit it on a roster whose every
+    // request now comes back 403.
+    if (!this.projects.canAdminister()) {
+      this.membersOpen.set(false);
+    }
+  }
+
+  openMembers(): void {
+    this.membersOpen.set(true);
+  }
+
+  closeMembers(): void {
+    this.membersOpen.set(false);
+  }
+
+  /**
+   * The caller removed their own membership.
+   *
+   * Everything on screen belonged to a project they are no longer in, so the
+   * list is refetched from scratch rather than edited: which project they land
+   * on next is the server's answer, not one this client can work out.
+   */
+  async onLeftProject(): Promise<void> {
+    this.membersOpen.set(false);
+    this.members.clear();
+    this.projects.clear();
+
+    await this.projects.load();
+    await this.tasks.reloadFor();
   }
 
   /**

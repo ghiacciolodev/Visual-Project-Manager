@@ -1,12 +1,14 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 
 import { App } from './app';
 import { API_BASE_URL } from './core/api.config';
+import { ProjectService } from './core/project.service';
 import { Profile, SessionService } from './core/session.service';
+import { Project, ProjectRole } from './models/project.model';
 
 /**
  * The shell decides what a visitor sees before any route does: a holding
@@ -32,29 +34,73 @@ function stubSession(state: { ready: boolean; authenticated: boolean }) {
   };
 }
 
-async function render(state: { ready: boolean; authenticated: boolean }) {
+/**
+ * A settled project list. The real service fetches one, and every test here is
+ * about what the shell draws once it has, not about the fetching.
+ */
+function stubProjects(role: ProjectRole = 'EDITOR') {
+  const project: Project = { id: 1, name: 'Apollo', description: null, myRole: role };
+
+  return {
+    projects: signal<Project[]>([project]),
+    currentId: signal(project.id),
+    current: signal(project),
+    loading: signal(false),
+    canEdit: signal(role === 'OWNER' || role === 'EDITOR'),
+    canAdminister: signal(role === 'OWNER'),
+    load: async () => {},
+    select: () => {},
+    clear: () => {},
+  };
+}
+
+async function render(state: {
+  ready: boolean;
+  authenticated: boolean;
+  role?: ProjectRole;
+}) {
   const session = stubSession(state);
+  const projects = stubProjects(state.role);
+
+  // Lets one test render twice — comparing what an editor is offered against
+  // what an owner is — without the second call finding the module already up.
+  TestBed.resetTestingModule();
 
   TestBed.configureTestingModule({
     imports: [App],
+    // Defer blocks are held at their placeholder in tests unless told
+    // otherwise, and the members panel is behind one.
+    deferBlockBehavior: DeferBlockBehavior.Playthrough,
     providers: [
       provideZonelessChangeDetection(),
       provideRouter([]),
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: SessionService, useValue: session },
+      { provide: ProjectService, useValue: projects },
     ],
   });
+
+  // App now pulls in the members panel, whose template and styles are separate
+  // files: TestBed will not instantiate a component with unresolved metadata.
+  await TestBed.compileComponents();
 
   const fixture = TestBed.createComponent(App);
   await fixture.whenStable();
 
   return {
     session,
+    projects,
     fixture,
     element: fixture.nativeElement as HTMLElement,
     http: TestBed.inject(HttpTestingController),
   };
+}
+
+/** The rail tab, or button, carrying this label. */
+function railControl(element: HTMLElement, label: string): HTMLElement | undefined {
+  return [...element.querySelectorAll<HTMLElement>('.rail__tab')]
+    .find(tab => tab.textContent?.trim() === label);
 }
 
 describe('App', () => {
@@ -104,6 +150,43 @@ describe('App', () => {
     await fixture.whenStable();
 
     expect(session.profile()?.displayName).toBe('Ada Lovelace');
+  });
+
+  it('offers the members panel to owners only', async () => {
+    const asEditor = await render({ ready: true, authenticated: true, role: 'EDITOR' });
+    asEditor.http.expectOne(`${API_BASE_URL}/me`).flush(null);
+    expect(railControl(asEditor.element, 'Members')).toBeUndefined();
+
+    const asOwner = await render({ ready: true, authenticated: true, role: 'OWNER' });
+    asOwner.http.expectOne(`${API_BASE_URL}/me`).flush(null);
+    expect(railControl(asOwner.element, 'Members')).toBeDefined();
+  });
+
+  it('opens the members panel over the current view rather than replacing it', async () => {
+    const { element, fixture, http } = await render({
+      ready: true, authenticated: true, role: 'OWNER',
+    });
+    http.expectOne(`${API_BASE_URL}/me`).flush(null);
+
+    railControl(element, 'Members')!.click();
+    await fixture.whenStable();
+
+    // The panel opening must not take the schedule away. Routing to it did
+    // exactly that: the outlet swapped the view out and the panel slid over a
+    // blank sheet.
+    expect(element.querySelector('.panel')).not.toBeNull();
+    expect(element.querySelector('router-outlet')).not.toBeNull();
+
+    // The panel loads its roster on open.
+    http.expectOne(`${API_BASE_URL}/projects/1/members`).flush([]);
+    await fixture.whenStable();
+
+    // Dismissing puts it away again — @defer alone would leave it rendered.
+    element.querySelector<HTMLElement>('.scrim')!.click();
+    await fixture.whenStable();
+
+    expect(element.querySelector('.panel')).toBeNull();
+    expect(element.querySelector('router-outlet')).not.toBeNull();
   });
 
   it('leaves the header unnamed when the profile call fails', async () => {

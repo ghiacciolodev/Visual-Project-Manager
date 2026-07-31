@@ -1,0 +1,141 @@
+// The panel shell, the fields, the buttons and the notice come from
+// styles.scss. What is here is the roster and the invitation form.
+
+.roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  &__waiting {
+    margin: 0;
+    padding: calc(var(--u) * 8) 0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+}
+
+.member {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: calc(var(--u) * 3);
+  padding: calc(var(--u) * 3) 0;
+  border-bottom: 1px solid var(--rule);
+
+  &__identity {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u) * 0.5);
+  }
+
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 2);
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  // Marked because demoting yourself is the one change here you cannot undo:
+  // a former owner has no way back into this panel.
+  &__you {
+    font-size: 9px;
+    color: var(--ink-3);
+    border: 1px solid var(--rule-strong);
+    padding: 0 calc(var(--u));
+  }
+
+  &__email {
+    font-size: 11px;
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__pending {
+    margin-top: calc(var(--u));
+    font-size: 9px;
+    color: var(--ink-2);
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 3);
+    flex-shrink: 0;
+  }
+
+  &__role {
+    font-family: var(--font-label);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    border-radius: 0;
+    padding: calc(var(--u)) calc(var(--u) * 1.5);
+    cursor: pointer;
+
+    &:focus {
+      outline: 0;
+      border-color: var(--ink);
+    }
+  }
+
+  // Both of these take the whole width below the row, so the message lines up
+  // under the control it is about rather than squeezing beside it.
+  &__conflict,
+  &__hint {
+    flex-basis: 100%;
+    margin: calc(var(--u)) 0 0;
+    font-size: 11px;
+  }
+
+  &__conflict {
+    font-family: var(--font-mono);
+    color: var(--now);
+  }
+
+  &__hint {
+    color: var(--ink-3);
+  }
+}
+
+.invite {
+  margin-top: calc(var(--u) * 7);
+  padding-top: calc(var(--u) * 4);
+  border-top: 1px solid var(--rule);
+
+  &__label {
+    margin: 0 0 calc(var(--u) * 4);
+    font-size: 10px;
+    color: var(--ink-2);
+  }
+
+  &__note {
+    display: block;
+    margin-top: calc(var(--u) * 1.5);
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  &__aside {
+    margin: calc(var(--u) * 4) 0 0;
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+}
+
+@media (max-width: 480px) {
+  .member {
+    &__controls {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+}

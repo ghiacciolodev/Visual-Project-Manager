@@ -9,6 +9,19 @@
     <a class="rail__tab label" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
     <a class="rail__tab label" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
 
+    <!-- A button, not a tab: it opens a panel over whatever you are reading
+         rather than taking you somewhere. Only owners may change who is in a
+         project, so only owners are shown the way in — the server refuses the
+         endpoints regardless. -->
+    @if (projects.canAdminister()) {
+      <button type="button"
+              class="rail__tab label"
+              [class.is-current]="membersOpen()"
+              (click)="openMembers()">
+        Members
+      </button>
+    }
+
     <!-- Only shown once there is a choice to make. A picker with one option is
          a label pretending to be a control. -->
     @if (projects.projects().length > 1) {
@@ -43,12 +56,30 @@
 @if (session.ready()) {
   @if (session.authenticated()) {
     <router-outlet />
+
+    <!--
+      Outside the outlet, so the schedule or the chart stays behind the scrim
+      instead of being swapped out for a blank sheet.
+
+      @defer keeps it out of the initial bundle the way the routed views are
+      kept out of each other's: most people never open it, and the ones who do
+      are already past the slowest moment.
+
+      The @if inside is not redundant. @defer only decides when the chunk is
+      fetched, and once fetched the block stays rendered — without the @if the
+      panel would open and never close again.
+    -->
+    @defer (when membersOpen()) {
+      @if (membersOpen()) {
+        <app-members-panel (close)="closeMembers()" (left)="onLeftProject()" />
+      }
+    }
   } @else {
     <div class="gate">
       <p class="gate__eyebrow label">Visual Project Manager</p>
       <h1 class="gate__title">Plan the work. See what it costs.</h1>
       <p class="gate__body">Sign in to open your schedule.</p>
-      <button type="button" class="action" (click)="session.signIn()">Sign in</button>
+      <button type="button" class="action action--lg" (click)="session.signIn()">Sign in</button>
       <p class="gate__hint mono">Try ada / password</p>
     </div>
   }

@@ -61,6 +61,22 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/**
+ * Available to a screen reader, invisible to everyone else. For labels that
+ * a sighted reader gets from the surrounding row and a screen reader would
+ * otherwise hear as a bare control.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Labels borrow the compressed lettering of technical drawings. */
 .label {
   font-family: var(--font-label);
@@ -73,6 +89,254 @@ body {
 :focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
+}
+
+/* ===================================================================
+   Shared vocabulary.
+
+   Angular scopes component styles, so a class used by four components
+   had four definitions — and they drifted: one .action lost its hover,
+   another grew a transition, the paddings disagreed. These live here
+   for the same reason .mono and .label do. They are the design system,
+   not the internals of whichever component happened to need them first.
+
+   Deliberately NOT here: .state. It means the status of a task in
+   task-card and an empty-or-loading placeholder in the dashboard and
+   the chart — one name for two unrelated things, and globalising it
+   would apply the wrong one to both.
+   =================================================================== */
+
+/* --- buttons ------------------------------------------------------ */
+
+.action {
+  // inline-block and no underline so an <a routerLink> can wear this too,
+  // which the chart's empty state relies on.
+  display: inline-block;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink-invert);
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+  padding: calc(var(--u) * 2.5) calc(var(--u) * 5);
+  cursor: pointer;
+  transition: background 0.12s linear;
+
+  &:disabled {
+    background: var(--ink-3);
+    cursor: not-allowed;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ink-2);
+  }
+}
+
+/** The one button on an otherwise empty screen can afford to be larger. */
+.action--lg {
+  padding: calc(var(--u) * 3) calc(var(--u) * 6);
+}
+
+/** A button that has to sit beside a primary one without competing. */
+.ghost {
+  font-size: 11px;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+
+  &:disabled {
+    color: var(--ink-3);
+    cursor: not-allowed;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/** An inline action inside a row or a notice. */
+.link {
+  font-size: 10px;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &--danger:hover {
+    color: var(--now);
+  }
+}
+
+/* --- messages ----------------------------------------------------- */
+
+/** A failure the view is reporting about itself. */
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 4);
+  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  margin-bottom: calc(var(--u) * 4);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--sheet);
+  border-left: 3px solid var(--now);
+}
+
+/**
+ * A refusal from the server that is about the shape of the data rather than
+ * about one field, so it sits above a form instead of under an input.
+ */
+.conflict {
+  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  margin-bottom: calc(var(--u) * 5);
+  background: var(--paper);
+  border-left: 3px solid var(--now);
+
+  &__message {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  &__list {
+    margin: calc(var(--u) * 2) 0 0;
+    padding-left: calc(var(--u) * 4);
+    font-size: 11px;
+    color: var(--ink-2);
+  }
+}
+
+/* --- side panel --------------------------------------------------- */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(20 32 43 / 40%);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 50;
+}
+
+.panel {
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--sheet);
+  border-left: 2px solid var(--ink);
+
+  // A single entrance, matched to the panel's direction. Movement here says
+  // where the panel came from; anything more would just be motion.
+  animation: panel-slide-in 0.18s cubic-bezier(0.2, 0, 0, 1);
+
+  &__head {
+    padding: calc(var(--u) * 6) calc(var(--u) * 6) calc(var(--u) * 4);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  &__title {
+    margin: calc(var(--u)) 0 0;
+    font-family: var(--font-label);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  &__body {
+    padding: calc(var(--u) * 5) calc(var(--u) * 6) calc(var(--u) * 8);
+  }
+
+  &__foot {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: calc(var(--u) * 4);
+    margin-top: calc(var(--u) * 8);
+    padding-top: calc(var(--u) * 4);
+    border-top: 1px solid var(--rule);
+  }
+}
+
+@keyframes panel-slide-in {
+  from { transform: translateX(16px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* --- form fields -------------------------------------------------- */
+
+.field {
+  margin-bottom: calc(var(--u) * 5);
+  flex: 1;
+  min-width: 0;
+
+  label {
+    display: block;
+    margin-bottom: calc(var(--u) * 1.5);
+    font-size: 10px;
+    color: var(--ink-2);
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: calc(var(--u) * 2) 0;
+    font: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: transparent;
+
+    // Underlined fields, not boxes: they sit on the same ruling as the sheet.
+    border: 0;
+    border-bottom: 1px solid var(--rule-strong);
+    border-radius: 0;
+
+    &:focus {
+      outline: 0;
+      border-bottom-color: var(--ink);
+      border-bottom-width: 2px;
+      padding-bottom: calc(var(--u) * 2 - 1px);
+    }
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  &__error {
+    display: block;
+    margin-top: calc(var(--u) * 1.5);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--now);
+  }
+}
+
+.field-pair {
+  display: flex;
+  gap: calc(var(--u) * 5);
 }
 
 @media (prefers-reduced-motion: reduce) {

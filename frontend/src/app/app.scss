@@ -135,20 +135,3 @@
     color: var(--ink-3);
   }
 }
-
-.action {
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-invert);
-  background: var(--ink);
-  border: 0;
-  padding: calc(var(--u) * 3) calc(var(--u) * 6);
-  cursor: pointer;
-
-  &:hover {
-    background: var(--ink-2);
-  }
-}
