@@ -189,6 +189,24 @@ describe('App', () => {
     expect(element.querySelector('router-outlet')).not.toBeNull();
   });
 
+  it('opens the project panel from the picker and puts the control back', async () => {
+    const { element, fixture, http } = await render({
+      ready: true, authenticated: true, role: 'OWNER',
+    });
+    http.expectOne(`${API_BASE_URL}/me`).flush(null);
+
+    const picker = element.querySelector<HTMLSelectElement>('.rail__project')!;
+    picker.value = 'new';
+    picker.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+
+    expect(element.querySelector('.panel')).not.toBeNull();
+
+    // Without this the picker would sit there reading "New project…" as
+    // though that were the project you are in.
+    expect(picker.value).toBe('1');
+  });
+
   it('leaves the header unnamed when the profile call fails', async () => {
     const { session, fixture, element, http } = await render({ ready: true, authenticated: true });
 

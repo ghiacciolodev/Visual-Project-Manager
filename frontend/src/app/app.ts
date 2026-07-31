@@ -9,10 +9,12 @@ import { MemberService } from './core/member.service';
 import { ProjectService } from './core/project.service';
 import { TaskService } from './core/task.service';
 import { MembersPanel } from './features/members/members-panel/members-panel';
+import { ProjectPanel } from './features/projects/project-panel/project-panel';
+import { Project } from './models/project.model';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MembersPanel],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MembersPanel, ProjectPanel],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -27,6 +29,11 @@ export class App {
 
   /** The membership panel, which opens over the current view rather than replacing it. */
   readonly membersOpen = signal(false);
+
+  readonly projectPanelOpen = signal(false);
+
+  /** null while creating, the current project while renaming. */
+  readonly editingProject = signal<Project | null>(null);
 
   constructor() {
     // Fetches the profile once the session is established. An effect rather
@@ -47,8 +54,27 @@ export class App {
    * the router to react to. Doing it explicitly here is clearer than a signal
    * effect firing reloads from three places at once.
    */
+  /**
+   * Handles both switching project and the two actions sharing the control.
+   *
+   * The actions live in the picker because that is where somebody already goes
+   * to think about which project they are in. Choosing one leaves the select
+   * showing "New project…" as if it were the current project, so the control
+   * is put back before the panel opens.
+   */
   onProjectChange(event: Event): void {
-    const id = Number((event.target as HTMLSelectElement).value);
+    const select = event.target as HTMLSelectElement;
+    const choice = select.value;
+
+    if (choice === 'new' || choice === 'edit') {
+      select.value = String(this.projects.currentId());
+
+      this.editingProject.set(choice === 'edit' ? this.projects.current() : null);
+      this.projectPanelOpen.set(true);
+      return;
+    }
+
+    const id = Number(choice);
     this.projects.select(id);
 
     // The roster belonged to the project just left. Dropping it rather than
@@ -67,6 +93,42 @@ export class App {
 
   openMembers(): void {
     this.membersOpen.set(true);
+  }
+
+  openNewProject(): void {
+    this.editingProject.set(null);
+    this.projectPanelOpen.set(true);
+  }
+
+  /**
+   * Closing after a create or a rename.
+   *
+   * The service has already updated the list in place — and, for a create,
+   * switched to the new project — so the only thing left is to reload what
+   * hangs off it. Reloading tasks unconditionally costs one request and is
+   * cheaper than working out whether the current project changed.
+   */
+  closeProjectPanel(): void {
+    this.projectPanelOpen.set(false);
+    this.editingProject.set(null);
+    this.members.clear();
+    void this.tasks.reloadFor();
+  }
+
+  /**
+   * The project just deleted may have been the one on screen.
+   *
+   * The service has already settled on whatever is left, including nothing at
+   * all — a person can delete their way down to no projects, and the rail has
+   * to keep offering the way back.
+   */
+  async onProjectDeleted(): Promise<void> {
+    this.projectPanelOpen.set(false);
+    this.editingProject.set(null);
+    this.membersOpen.set(false);
+    this.members.clear();
+
+    await this.tasks.reloadFor();
   }
 
   closeMembers(): void {

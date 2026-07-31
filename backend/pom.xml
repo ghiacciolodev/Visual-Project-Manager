@@ -134,6 +134,27 @@
 					</excludes>
 				</configuration>
 			</plugin>
+			<!--
+				Runs the *IT classes.
+
+				Without this they were compiled and never executed: Surefire
+				only collects *Test, so `mvn verify` reported one passing test
+				and five integration classes sat there being nothing. The proof
+				is that a broken JsonPath in AbstractIT survived in main — the
+				test using it could not fail because it never ran.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>

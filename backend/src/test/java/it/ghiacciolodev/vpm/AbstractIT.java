@@ -11,8 +11,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.util.List;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -37,13 +37,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 @ActiveProfiles("test")
 public abstract class AbstractIT {
 
-    @Container
+    /**
+     * One container for the whole run, started by hand and never stopped.
+     *
+     * Not @Testcontainers with @Container, which is the obvious spelling and
+     * the wrong one here. That extension stops a static container when its
+     * test class finishes; the field is declared once on this base class, so
+     * the first class to run would shut the database down while Spring's
+     * cached application context — shared by every class with the same
+     * configuration — went on pointing at the dead port. Every suite after the
+     * first failed with "Could not open JPA EntityManager".
+     *
+     * Nothing stops it: Ryuk reaps the container when the JVM exits.
+     */
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static final PostgreSQLContainer<?> postgres =
+        new PostgreSQLContainer<>("postgres:16-alpine");
+
+    static {
+        postgres.start();
+    }
 
     @MockitoBean
     JwtDecoder jwtDecoder;
@@ -79,13 +95,21 @@ public abstract class AbstractIT {
         return ((Number) JsonPath.read(body, "$[0].id")).longValue();
     }
 
-    /** The id of a sample task, looked up by title rather than by position. */
+    /**
+     * The id of a sample task, looked up by title rather than by position.
+     *
+     * The filter is read as a list and indexed in Java. Ending the path with
+     * [0] instead reads as "the first element of each matched id", which is an
+     * index into a number — JsonPath hands back the whole match array and the
+     * cast to Number fails.
+     */
     protected Long taskIdByTitle(String username, Long projectId, String title) throws Exception {
         String body = mockMvc.perform(
                 get("/api/v1/projects/{p}/tasks", projectId).with(as(username)))
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString();
 
-        return ((Number) JsonPath.read(body, "$[?(@.title == '" + title + "')].id[0]")).longValue();
+        List<Number> ids = JsonPath.read(body, "$[?(@.title == '" + title + "')].id");
+        return ids.getFirst().longValue();
     }
 }

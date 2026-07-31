@@ -1,0 +1,53 @@
+// The panel shell, the fields and the buttons come from styles.scss. What is
+// here belongs to deleting, which nothing else in the application does.
+
+.danger {
+  margin: 0 calc(var(--u) * 6) calc(var(--u) * 8);
+  padding-top: calc(var(--u) * 4);
+  border-top: 1px solid var(--rule);
+
+  &__toggle {
+    font-size: 10px;
+    color: var(--ink-3);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--now);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+
+  &__body {
+    margin-top: calc(var(--u) * 4);
+    padding: calc(var(--u) * 4);
+    background: var(--paper);
+    border-left: 3px solid var(--now);
+  }
+
+  &__warning {
+    margin: 0 0 calc(var(--u) * 4);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink-2);
+
+    strong {
+      color: var(--ink);
+    }
+  }
+}
+
+// The one destructive button in the application, and the only place the
+// signal colour is spent on something other than the present moment. It is
+// unreachable until the project's name has been typed out in full, which is
+// what earns it.
+.action--danger {
+  background: var(--now);
+
+  &:hover:not(:disabled) {
+    background: #a82a18;
+  }
+}

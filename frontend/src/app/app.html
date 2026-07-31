@@ -22,9 +22,14 @@
       </button>
     }
 
-    <!-- Only shown once there is a choice to make. A picker with one option is
-         a label pretending to be a control. -->
-    @if (projects.projects().length > 1) {
+    <!--
+      Shown from the first project rather than the second. The old rule was
+      that a picker with one option is a label pretending to be a control, and
+      it was right — but the control now carries the actions too, and hiding it
+      put creating a project out of reach of exactly the people who have only
+      ever had one.
+    -->
+    @if (projects.projects().length) {
       <select class="rail__project label"
               [value]="projects.currentId()"
               (change)="onProjectChange($event)"
@@ -32,7 +37,20 @@
         @for (project of projects.projects(); track project.id) {
           <option [value]="project.id">{{ project.name }}</option>
         }
+
+        <optgroup label="Manage">
+          @if (projects.canAdminister()) {
+            <option value="edit">Rename or delete…</option>
+          }
+          <option value="new">New project…</option>
+        </optgroup>
       </select>
+    } @else {
+      <!-- Deleting your last project leaves nothing to pick from, and the
+           way back has to be somewhere. -->
+      <button type="button" class="rail__tab label" (click)="openNewProject()">
+        New project
+      </button>
     }
 
     <div class="rail__account">
@@ -72,6 +90,14 @@
     @defer (when membersOpen()) {
       @if (membersOpen()) {
         <app-members-panel (close)="closeMembers()" (left)="onLeftProject()" />
+      }
+    }
+
+    @defer (when projectPanelOpen()) {
+      @if (projectPanelOpen()) {
+        <app-project-panel [project]="editingProject()"
+                           (close)="closeProjectPanel()"
+                           (deleted)="onProjectDeleted()" />
       }
     }
   } @else {

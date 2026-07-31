@@ -32,6 +32,17 @@ public class ProjectController {
         return service.findOne(projectId);
     }
 
+    /**
+     * PUT rather than PATCH: the body carries every mutable field, so this
+     * replaces them wholesale the way a task update does. PATCH is reserved
+     * here for the one-field change it fits — a member's role.
+     */
+    @PutMapping("/{projectId}")
+    public ProjectResponse update(@PathVariable Long projectId,
+                                  @Valid @RequestBody UpdateProjectRequest request) {
+        return service.update(projectId, request);
+    }
+
     @DeleteMapping("/{projectId}")
     public ResponseEntity<Void> delete(@PathVariable Long projectId) {
         service.delete(projectId);

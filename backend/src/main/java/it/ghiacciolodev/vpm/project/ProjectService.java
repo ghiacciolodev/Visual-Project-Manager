@@ -92,6 +92,31 @@ public class ProjectService {
             saved.getId(), saved.getName(), saved.getDescription(), ProjectRole.OWNER);
     }
 
+    /**
+     * Renames a project, and re-describes it.
+     *
+     * Restricted to owners rather than editors. An editor changes the plan;
+     * the name is what everyone else in the organisation calls this thing, and
+     * that belongs with the people who can also decide who is in it.
+     */
+    @Transactional
+    @PreAuthorize("@access.canAdminister(#projectId)")
+    public ProjectResponse update(Long projectId, UpdateProjectRequest request) {
+        Project project = projects.findById(projectId)
+            .orElseThrow(() -> new NotFoundException("Project " + projectId + " not found"));
+
+        project.setName(request.name());
+        project.setDescription(request.description());
+
+        // No save(): the entity is managed inside the transaction and Hibernate
+        // flushes on commit, the same as a task update.
+        return new ProjectResponse(
+            project.getId(),
+            project.getName(),
+            project.getDescription(),
+            access.roleIn(projectId));
+    }
+
     @Transactional
     @PreAuthorize("@access.canAdminister(#projectId)")
     public void delete(Long projectId) {
