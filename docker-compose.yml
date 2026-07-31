@@ -12,8 +12,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      # The backend must not start before the database is accepting
-      # connections. "container running" is not the same as "ready".
+      # The backend must not start before the database accepts connections.
+      # "container running" is not the same as "ready".
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vpm} -d ${POSTGRES_DB:-vpm}"]
       interval: 10s
       timeout: 5s
@@ -35,9 +35,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Keycloak gets its own database rather than sharing the application's.
-  # An identity provider's schema is its own business: mixing them means a
-  # Flyway migration and a Keycloak upgrade can collide over the same tables.
+  # Keycloak gets its own database rather than sharing the application's. An
+  # identity provider's schema is its own business: mixing them means a Flyway
+  # migration and a Keycloak upgrade can collide over the same tables.
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     container_name: vpm-keycloak
@@ -52,6 +52,11 @@ services:
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_local_dev}
+      # Pinned so the issuer in every token is the address the browser used.
+      # Left to Keycloak, it would infer the hostname per request and the
+      # backend's issuer check would fail on the internal one.
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8081}
+      KC_HOSTNAME_STRICT: "false"
       KC_HEALTH_ENABLED: "true"
     ports:
       - "${KEYCLOAK_PORT:-8081}:8080"
@@ -64,14 +69,49 @@ services:
       keycloak-db:
         condition: service_healthy
     healthcheck:
-      # KC_HEALTH_ENABLED exposes this on the management port. Without a check,
-      # the container reports "Up" as soon as the socket binds, which is well
-      # before Keycloak can answer anything.
-      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'" ]
+      # The image ships neither curl nor wget, hence the shell's own /dev/tcp.
+      # Without a check the container reports "Up" as soon as the socket binds,
+      # which is well before Keycloak can answer anything — and the backend
+      # would start, fail to fetch the keys, and exit.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q 'UP'"]
       interval: 10s
       timeout: 5s
-      retries: 15
+      retries: 20
       start_period: 40s
+
+  backend:
+    build: ./backend
+    container_name: vpm-backend
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vpm}
+      POSTGRES_USER: ${POSTGRES_USER:-vpm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpm_local_dev}
+      # Service names, not localhost: inside a container, localhost is the
+      # container itself.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-vpm}
+      # The public issuer, because that is what the tokens will claim...
+      KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8081}/realms/vpm
+      # ...and the internal address, because that is what this container can
+      # actually reach to fetch the signing keys.
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/vpm/protocol/openid-connect/certs
+      CORS_ALLOWED_ORIGIN: http://localhost:${FRONTEND_PORT:-4200}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: vpm-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

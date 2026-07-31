@@ -8,18 +8,13 @@ spring:
   datasource:
     # Defaults match .env.example so the app starts with zero configuration.
     # Docker Compose reads .env automatically; Spring Boot does not.
+    #
+    # In a container this whole value is replaced by SPRING_DATASOURCE_URL,
+    # which points at the "db" service instead of localhost — inside a
+    # container, localhost is the container itself.
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:vpm}
     username: ${POSTGRES_USER:vpm}
     password: ${POSTGRES_PASSWORD:vpm_local_dev}
-
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # The only thing the backend needs to know about Keycloak. Spring
-          # fetches the realm's discovery document from here, learns where the
-          # signing keys live, and caches them — including across rotations.
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/vpm}
 
   jpa:
     hibernate:
@@ -62,13 +57,30 @@ app:
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
 
+  # Keycloak is addressed by two different URLs, and the split is deliberate.
+  #
+  # The browser reaches it at localhost:8081, so that is the issuer written
+  # into every token. A containerised backend cannot resolve that address —
+  # localhost is its own loopback — and reaches Keycloak at keycloak:8080
+  # over the compose network instead.
+  #
+  # So the keys are fetched over the internal address while the issuer claim
+  # is checked against the public one. Using the internal address for both
+  # would reject every real token; skipping the issuer check would accept
+  # tokens minted by any realm on that server.
+  keycloak:
+    issuer: ${KEYCLOAK_ISSUER:http://localhost:8081/realms/vpm}
+    # Empty outside containers, where one address serves both purposes and
+    # OIDC discovery can find the keys on its own.
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+
 logging:
   level:
     it: DEBUG
 
 ---
 # ============================================================
-# dev profile: loads sample data and shows the generated SQL
+# dev profile: shows the generated SQL
 # ============================================================
 spring:
   config:

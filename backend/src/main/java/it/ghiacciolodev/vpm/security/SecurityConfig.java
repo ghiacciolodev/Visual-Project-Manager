@@ -8,8 +8,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -18,29 +17,48 @@ public class SecurityConfig {
 
     private final KeycloakRoleConverter roleConverter;
 
-    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
-    private String issuerUri;
+    /** The issuer as it appears in the token — the public URL. */
+    @Value("${app.keycloak.issuer}")
+    private String issuer;
+
+    /**
+     * Where to fetch the signing keys. Empty in local development, where the
+     * public URL is reachable and discovery can find them on its own.
+     */
+    @Value("${app.keycloak.jwk-set-uri:}")
+    private String jwkSetUri;
 
     public SecurityConfig(KeycloakRoleConverter roleConverter) {
         this.roleConverter = roleConverter;
     }
 
     /**
-     * Declared explicitly rather than left to autoconfiguration.
+     * Declared explicitly rather than left to autoconfiguration, because the
+     * two halves of the job need different addresses once this runs in a
+     * container.
      *
-     * Built from the issuer, not from a hard-coded JWKS URL:
-     * fromIssuerLocation fetches the realm's discovery document, learns where
-     * the keys live, and validates the `iss` claim against this value. Point a
-     * decoder straight at the JWKS endpoint and the issuer check quietly
-     * disappears — tokens from any realm on the same server would then pass.
+     * The browser reaches Keycloak at http://localhost:8081, so that is what
+     * every token says its issuer is. The backend, inside the compose network,
+     * cannot resolve localhost:8081 — that is its own loopback. It reaches
+     * Keycloak at http://keycloak:8080 instead.
      *
-     * This runs at startup and contacts Keycloak, so the backend refuses to
-     * start while the identity provider is unreachable. That is the correct
-     * failure: an API that cannot verify signatures should not be serving.
+     * So: keys are fetched over the internal address, and the issuer claim is
+     * checked against the public one. Validating against the internal address
+     * would reject every real token; skipping the check would accept tokens
+     * from any realm on that server.
      */
     @Bean
     public JwtDecoder jwtDecoder() {
-        return JwtDecoders.fromIssuerLocation(issuerUri);
+        if (jwkSetUri.isBlank()) {
+            // Development: one address works for both, so let discovery do it.
+            return JwtDecoders.fromIssuerLocation(issuer);
+        }
+
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        // withJwkSetUri does not know the issuer, so it does not check it.
+        // Putting the validator back is the whole point of this branch.
+        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer));
+        return decoder;
     }
 
     @Bean
