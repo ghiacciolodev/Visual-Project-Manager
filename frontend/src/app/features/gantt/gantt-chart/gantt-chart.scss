@@ -196,12 +196,17 @@
 .lane {
   display: grid;
   grid-template-columns: repeat(var(--day-count), var(--day-width));
+  // Anything that fails to place itself must not silently create a new column
+  // at the end of the row. Without this the grid grows to absorb the mistake
+  // and every other row stops lining up with it.
+  grid-auto-columns: 0;
   height: var(--row-h);
   align-items: center;
   border-bottom: 1px solid var(--rule);
 }
 
 .bar {
+  grid-row: 1;
   height: 18px;
   min-width: 4px;
   border: 0;
@@ -233,6 +238,16 @@
     box-shadow: 0 3px 0 var(--ink);
   }
 
+  // Nothing happens on click for a viewer, so the cursor should not promise
+  // otherwise.
+  &--static {
+    cursor: default;
+
+    &:hover {
+      filter: none;
+    }
+  }
+
   &__label {
     font-family: var(--font-label);
     font-size: 11px;
@@ -243,6 +258,7 @@
 }
 
 .tail {
+  grid-row: 1;
   height: 10px;
   align-self: center;
   border: 1px solid var(--task-color);
@@ -263,7 +279,7 @@
   pointer-events: none;
   z-index: 2;
 
-path {
+  path {
     fill: none;
     stroke: var(--ink-2);
     stroke-width: 1;

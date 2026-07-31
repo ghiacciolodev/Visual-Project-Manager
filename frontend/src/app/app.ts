@@ -5,6 +5,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from './core/api.config';
 import { Profile, SessionService } from './core/session.service';
+import { ProjectService } from './core/project.service';
+import { TaskService } from './core/task.service';
 
 @Component({
   selector: 'app-root',
@@ -15,6 +17,9 @@ import { Profile, SessionService } from './core/session.service';
 export class App {
 
   readonly session = inject(SessionService);
+  readonly projects = inject(ProjectService);
+
+  private readonly tasks = inject(TaskService);
   private readonly http = inject(HttpClient);
 
   constructor() {
@@ -27,6 +32,19 @@ export class App {
         void this.loadProfile();
       }
     });
+  }
+
+  /**
+   * Switching project reloads everything downstream.
+   *
+   * Not a route change: the project is not in the URL, so there is nothing for
+   * the router to react to. Doing it explicitly here is clearer than a signal
+   * effect firing reloads from three places at once.
+   */
+  onProjectChange(event: Event): void {
+    const id = Number((event.target as HTMLSelectElement).value);
+    this.projects.select(id);
+    void this.tasks.reloadFor();
   }
 
   /**

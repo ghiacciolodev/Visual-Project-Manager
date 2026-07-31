@@ -3,6 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from './api.config';
+import { ProjectService } from './project.service';
 import { ProblemDetail, Task, TaskRef, TaskRequest, TaskStatus } from '../models/task.model';
 
 /** Thrown when the server rejects a payload field by field (400). */
@@ -15,10 +16,6 @@ export class ValidationError extends Error {
 /**
  * Thrown when the request is well formed but the graph forbids it (409):
  * a cycle, or finishing a task whose prerequisites are unfinished.
- *
- * Separate from ValidationError because the UI reacts differently: a
- * validation error belongs under an input, a conflict belongs at the top of
- * the form with the offending tasks named.
  */
 export class ConflictError extends Error {
   constructor(message: string, public readonly offenders: TaskRef[] = []) {
@@ -37,7 +34,7 @@ export class ConflictError extends Error {
 export class TaskService {
 
   private readonly http = inject(HttpClient);
-  private readonly url = `${API_BASE_URL}/tasks`;
+  private readonly projects = inject(ProjectService);
 
   private readonly _tasks = signal<Task[]>([]);
   private readonly _loading = signal(false);
@@ -60,11 +57,33 @@ export class TaskService {
     };
   });
 
+  /**
+   * Base URL for the current project's tasks.
+   *
+   * Built per call rather than stored, so switching project cannot leave a
+   * stale path behind — the kind of bug that writes into the wrong project and
+   * is only noticed later.
+   */
+  private url(): string {
+    const projectId = this.projects.currentId();
+    if (projectId === null) {
+      throw new Error('No project selected');
+    }
+    return `${API_BASE_URL}/projects/${projectId}/tasks`;
+  }
+
   async load(): Promise<void> {
+    // Projects first: without an id there is no URL to call.
+    await this.projects.load();
+    if (this.projects.currentId() === null) {
+      this._tasks.set([]);
+      return;
+    }
+
     this._loading.set(true);
     this._error.set(null);
     try {
-      this._tasks.set(await firstValueFrom(this.http.get<Task[]>(this.url)));
+      this._tasks.set(await firstValueFrom(this.http.get<Task[]>(this.url())));
     } catch (err) {
       this._error.set(this.readMessage(err, 'Could not load tasks'));
     } finally {
@@ -72,21 +91,27 @@ export class TaskService {
     }
   }
 
+  /** Clears and reloads. Called when the person switches project. */
+  async reloadFor(): Promise<void> {
+    this._tasks.set([]);
+    this._error.set(null);
+    await this.load();
+  }
+
   /**
    * Re-fetches without showing the loading state.
    *
-   * Needed because blocking is a *derived* property of the whole graph, not of
-   * one row: finishing a task unblocks all of its successors, and none of
-   * those rows were touched by the request. Patching one task locally would
-   * leave every other row's lock icon stale, so after any graph-affecting
-   * change the list is reconciled with the server. Quietly, so the chart does
-   * not blink on every status click.
+   * Blocking is a property of the whole graph, not of one row: finishing a
+   * task unblocks all of its successors, and none of those rows were touched
+   * by the request. Patching one task locally would leave every other row's
+   * status stale, so after any graph-affecting change the list is reconciled
+   * with the server — quietly, so the chart does not blink on every click.
    */
   private async refresh(): Promise<void> {
     try {
-      this._tasks.set(await firstValueFrom(this.http.get<Task[]>(this.url)));
+      this._tasks.set(await firstValueFrom(this.http.get<Task[]>(this.url())));
     } catch {
-      // A failed background refresh is not worth interrupting the user over:
+      // A failed background refresh is not worth interrupting anyone over:
       // the visible row is already correct, only derived state may lag.
     }
   }
@@ -98,7 +123,7 @@ export class TaskService {
    */
   async create(request: TaskRequest): Promise<Task> {
     try {
-      const created = await firstValueFrom(this.http.post<Task>(this.url, request));
+      const created = await firstValueFrom(this.http.post<Task>(this.url(), request));
       this._tasks.update(tasks => this.sorted([...tasks, created]));
       return created;
     } catch (err) {
@@ -109,7 +134,7 @@ export class TaskService {
   async update(id: number, request: TaskRequest): Promise<Task> {
     try {
       const updated = await firstValueFrom(
-        this.http.put<Task>(`${this.url}/${id}`, request)
+        this.http.put<Task>(`${this.url()}/${id}`, request)
       );
       this._tasks.update(tasks =>
         this.sorted(tasks.map(t => (t.id === id ? updated : t)))
@@ -138,7 +163,7 @@ export class TaskService {
 
     try {
       await firstValueFrom(
-        this.http.put<Task>(`${this.url}/${task.id}`, { ...this.toRequest(task), status })
+        this.http.put<Task>(`${this.url()}/${task.id}`, { ...this.toRequest(task), status })
       );
       void this.refresh();
     } catch (err) {
@@ -152,7 +177,7 @@ export class TaskService {
     this._tasks.update(tasks => tasks.filter(t => t.id !== id));
 
     try {
-      await firstValueFrom(this.http.delete<void>(`${this.url}/${id}`));
+      await firstValueFrom(this.http.delete<void>(`${this.url()}/${id}`));
       // Deleting a task drops its edges, so other rows may stop being blocked.
       void this.refresh();
     } catch (err) {
@@ -166,7 +191,7 @@ export class TaskService {
   async addDependency(taskId: number, predecessorId: number): Promise<void> {
     try {
       const updated = await firstValueFrom(
-        this.http.post<Task>(`${this.url}/${taskId}/dependencies`, { predecessorId })
+        this.http.post<Task>(`${this.url()}/${taskId}/dependencies`, { predecessorId })
       );
       this._tasks.update(tasks => tasks.map(t => (t.id === taskId ? updated : t)));
     } catch (err) {
@@ -177,7 +202,7 @@ export class TaskService {
   async removeDependency(taskId: number, predecessorId: number): Promise<void> {
     try {
       const updated = await firstValueFrom(
-        this.http.delete<Task>(`${this.url}/${taskId}/dependencies/${predecessorId}`)
+        this.http.delete<Task>(`${this.url()}/${taskId}/dependencies/${predecessorId}`)
       );
       this._tasks.update(tasks => tasks.map(t => (t.id === taskId ? updated : t)));
     } catch (err) {
@@ -256,6 +281,11 @@ export class TaskService {
       // CORS rejected it before the response was readable.
       if (err.status === 0) {
         return 'Cannot reach the server. Check that the backend is running on port 8080.';
+      }
+      // 403 is a role problem, not an outage. Saying so plainly is more use
+      // than a generic failure the person cannot act on.
+      if (err.status === 403) {
+        return 'Your role in this project does not allow that.';
       }
       const problem = err.error as ProblemDetail;
       return problem?.detail ?? problem?.title ?? fallback;

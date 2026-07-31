@@ -3,7 +3,7 @@
   <header class="masthead">
     <div class="masthead__identity">
       <p class="masthead__eyebrow label">Chart</p>
-      <h1 class="masthead__title">{{ project.current()?.name ?? 'Chart' }}</h1>
+      <h1 class="masthead__title">{{ projects.current()?.name ?? 'Chart' }}</h1>
     </div>
 
     <div class="masthead__tools">
@@ -58,7 +58,9 @@
   } @else if (taskService.isEmpty()) {
     <div class="state">
       <p class="state__line">Nothing to plot yet.</p>
-      <a class="action" routerLink="/tasks">Add a task</a>
+      @if (projects.canEdit()) {
+        <a class="action" routerLink="/tasks">Add a task</a>
+      }
     </div>
   } @else {
 
@@ -79,8 +81,10 @@
                   [style.background]="row.task.color"
                   [style.color]="barText(row.task.color)">{{ rowNumber(i) }}</span>
             <span class="name__title">{{ row.task.title }}</span>
-            @if (!isCritical(row.task.id) && floatOf(row.task.id) > 0) {
-              <span class="name__float mono">+{{ floatOf(row.task.id) }}</span>
+            <!-- How far this bar can move from where it is drawn, not the raw
+                 total float: the reader is looking at the bar. -->
+            @if (slipOf(row) > 0) {
+              <span class="name__float mono">+{{ slipOf(row) }}</span>
             }
           </div>
         }
@@ -154,20 +158,23 @@
                   before the project's end date moves. Critical tasks have none,
                   which is precisely what makes them critical.
                 -->
-                @if (floatColumns(row.task.id) > 0) {
+                @if (floatColumns(row) > 0) {
                   <div class="tail"
-                       [style.grid-column]="(row.offset + row.length + 1) + ' / span ' + floatColumns(row.task.id)"
+                       [style.grid-column-start]="tailStart(row)"
+                       [style.grid-column-end]="'span ' + floatColumns(row)"
                        [style.--task-color]="row.task.color"
                        aria-hidden="true"></div>
                 }
 
                 <button type="button"
                         class="bar"
-                        [style.grid-column]="(row.offset + 1) + ' / span ' + row.length"
+                        [style.grid-column-start]="barStart(row)"
+                        [style.grid-column-end]="'span ' + row.length"
                         [style.background]="row.task.color"
                         [style.color]="barText(row.task.color)"
                         [class.bar--done]="row.task.status === 'DONE'"
                         [class.bar--critical]="isCritical(row.task.id)"
+                        [class.bar--static]="!projects.canEdit()"
                         [title]="barTitle(row)"
                         (click)="openEdit(row.task)">
                   <span class="bar__label">{{ row.task.title }}</span>
@@ -180,7 +187,7 @@
     </div>
 
     <p class="legend mono">
-      Heavy rule marks the critical path · Hatched tails show available float ·
+      Heavy rule marks the critical path · Hatched tails show how far a task can slip ·
       Arrows point from a task to what waits on it · Shaded columns are weekends
     </p>
   }

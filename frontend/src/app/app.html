@@ -9,6 +9,19 @@
     <a class="rail__tab label" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
     <a class="rail__tab label" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
 
+    <!-- Only shown once there is a choice to make. A picker with one option is
+         a label pretending to be a control. -->
+    @if (projects.projects().length > 1) {
+      <select class="rail__project label"
+              [value]="projects.currentId()"
+              (change)="onProjectChange($event)"
+              aria-label="Project">
+        @for (project of projects.projects(); track project.id) {
+          <option [value]="project.id">{{ project.name }}</option>
+        }
+      </select>
+    }
+
     <div class="rail__account">
       @if (session.profile(); as profile) {
         <span class="who">
@@ -34,9 +47,7 @@
     <div class="gate">
       <p class="gate__eyebrow label">Visual Project Manager</p>
       <h1 class="gate__title">Plan the work. See what it costs.</h1>
-      <p class="gate__body">
-        Sign in to open your schedule.
-      </p>
+      <p class="gate__body">Sign in to open your schedule.</p>
       <button type="button" class="action" (click)="session.signIn()">Sign in</button>
       <p class="gate__hint mono">Try ada / password</p>
     </div>

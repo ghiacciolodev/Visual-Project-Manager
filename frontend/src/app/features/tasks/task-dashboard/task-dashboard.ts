@@ -19,7 +19,7 @@ export class TaskDashboard implements OnInit {
   // Injected as public fields so the template reads their signals directly.
   // No local copy of the list: duplicating it here is how two views drift.
   readonly taskService = inject(TaskService);
-  readonly project = inject(ProjectService);
+  readonly projects = inject(ProjectService);
 
   readonly formOpen = signal(false);
   readonly editing = signal<Task | null>(null);
@@ -37,8 +37,8 @@ export class TaskDashboard implements OnInit {
   private readonly form = viewChild(TaskForm);
 
   ngOnInit(): void {
+    // load() resolves the project first, so one call covers both.
     void this.taskService.load();
-    void this.project.load();
   }
 
   openCreate(): void {

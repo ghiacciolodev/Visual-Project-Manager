@@ -25,6 +25,9 @@ export class TaskCard {
   /** Shared project window. Every row measures against the same scale. */
   readonly span = input.required<Span | null>();
 
+  /** True for viewers: the row shows everything and offers no controls. */
+  readonly readonly = input(false);
+
   readonly edit = output<Task>();
   readonly remove = output<Task>();
   readonly statusChange = output<{ task: Task; status: TaskStatus }>();
@@ -37,11 +40,18 @@ export class TaskCard {
   /** Two-digit row number, so the gutter column never reflows. */
   readonly rowNumber = computed(() => String(this.index() + 1).padStart(2, '0'));
 
+  /** Blocker names as a sentence: "A", "A and B", "A, B and C". */
+  readonly blockerNames = computed(() => {
+    const names = this.task().blockedBy.map(ref => ref.title);
+    if (names.length <= 1) return names[0] ?? '';
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  });
+
   /**
    * Geometry of the inline bar, as percentages of the project span.
    *
    * Percentages rather than pixels so the preview reflows with the column and
-   * stays honest at any width — the same approach the full chart will take.
+   * stays honest at any width — the same approach the full chart takes.
    */
   readonly bar = computed(() => {
     const span = this.span();
@@ -80,13 +90,6 @@ export class TaskCard {
       0.0722 * toLinear(parseInt(hex.slice(4, 6), 16) / 255);
 
     return luminance > 0.55 ? '#14202b' : '#f7f9fa';
-  });
-
-  /** Blocker names as a sentence: "A", "A and B", "A, B and C". */
-  readonly blockerNames = computed(() => {
-    const names = this.task().blockedBy.map(ref => ref.title);
-    if (names.length <= 1) return names[0] ?? '';
-    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   });
 
   onStatusChange(event: Event): void {

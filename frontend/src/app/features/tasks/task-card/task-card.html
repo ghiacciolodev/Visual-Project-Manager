@@ -12,7 +12,7 @@
   <div class="row__identity">
     <h2 class="row__title">{{ task().title }}</h2>
 
-<div class="row__meta">
+    <div class="row__meta">
       <!-- The square encodes progress by how much of it is filled: empty,
            half, solid. Colour is not doing the work, so it reads the same
            for a colour-blind user. -->
@@ -30,14 +30,12 @@
       }
 
       <!-- Blocking is stated in words, not left to an icon. "Waits for
-           Database Setup" tells you what to do next; a padlock only tells you
+           Build the API" tells you what to do next; a padlock only tells you
            that you cannot. -->
       @if (task().blockedBy.length) {
         <span class="blocked">
           <span class="blocked__mark" aria-hidden="true">⌸</span>
-          <span class="blocked__text">
-            Waits for {{ blockerNames() }}
-          </span>
+          <span class="blocked__text">Waits for {{ blockerNames() }}</span>
         </span>
       } @else if (task().description) {
         <span class="row__note">{{ task().description }}</span>
@@ -45,8 +43,8 @@
     </div>
   </div>
 
-  <!-- Signature element: the same day grid the Gantt will use, one row tall.
-       Overlaps between tasks are visible without leaving the page. -->
+  <!-- The same day grid the Gantt uses, one row tall. Overlaps between tasks
+       are visible without leaving the page. -->
   <div class="row__schedule">
     @if (bar(); as geometry) {
       <div class="track" role="img"
@@ -70,16 +68,30 @@
   </div>
 
   <div class="row__actions">
-    <select class="select label"
-            [value]="task().status"
-            (change)="onStatusChange($event)"
-            [attr.aria-label]="'Status of ' + task().title">
-      <option value="TODO">To do</option>
-      <option value="DOING">Doing</option>
-      <option value="DONE">Done</option>
-    </select>
+    <!--
+      A viewer sees the same information and none of the controls. Saying "view
+      only" rather than showing disabled buttons: a greyed-out row of controls
+      invites the question of how to enable them, when the answer is a
+      conversation with the project's owner.
+    -->
+    @if (readonly()) {
+      <span class="label row__viewing">View only</span>
+    } @else {
+      <!--
+        A native select for the status: keyboard accessible and working on
+        mobile with no extra code, which a custom dropdown would not be.
+      -->
+      <select class="select label"
+              [value]="task().status"
+              (change)="onStatusChange($event)"
+              [attr.aria-label]="'Status of ' + task().title">
+        <option value="TODO">To do</option>
+        <option value="DOING">Doing</option>
+        <option value="DONE">Done</option>
+      </select>
 
-    <button type="button" class="link label" (click)="edit.emit(task())">Edit</button>
-    <button type="button" class="link label link--danger" (click)="remove.emit(task())">Delete</button>
+      <button type="button" class="link label" (click)="edit.emit(task())">Edit</button>
+      <button type="button" class="link label link--danger" (click)="remove.emit(task())">Delete</button>
+    }
   </div>
 </div>

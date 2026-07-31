@@ -18,6 +18,7 @@ import { ProjectService } from '../../../core/project.service';
 import { Task } from '../../../models/task.model';
 import {
   DayCell,
+  addDays,
   daysBetween,
   durationDays,
   eachDay,
@@ -70,7 +71,7 @@ export class GanttChart implements OnInit, AfterViewInit {
   /** Derived schedule: critical path and float. Never written to, only recomputed. */
   readonly schedule = inject(ScheduleAnalysisService);
 
-  readonly project = inject(ProjectService);
+  readonly projects = inject(ProjectService);
 
   readonly zoom = signal<Zoom>('days');
   readonly dayWidth = computed(() => DAY_WIDTH[this.zoom()]);
@@ -208,25 +209,51 @@ export class GanttChart implements OnInit, AfterViewInit {
     return paths;
   });
 
-  /* --- critical path --------------------------------------------------- */
+  /* --- critical path and slack ----------------------------------------- */
 
   isCritical(taskId: number): boolean {
     return this.schedule.criticalIds().has(taskId);
   }
 
+  /** Total float as CPM defines it: earliest start versus latest start. */
   floatOf(taskId: number): number {
     return this.schedule.byTask().get(taskId)?.totalFloat ?? 0;
   }
 
   /**
-   * Length of the float tail in day columns.
+   * How far this bar can move right from where it is drawn.
    *
-   * Drawn from the planned end rather than from the computed latest finish:
-   * the chart is a picture of the plan, and "this bar can move N days to the
-   * right" is the question a reader is actually asking of it.
+   * Not the same as total float, and the difference is the whole reason this
+   * exists. Total float measures slack from a task's *earliest* possible
+   * start; the chart draws bars at their *planned* start, which is often
+   * later. A task with 23 days of total float that is already planned seven
+   * days late can only slip sixteen — and sixteen is the number a reader is
+   * asking for when they look at the bar.
    */
-  floatColumns(taskId: number): number {
-    return this.showFloat() ? this.floatOf(taskId) : 0;
+  slipOf(row: ChartRow): number {
+    const analysis = this.schedule.analysis();
+    const entry = this.schedule.byTask().get(row.task.id);
+
+    if (!analysis?.projectStart || !entry || entry.critical) return 0;
+
+    // latestFinish counts days from the anchor, which is day zero, so the last
+    // permissible day is anchor + latestFinish - 1.
+    const latestEnd = addDays(analysis.projectStart, entry.latestFinish - 1);
+    return Math.max(0, daysBetween(row.task.endDate, latestEnd));
+  }
+
+  /**
+   * The tail in day columns, clamped to the drawn window.
+   *
+   * Without the clamp a long tail spans past the last column, CSS Grid invents
+   * implicit ones to hold it, and the row stops lining up with everything else
+   * — which is exactly what a 23-day tail on a 28-day chart did.
+   */
+  floatColumns(row: ChartRow): number {
+    if (!this.showFloat()) return 0;
+
+    const remaining = this.days().length - (row.offset + row.length);
+    return Math.min(this.slipOf(row), Math.max(0, remaining));
   }
 
   toggleFloat(): void {
@@ -236,10 +263,9 @@ export class GanttChart implements OnInit, AfterViewInit {
   /* --- lifecycle and interaction --------------------------------------- */
 
   ngOnInit(): void {
-    // The store may already be populated from the dashboard; calling load()
-    // anyway is what keeps a deep link to /gantt working.
+    // load() resolves the project first, so one call covers both — and keeps
+    // a deep link to /gantt working without the dashboard having run.
     void this.taskService.load();
-    void this.project.load();
   }
 
   ngAfterViewInit(): void {
@@ -262,6 +288,9 @@ export class GanttChart implements OnInit, AfterViewInit {
   }
 
   openEdit(task: Task): void {
+    // A viewer's click does nothing. The server would refuse the save anyway;
+    // this is what stops the form opening only to fail on submit.
+    if (!this.projects.canEdit()) return;
     this.editing.set(task);
   }
 
@@ -295,17 +324,37 @@ export class GanttChart implements OnInit, AfterViewInit {
 
   /** Tooltip text on a bar. */
   barTitle(row: ChartRow): string {
-    const slack = this.floatOf(row.task.id);
     const base = `${row.task.title} · ${formatDay(row.task.startDate)} → ${formatDay(row.task.endDate)} · ${row.length}d`;
 
     if (this.isCritical(row.task.id)) {
       return `${base} · on the critical path`;
     }
-    return slack > 0 ? `${base} · can slip ${slack}d` : base;
+
+    // Both numbers, because they answer different questions and a reader who
+    // knows CPM will want to reconcile them.
+    const slip = this.slipOf(row);
+    return slip > 0
+      ? `${base} · can slip ${slip}d · ${this.floatOf(row.task.id)}d total float`
+      : base;
   }
 
   rowNumber(index: number): string {
     return String(index + 1).padStart(2, '0');
+  }
+
+  /**
+   * Grid position of the bar. Split into start and span rather than composed
+   * into one "10 / span 16" string: a shorthand assembled at runtime is a
+   * single opaque value to the style binding, and a mis-parse silently falls
+   * back to auto-placement — which puts the element in the first free cell
+   * instead of on its date.
+   */
+  barStart(row: ChartRow): number {
+    return row.offset + 1;
+  }
+
+  tailStart(row: ChartRow): number {
+    return row.offset + row.length + 1;
   }
 
   /**

@@ -44,6 +44,27 @@
     }
   }
 
+  &__project {
+    align-self: center;
+    font-size: 10px;
+    color: var(--ink-3);
+    background: transparent;
+    border: 1px solid var(--ink-2);
+    border-radius: 0;
+    padding: calc(var(--u)) calc(var(--u) * 2);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--ink-invert);
+    }
+
+    // The dropdown list is drawn by the operating system on paper, not on the
+    // dark rail, so its text needs the dark ink instead.
+    option {
+      color: var(--ink);
+    }
+  }
+
   &__account {
     display: flex;
     align-items: center;

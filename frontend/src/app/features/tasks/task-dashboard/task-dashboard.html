@@ -3,9 +3,7 @@
   <header class="masthead">
     <div class="masthead__identity">
       <p class="masthead__eyebrow label">Schedule</p>
-      <!-- The name comes from the server. Hard-coding it here was fine while
-           there was one seeded project; now every account has its own. -->
-      <h1 class="masthead__title">{{ project.current()?.name ?? 'Schedule' }}</h1>
+      <h1 class="masthead__title">{{ projects.current()?.name ?? 'Schedule' }}</h1>
     </div>
 
     <div class="masthead__readout">
@@ -20,13 +18,13 @@
       </p>
     </div>
 
-    <button type="button" class="action" (click)="openCreate()">New task</button>
+    <!-- Hidden for viewers. The server refuses the write either way; hiding
+         the button is a courtesy, not the control. -->
+    @if (projects.canEdit()) {
+      <button type="button" class="action" (click)="openCreate()">New task</button>
+    }
   </header>
 
-  <!--
-    An error explains what happened and what to do about it, in the interface's
-    voice. It does not apologise and it is not vague.
-  -->
   @if (taskService.error(); as message) {
     <div class="notice" role="alert">
       <span>{{ message }}</span>
@@ -37,10 +35,11 @@
   @if (taskService.loading()) {
     <p class="state mono">Loading schedule…</p>
   } @else if (taskService.isEmpty()) {
-    <!-- An empty screen is an invitation to act, not a shrug. -->
     <div class="state state--empty">
       <p class="state__line">Nothing scheduled yet.</p>
-      <button type="button" class="action" (click)="openCreate()">Add the first task</button>
+      @if (projects.canEdit()) {
+        <button type="button" class="action" (click)="openCreate()">Add the first task</button>
+      }
     </div>
   } @else {
     <div class="ledger">
@@ -53,6 +52,7 @@
           [task]="task"
           [index]="i"
           [span]="span()"
+          [readonly]="!projects.canEdit()"
           (edit)="openEdit($event)"
           (remove)="onDelete($event)"
           (statusChange)="onStatusChange($event)" />

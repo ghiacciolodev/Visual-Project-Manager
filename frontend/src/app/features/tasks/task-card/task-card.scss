@@ -73,6 +73,11 @@
     padding: 0 calc(var(--u) * 4);
     border-left: 1px solid var(--rule);
   }
+
+  &__viewing {
+    font-size: 10px;
+    color: var(--ink-3);
+  }
 }
 
 /* --- the inline timeline ------------------------------------------------ */
@@ -127,7 +132,7 @@
   }
 }
 
-/* --- state and priority ------------------------------------------------- */
+/* --- state, priority, blocking ------------------------------------------ */
 
 .state {
   display: inline-flex;
@@ -165,6 +170,27 @@
     color: var(--ink);
     border-bottom: 2px solid var(--ink);
     padding-bottom: 1px;
+  }
+}
+
+.blocked {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.5);
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ink-2);
+
+  &__mark {
+    color: var(--ink-3);
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -224,26 +250,5 @@
     &__gutter {
       grid-row: 1 / -1;
     }
-  }
-}
-
-.blocked {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--u) * 1.5);
-  min-width: 0;
-  font-size: 11px;
-  color: var(--ink-2);
-
-  &__mark {
-    color: var(--ink-3);
-    font-size: 12px;
-    line-height: 1;
-  }
-
-  &__text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
