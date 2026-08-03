@@ -96,6 +96,23 @@ export class TaskCard {
   readonly statusLabel = computed(() => STATUS_WORDS[this.task().status]);
   readonly priorityLabel = computed(() => PRIORITY_WORDS[this.task().priority]);
 
+  /**
+   * Initials for the assignee chip.
+   *
+   * Falls back to the first two characters when there is nothing to split on,
+   * which is the ordinary case for somebody invited by email and not yet
+   * signed in: their display name is their address until Keycloak supplies a
+   * real one.
+   */
+  initialsOf(displayName: string): string {
+    const parts = displayName.trim().split(/[\s@._-]+/).filter(Boolean);
+
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return displayName.trim().slice(0, 2).toUpperCase();
+  }
+
   onStatusChange(event: Event): void {
     const status = (event.target as HTMLSelectElement).value as TaskStatus;
     this.statusChange.emit({ task: this.task(), status });

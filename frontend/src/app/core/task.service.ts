@@ -239,7 +239,15 @@ export class TaskService {
 
   /* --- internals ------------------------------------------------------ */
 
-  /** Strips server-owned fields: the API must never receive them back. */
+  /**
+   * Strips server-owned fields: the API must never receive them back.
+   *
+   * assigneeId has to be here even though nothing on this path edits it. The
+   * request replaces every mutable field, so a value left out is a value set
+   * to null — and changeStatus, which builds its payload from this, would
+   * quietly unassign whoever was doing the work every time somebody moved a
+   * task to Doing.
+   */
   private toRequest(task: Task): TaskRequest {
     return {
       title: task.title,
@@ -249,6 +257,7 @@ export class TaskService {
       startDate: task.startDate,
       endDate: task.endDate,
       color: task.color,
+      assigneeId: task.assignee?.id ?? null,
     };
   }
 

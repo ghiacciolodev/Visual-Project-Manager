@@ -163,6 +163,45 @@
   white-space: nowrap;
 }
 
+/* --- assignee ----------------------------------------------------------- */
+
+.assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.5);
+  min-width: 0;
+
+  // Initials as well as the name, so the row still scans when the column is
+  // narrow enough to clip the text.
+  &__initials {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: var(--radius-pill);
+  }
+
+  &__name {
+    font-size: 13px;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1000px) {
+  // The initials carry it on their own once space is short.
+  .assignee__name {
+    display: none;
+  }
+}
+
 /* --- controls ----------------------------------------------------------- */
 
 .select {

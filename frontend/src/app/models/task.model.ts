@@ -4,6 +4,12 @@
 export type TaskStatus = 'TODO' | 'DOING' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
+/** Whoever is doing a task. Carried on the task, not resolved from the roster. */
+export interface Assignee {
+  id: number;
+  displayName: string;
+}
+
 /** A task referred to from elsewhere: a predecessor, or a blocker in an error. */
 export interface TaskRef {
   id: number;
@@ -32,6 +38,15 @@ export interface Task {
    * two implementations of one rule, free to drift.
    */
   blockedBy: TaskRef[];
+
+  /**
+   * Who is doing this, or null for nobody.
+   *
+   * The name arrives with the task rather than being looked up in the member
+   * list. Reading the plan and administering it are different powers, so an
+   * editor holds no roster to resolve an id against.
+   */
+  assignee: Assignee | null;
 }
 
 /** Matches TaskRequest. No id: the server assigns it. */
@@ -43,6 +58,7 @@ export interface TaskRequest {
   startDate: string;
   endDate: string;
   color: string;
+  assigneeId: number | null;
 }
 
 /**

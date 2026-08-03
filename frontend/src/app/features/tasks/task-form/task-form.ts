@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+
+import { MemberService } from '../../../core/member.service';
 
 import {
   Task,
@@ -24,7 +26,17 @@ export interface TaskFormResult {
   styleUrl: './task-form.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TaskForm {
+export class TaskForm implements OnInit {
+
+  /**
+   * The project's members, for the assignee picker.
+   *
+   * Loaded here rather than passed in, because the form is the only place
+   * that needs them and the panel is opened rarely. Reading the roster needs
+   * no more than membership — administering it is what needs an owner — so an
+   * editor gets the list they need to hand work to somebody.
+   */
+  readonly members = inject(MemberService);
 
   /** null = creating, a task = editing. One component serves both. */
   readonly task = input<Task | null>(null);
@@ -86,7 +98,13 @@ export class TaskForm {
     startDate: [this.today(), [Validators.required]],
     endDate: [this.today(), [Validators.required]],
     color: ['#3B82F6', [Validators.required, Validators.pattern(/^#[0-9A-Fa-f]{6}$/)]],
+    // A string because that is what a <select> holds; '' means nobody.
+    assigneeId: [''],
   });
+
+  ngOnInit(): void {
+    void this.members.load();
+  }
 
   constructor() {
     // Fills the form when a task is passed in. An effect rather than
@@ -103,6 +121,7 @@ export class TaskForm {
           startDate: task.startDate,
           endDate: task.endDate,
           color: task.color,
+          assigneeId: task.assignee ? String(task.assignee.id) : '',
         });
         this.picked.set([...task.dependsOn]);
       } else {
@@ -114,6 +133,7 @@ export class TaskForm {
           startDate: this.today(),
           endDate: this.today(),
           color: '#3B82F6',
+          assigneeId: '',
         });
         this.picked.set([]);
       }
@@ -150,9 +170,15 @@ export class TaskForm {
       return;
     }
 
-    const value = this.form.getRawValue();
+    const { assigneeId, description, ...rest } = this.form.getRawValue();
+
     this.save.emit({
-      request: { ...value, description: value.description.trim() || null },
+      request: {
+        ...rest,
+        description: description.trim() || null,
+        // '' is the picker's way of saying nobody; the API wants null.
+        assigneeId: assigneeId ? Number(assigneeId) : null,
+      },
       dependencies: this.picked().map(ref => ref.id),
     });
   }

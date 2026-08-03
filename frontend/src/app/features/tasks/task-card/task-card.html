@@ -23,6 +23,15 @@
            the same as marking none. -->
       <span class="priority" [attr.data-priority]="task().priority">{{ priorityLabel() }}</span>
 
+      <!-- Only when somebody is named. An "Unassigned" chip on every row would
+           spend the reader's attention on the absence of information. -->
+      @if (task().assignee; as assignee) {
+        <span class="assignee" [title]="'Assigned to ' + assignee.displayName">
+          <span class="assignee__initials" aria-hidden="true">{{ initialsOf(assignee.displayName) }}</span>
+          <span class="assignee__name">{{ assignee.displayName }}</span>
+        </span>
+      }
+
       <!-- Blocking is stated in words, not left to an icon. "Waits for
            Build the API" tells you what to do next; a padlock only tells you
            that you cannot. -->

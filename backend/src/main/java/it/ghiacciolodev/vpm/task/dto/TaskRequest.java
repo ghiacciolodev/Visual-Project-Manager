@@ -46,7 +46,18 @@ public record TaskRequest(
     @NotBlank(message = "Color is required")
     @Pattern(regexp = "^#[0-9A-Fa-f]{6}$",
         message = "Color must be a 6-digit hex value, e.g. #3B82F6")
-    String color
+    String color,
+
+    /**
+     * Who is doing this, or null for nobody.
+     *
+     * Deliberately unconstrained by an annotation: "is a member of this
+     * project" is not something a validator can know, and the check belongs
+     * next to the data anyway. TaskService refuses an id that is not in the
+     * project, which is what stops a task being assigned to an arbitrary user
+     * id guessed from outside.
+     */
+    Long assigneeId
 
 ) implements DateRange {
 }

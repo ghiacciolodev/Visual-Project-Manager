@@ -33,10 +33,17 @@ public record TaskResponse(
      * the one that gets to say when it applies — otherwise two
      * implementations of the same rule drift apart.
      */
-    List<TaskRef> blockedBy
+    List<TaskRef> blockedBy,
+
+    /** Who is doing this, or null when nobody has been named. */
+    AssigneeRef assignee
 ) {
 
     public static TaskResponse from(Task task, List<TaskRef> predecessors) {
+        return from(task, predecessors, null);
+    }
+
+    public static TaskResponse from(Task task, List<TaskRef> predecessors, AssigneeRef assignee) {
         List<TaskRef> blockers = predecessors.stream()
             .filter(ref -> ref.status() != TaskStatus.DONE)
             .toList();
@@ -51,7 +58,8 @@ public record TaskResponse(
             task.getEndDate(),
             task.getColor(),
             predecessors,
-            blockers
+            blockers,
+            assignee
         );
     }
 }

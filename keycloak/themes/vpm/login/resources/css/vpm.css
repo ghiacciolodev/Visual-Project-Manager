@@ -1,0 +1,412 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+/* ===================================================================
+   The sign-in pages, in the application's tokens.
+
+   Same values as the Angular app's styles.scss, repeated rather than
+   shared: Keycloak serves these pages, and there is no build step
+   between the two projects that could import one from the other. If
+   the palette moves there, it has to move here too.
+
+   No templates are overridden. Everything below repaints markup the
+   parent theme already renders, which is what keeps this a stylesheet
+   instead of a fork.
+   =================================================================== */
+
+:root {
+  --bg:          #f4f6f8;
+  --surface:     #ffffff;
+  --surface-2:   #f7f9fb;
+  --surface-3:   #eef2f6;
+
+  --border:      #e3e8ed;
+  --border-2:    #ccd4dd;
+
+  --text:        #1a2230;
+  --text-2:      #4a5768;
+  --text-3:      #5c6b7a;
+  --text-invert: #ffffff;
+
+  --accent:       #2f5bd8;
+  --accent-hover: #2449b5;
+  --accent-ring:  #b9ccf7;
+
+  --danger:      #b91c1c;
+  --danger-soft: #fdecec;
+
+  --font-ui:   'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius:    10px;
+  --radius-sm: 6px;
+
+  --shadow-lg: 0 12px 32px rgb(16 24 40 / 14%);
+
+  --u: 4px;
+}
+
+/* --- the page ----------------------------------------------------- */
+
+body#keycloak-bg,
+.login-pf-page,
+.pf-v5-c-login {
+  /* The parent theme paints a dark photographic background here. */
+  background: var(--bg) none;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pf-v5-c-login__container {
+  max-width: 460px;
+  gap: calc(var(--u) * 6);
+}
+
+/* --- masthead ----------------------------------------------------- */
+
+/* Carries the realm's display name, "Visual Project Manager" — the same
+   words the application's own gate opens with.
+
+   !important on the colour, matching the parent, which sets
+   `color: var(--pf-v5-global--Color--light-100) !important` — near-white,
+   for the dark photograph it used to sit on. Against a light background
+   that is a heading you cannot read, and nothing short of !important
+   takes it back. */
+#kc-header-wrapper,
+.pf-v5-c-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--u) * 2.5);
+
+  font-family: var(--font-ui);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--text) !important;
+  padding: 0;
+}
+
+/* The mark, as a data URI so the header carries a logo without a template
+   override and without a second request. Same three staggered bars as the
+   application's own rail and its favicon. */
+#kc-header-wrapper::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f5bd8'/%3E%3Crect x='7' y='9' width='16' height='4.5' rx='2.25' fill='%23fff'/%3E%3Crect x='11' y='15' width='14' height='4.5' rx='2.25' fill='%23fff' opacity='.72'/%3E%3Crect x='7' y='21' width='9' height='4.5' rx='2.25' fill='%23fff' opacity='.45'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+/* --- the card ----------------------------------------------------- */
+
+.pf-v5-c-login__main {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.pf-v5-c-login__main-header {
+  padding: calc(var(--u) * 7) calc(var(--u) * 7) calc(var(--u) * 2);
+}
+
+#kc-page-title,
+.pf-v5-c-title.pf-m-3xl {
+  font-family: var(--font-ui);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+
+.pf-v5-c-login__main-body {
+  padding: calc(var(--u) * 4) calc(var(--u) * 7) calc(var(--u) * 7);
+}
+
+/* --- fields ------------------------------------------------------- */
+
+.pf-v5-c-form__label,
+.pf-v5-c-form__label-text {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-2);
+}
+
+/*
+ * Fields, driven through PatternFly's variables rather than around them.
+ *
+ * .pf-v5-c-form-control is a <span> wrapping the <input>, and its border is
+ * drawn by ::before and ::after pseudo-elements rather than by a border
+ * property. Setting `border` and `background` here directly — the obvious
+ * thing — produced a box inside a box: my border around the wrapper, the
+ * pseudo-element border still drawn inside it, and the input keeping its own
+ * fill. The password row was worse, because the reveal button sits in an
+ * input group and ended up outside the border I had invented.
+ *
+ * Moving the variables instead means the one border PatternFly already draws
+ * is simply a different colour.
+ */
+/*
+ * The wrapper only.
+ *
+ * :not(input) is load-bearing. On the login page the class sits on a <span>
+ * wrapping the field, but Keycloak's user-profile renderer — which draws the
+ * registration form — puts the same class on the <input> as well, inside that
+ * span. Styling the class flat gave a bordered box inside a bordered box on
+ * every registration field, which is what the doubled outline was.
+ */
+.pf-v5-c-form-control:not(input):not(select):not(textarea) {
+  --pf-v5-c-form-control--BackgroundColor: var(--surface);
+  --pf-v5-c-form-control--Color: var(--text);
+  --pf-v5-c-form-control--m-placeholder--Color: var(--text-3);
+
+  /* The four sides of the resting border. */
+  --pf-v5-c-form-control--before--BorderTopColor: var(--border-2);
+  --pf-v5-c-form-control--before--BorderRightColor: var(--border-2);
+  --pf-v5-c-form-control--before--BorderBottomColor: var(--border-2);
+  --pf-v5-c-form-control--before--BorderLeftColor: var(--border-2);
+  --pf-v5-c-form-control--before--BorderBottomWidth: 1px;
+
+  /* PatternFly thickens the bottom edge on hover and focus, the way a
+     Material text field does. Matched to the accent so focus reads as one
+     gesture rather than two colours. */
+  --pf-v5-c-form-control--after--BorderBottomColor: transparent;
+  --pf-v5-c-form-control--after--BorderBottomWidth: 0;
+  --pf-v5-c-form-control--hover--after--BorderBottomColor: var(--accent);
+  --pf-v5-c-form-control--focus--after--BorderBottomColor: var(--accent);
+  --pf-v5-c-form-control--focus--after--BorderBottomWidth: 2px;
+  --pf-v5-c-form-control--m-error--after--BorderBottomColor: var(--danger);
+
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 15px;
+}
+
+/* The pseudo-elements carry the border, so they need the radius too or the
+   corners stay square inside a rounded box. */
+.pf-v5-c-form-control:not(input):not(select):not(textarea)::before,
+.pf-v5-c-form-control:not(input):not(select):not(textarea)::after {
+  border-radius: var(--radius-sm);
+}
+
+.pf-v5-c-form-control:not(input):not(select):not(textarea):focus-within {
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* And a control that carries the class itself keeps none of the chrome: the
+   wrapper around it is already drawing all of it.
+
+   Its padding stays. That padding is what gives the field its height — zeroing
+   it collapsed every text input to 23px while the password rows, whose inputs
+   do not carry the class, stayed at 36. */
+.pf-v5-c-form-control input.pf-v5-c-form-control,
+.pf-v5-c-form-control select.pf-v5-c-form-control,
+.pf-v5-c-form-control textarea.pf-v5-c-form-control {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.pf-v5-c-form-control input.pf-v5-c-form-control::before,
+.pf-v5-c-form-control input.pf-v5-c-form-control::after {
+  display: none;
+}
+
+/* The input itself is transparent: the wrapper is what is painted. */
+.pf-v5-c-form-control > input,
+.pf-v5-c-form-control > select,
+.pf-v5-c-form-control > textarea {
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--text);
+  font: inherit;
+}
+
+/*
+ * Chrome's autofill, which is a law unto itself.
+ *
+ * When the browser fills a field — and it offers to as soon as you start
+ * typing a username it has seen — it paints its own background and its own
+ * text colour at a level ordinary declarations cannot reach. That is what the
+ * grey blocks in the username and password fields were: not the theme, the
+ * browser, filling both at once.
+ *
+ * The background can only be displaced by an inset shadow large enough to
+ * cover the field, and the text only by -webkit-text-fill-color. Neither is a
+ * hack anyone enjoys; both are the documented way through.
+ */
+.pf-v5-c-form-control > input:-webkit-autofill,
+.pf-v5-c-form-control > input:-webkit-autofill:hover,
+.pf-v5-c-form-control > input:-webkit-autofill:focus,
+.pf-v5-c-form-control > input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  box-shadow: 0 0 0 1000px var(--surface) inset;
+  caret-color: var(--text);
+
+  /* Chrome animates the fill in; without this the override is repainted over
+     for the length of the animation. */
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+::selection {
+  background: var(--accent-ring);
+  color: var(--text);
+}
+
+/* The password reveal toggle rides inside the field, so it must lose the
+   button chrome the parent gives it. */
+.pf-v5-c-form-control .pf-v5-c-button.pf-m-control,
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+}
+
+.pf-v5-c-check__label {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.pf-v5-c-check__input {
+  accent-color: var(--accent);
+}
+
+/* --- buttons ------------------------------------------------------ */
+
+/*
+ * Through PatternFly's own custom properties, not by out-specifying it.
+ *
+ * The colour arrives as `background-color: var(--pf-v5-c-button--m-primary--
+ * BackgroundColor)`, so a plain `background:` declaration here loses to
+ * whichever PatternFly rule is more specific — and there is always one. Moving
+ * the variable is what the design system is built for, and it carries hover,
+ * focus and active with it instead of needing a rule each.
+ */
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--accent);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--accent-hover);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--accent-hover);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--accent-hover);
+  --pf-v5-c-button--m-primary--Color: var(--text-invert);
+  --pf-v5-c-button--BorderRadius: var(--radius-sm);
+
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: calc(var(--u) * 3) calc(var(--u) * 5);
+}
+
+.pf-v5-c-button.pf-m-secondary {
+  --pf-v5-c-button--m-secondary--BackgroundColor: var(--surface);
+  --pf-v5-c-button--m-secondary--Color: var(--text-2);
+  --pf-v5-c-button--m-secondary--BorderColor: var(--border-2);
+  --pf-v5-c-button--BorderRadius: var(--radius-sm);
+
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 14px;
+}
+
+.pf-v5-c-button.pf-m-link {
+  color: var(--accent);
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+}
+
+.pf-v5-c-button.pf-m-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --- links and the footer band ------------------------------------ */
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* "Forgot Password?" and "New user? Register" both land here. */
+#kc-registration,
+#kc-registration-container,
+#kc-info,
+.pf-v5-c-login__main-footer-band {
+  font-size: 14px;
+  color: var(--text-2);
+  background: transparent;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* --- messages ----------------------------------------------------- */
+
+.pf-v5-c-alert {
+  background: var(--danger-soft);
+  border: 1px solid #f6cfcf;
+  border-radius: var(--radius);
+  box-shadow: none;
+  color: var(--text);
+}
+
+.pf-v5-c-alert__title,
+.pf-v5-c-alert.pf-m-danger .pf-v5-c-alert__title {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.pf-v5-c-alert__icon {
+  color: var(--danger);
+}
+
+.pf-v5-c-helper-text__item.pf-m-error,
+.pf-v5-c-helper-text__item-text.pf-m-error,
+.kc-feedback-text {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--danger);
+}
+
+/* --- focus -------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

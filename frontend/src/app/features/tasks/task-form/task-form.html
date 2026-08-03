@@ -89,6 +89,24 @@
         </div>
       </div>
 
+      <!-- Anybody in the project can be named, including somebody invited by
+           email who has not signed in yet: work is often assigned before the
+           person arrives, which is half the reason for inviting them early. -->
+      <div class="field">
+        <label class="label" for="assignee">Assigned to</label>
+        <select id="assignee" formControlName="assigneeId">
+          <option value="">Nobody yet</option>
+          @for (member of members.members(); track member.userId) {
+            <option [value]="member.userId">
+              {{ member.displayName }}@if (!member.signedUp) { (invited) }
+            </option>
+          }
+        </select>
+        @if (serverErrors()['assigneeId']; as message) {
+          <small class="field__error">{{ message }}</small>
+        }
+      </div>
+
       <div class="field">
         <label class="label" for="color">Marker colour</label>
         <div class="swatch">
