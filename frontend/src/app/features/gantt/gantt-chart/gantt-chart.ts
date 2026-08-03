@@ -18,7 +18,9 @@ import { ProjectService } from '../../../core/project.service';
 import { Task } from '../../../models/task.model';
 import {
   DayCell,
+  DragMode,
   addDays,
+  dragDates,
   daysBetween,
   durationDays,
   eachDay,
@@ -54,6 +56,30 @@ interface ChartRow {
   /** How many day columns the bar spans. */
   length: number;
 }
+
+interface Drag {
+  taskId: number;
+  mode: DragMode;
+  /** Where the pointer went down, to measure the offset from. */
+  originX: number;
+  /** The task's dates when the drag began, to compute against and to restore. */
+  fromStart: string;
+  fromEnd: string;
+  /** The dates as they stand under the pointer right now. */
+  startDate: string;
+  endDate: string;
+  /** False until the pointer has travelled far enough to mean it. */
+  moved: boolean;
+}
+
+/**
+ * How far the pointer must travel before a press becomes a drag.
+ *
+ * Without a threshold every click on a bar would be a zero-day move: a request
+ * sent, a refresh triggered, and the form never opening because the code took
+ * the drag branch.
+ */
+const DRAG_THRESHOLD_PX = 4;
 
 @Component({
   selector: 'app-gantt-chart',
@@ -116,15 +142,35 @@ export class GanttChart implements OnInit, AfterViewInit {
 
   readonly months = computed(() => monthBands(this.days()));
 
+  /**
+   * The drag in progress, or null.
+   *
+   * Held here rather than written through to TaskService: the task list is
+   * what the window is measured from, so editing it mid-drag would move the
+   * columns under the pointer while the pointer is trying to aim at them.
+   * The chart stays still and only the bar moves.
+   */
+  readonly drag = signal<Drag | null>(null);
+
   readonly rows = computed<ChartRow[]>(() => {
     const span = this.span();
     if (!span) return [];
 
-    return this.taskService.tasks().map(task => ({
-      task,
-      offset: daysBetween(span.start, task.startDate),
-      length: durationDays(task),
-    }));
+    const drag = this.drag();
+
+    return this.taskService.tasks().map(task => {
+      // The dragged bar is drawn where the pointer has it, not where the
+      // server still thinks it is.
+      const dragged = drag?.taskId === task.id;
+      const startDate = dragged ? drag.startDate : task.startDate;
+      const endDate = dragged ? drag.endDate : task.endDate;
+
+      return {
+        task,
+        offset: daysBetween(span.start, startDate),
+        length: daysBetween(startDate, endDate) + 1,
+      };
+    });
   });
 
   readonly bodyHeight = computed(() => this.rows().length * ROW_HEIGHT);
@@ -292,6 +338,109 @@ export class GanttChart implements OnInit, AfterViewInit {
     // this is what stops the form opening only to fail on submit.
     if (!this.projects.canEdit()) return;
     this.editing.set(task);
+  }
+
+  /* --- dragging and resizing ------------------------------------------- */
+
+  isDragging(taskId: number): boolean {
+    const drag = this.drag();
+    return drag?.taskId === taskId && drag.moved;
+  }
+
+  /**
+   * Takes hold of a bar.
+   *
+   * The pointer is captured on the element that was pressed, so the gesture
+   * survives leaving the bar — which it will immediately, since the bar is
+   * moving out from under the cursor. Without capture the first fast drag
+   * would drop the moment the pointer outran the element.
+   */
+  onBarPointerDown(row: ChartRow, mode: DragMode, event: PointerEvent): void {
+    if (!this.projects.canEdit() || event.button !== 0) return;
+
+    // Stops the grip from also starting a body drag, and stops the browser
+    // from deciding this is a text selection or a scroll gesture.
+    event.stopPropagation();
+    event.preventDefault();
+
+    (event.target as HTMLElement).setPointerCapture(event.pointerId);
+
+    this.drag.set({
+      taskId: row.task.id,
+      mode,
+      originX: event.clientX,
+      fromStart: row.task.startDate,
+      fromEnd: row.task.endDate,
+      startDate: row.task.startDate,
+      endDate: row.task.endDate,
+      moved: false,
+    });
+  }
+
+  onBarPointerMove(event: PointerEvent): void {
+    const drag = this.drag();
+    if (!drag) return;
+
+    const travelled = event.clientX - drag.originX;
+    const moved = drag.moved || Math.abs(travelled) >= DRAG_THRESHOLD_PX;
+    if (!moved) return;
+
+    // Whole days only. A schedule has no half-days, and snapping is also what
+    // makes the bar land where the columns are.
+    const days = Math.round(travelled / this.dayWidth());
+    const { startDate, endDate } = dragDates(drag.mode, drag.fromStart, drag.fromEnd, days);
+
+    this.drag.set({ ...drag, startDate, endDate, moved: true });
+  }
+
+  /**
+   * Lets go.
+   *
+   * A press that never travelled is a click, and opens the form — the bar has
+   * no separate click binding, because a click event fires after every
+   * pointerup and would open the form at the end of each drag.
+   */
+  onBarPointerUp(row: ChartRow, event: PointerEvent): void {
+    const drag = this.drag();
+    if (!drag) return;
+
+    (event.target as HTMLElement).releasePointerCapture?.(event.pointerId);
+    this.drag.set(null);
+
+    if (!drag.moved) {
+      this.openEdit(row.task);
+      return;
+    }
+
+    // Nothing changed after snapping — dragged and returned, or moved less
+    // than half a column. Sending a request that sets the dates to what they
+    // already are would cost a round trip and a refresh for nothing.
+    if (drag.startDate === drag.fromStart && drag.endDate === drag.fromEnd) {
+      return;
+    }
+
+    void this.taskService.reschedule(row.task, drag.startDate, drag.endDate);
+  }
+
+  /** Escape abandons the drag; the bar returns to where it was. */
+  onBarKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.drag()) {
+      this.drag.set(null);
+    }
+  }
+
+  /**
+   * The dates a dragged bar currently claims, for the tooltip.
+   *
+   * Read from the drag rather than the task, so the figures under the pointer
+   * are the ones being proposed rather than the ones still on the server.
+   */
+  dragLabel(): string | null {
+    const drag = this.drag();
+    if (!drag?.moved) return null;
+
+    const days = daysBetween(drag.startDate, drag.endDate) + 1;
+    return `${formatDay(drag.startDate)} → ${formatDay(drag.endDate)} · ${days}d`;
   }
 
   closeForm(): void {

@@ -172,6 +172,39 @@ export class TaskService {
     }
   }
 
+  /**
+   * Moves a task in time, optimistically.
+   *
+   * Same shape as changeStatus, and for a stronger reason: this is called on
+   * the release of a drag, and the bar is already where the pointer left it.
+   * Snapping back to the old dates for the length of a round trip, then
+   * forward again, would read as the chart fighting the hand.
+   *
+   * Nothing else about the task travels differently — the payload is the whole
+   * record, so the assignee and the dependencies ride along untouched.
+   */
+  async reschedule(task: Task, startDate: string, endDate: string): Promise<void> {
+    const previous = this._tasks();
+
+    this._tasks.update(tasks =>
+      this.sorted(tasks.map(t => (t.id === task.id ? { ...t, startDate, endDate } : t)))
+    );
+
+    try {
+      await firstValueFrom(
+        this.http.put<Task>(`${this.url()}/${task.id}`, {
+          ...this.toRequest(task), startDate, endDate,
+        })
+      );
+      // Moving a task changes no edges, but it moves the critical path and
+      // every float figure derived from it, so the list is reconciled.
+      void this.refresh();
+    } catch (err) {
+      this._tasks.set(previous);
+      this._error.set(this.readMessage(err, 'Could not move the task'));
+    }
+  }
+
   async delete(id: number): Promise<void> {
     const previous = this._tasks();
     this._tasks.update(tasks => tasks.filter(t => t.id !== id));

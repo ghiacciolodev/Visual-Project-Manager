@@ -50,6 +50,40 @@ export function durationDays(task: Task): number {
   return daysBetween(task.startDate, task.endDate) + 1;
 }
 
+/* --- dragging ----------------------------------------------------------- */
+
+/** Which part of a bar the pointer took hold of. */
+export type DragMode = 'move' | 'start' | 'end';
+
+/**
+ * Where a bar lands after being dragged by a whole number of days.
+ *
+ * A free function rather than a branch inside the pointer handler: this is the
+ * only real arithmetic in the gesture, and buried in an event listener the
+ * only way to check it would be to mount the chart and synthesise pointer
+ * events. The clamping in particular is worth being able to state plainly.
+ */
+export function dragDates(
+  mode: DragMode,
+  fromStart: string,
+  fromEnd: string,
+  days: number
+): { startDate: string; endDate: string } {
+
+  if (mode === 'move') {
+    return { startDate: addDays(fromStart, days), endDate: addDays(fromEnd, days) };
+  }
+
+  // How far either end may travel before the task would invert. The shortest
+  // thing anyone can plan is one day, so the ends may meet but not cross.
+  const room = daysBetween(fromStart, fromEnd);
+
+  if (mode === 'start') {
+    return { startDate: addDays(fromStart, Math.min(days, room)), endDate: fromEnd };
+  }
+  return { startDate: fromStart, endDate: addDays(fromEnd, Math.max(days, -room)) };
+}
+
 export interface Span {
   start: string;
   end: string;

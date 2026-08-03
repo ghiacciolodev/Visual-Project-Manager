@@ -250,12 +250,51 @@
     }
   }
 
+  // Held by the pointer: lifted off the sheet, and no hover dimming to fight
+  // the shadow. The transition on filter is dropped too, or the bar would
+  // shimmer as it crosses under the cursor.
+  &--dragging {
+    box-shadow: var(--shadow-lg);
+    filter: none;
+    transition: none;
+    cursor: grabbing;
+    z-index: 3;
+  }
+
   &__label {
     font-family: var(--font-ui);
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
+    pointer-events: none;
   }
+
+  // The ends, for resizing. Wider than they look: eight pixels is a hard
+  // target with a mouse and an impossible one with a thumb, so the hit area
+  // reaches past the visible edge while the cursor change stays honest about
+  // where the bar actually ends.
+  &__grip {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    cursor: ew-resize;
+    touch-action: none;
+
+    &--start { left: -2px; }
+    &--end   { right: -2px; }
+  }
+}
+
+// Positioning context for the grips, and the reason the bar needs one.
+.bar {
+  position: relative;
+  touch-action: none;
+}
+
+// A bar that can be moved should say so before it is pressed.
+.bar:not(.bar--static):not(.bar--dragging) {
+  cursor: grab;
 }
 
 .tail {

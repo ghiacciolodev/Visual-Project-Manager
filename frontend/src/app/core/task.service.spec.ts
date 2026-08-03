@@ -115,6 +115,46 @@ describe('TaskService', () => {
     expect(service.error()).toContain('prerequisites');
   });
 
+  it('sends the whole record when a bar is dragged, not just the dates', async () => {
+    const dragged = task({ assignee: { id: 4, displayName: 'Ada Lovelace' }, priority: 'HIGH' });
+    await loadWith([dragged]);
+
+    void service.reschedule(dragged, '2026-09-10', '2026-09-14');
+
+    // The bar is already where the pointer left it, so this is optimistic.
+    expect(service.tasks()[0].startDate).toBe('2026-09-10');
+
+    const request = http.expectOne({ url: `${URL}/1`, method: 'PUT' });
+    expect(request.request.body).toMatchObject({
+      startDate: '2026-09-10',
+      endDate: '2026-09-14',
+      // The payload replaces every mutable field, so everything the drag did
+      // not touch has to ride along or it is cleared.
+      assigneeId: 4,
+      priority: 'HIGH',
+      title: 'Build the API',
+    });
+
+    request.flush(task({ startDate: '2026-09-10', endDate: '2026-09-14' }));
+    await settled();
+    http.expectOne({ url: URL, method: 'GET' }).flush([]);
+  });
+
+  it('puts a dragged bar back when the server refuses the move', async () => {
+    const dragged = task();
+    await loadWith([dragged]);
+
+    void service.reschedule(dragged, '2026-09-10', '2026-09-14');
+    expect(service.tasks()[0].startDate).toBe('2026-09-10');
+
+    http.expectOne({ url: `${URL}/1`, method: 'PUT' })
+      .flush({ detail: 'nope' }, { status: 409, statusText: 'Conflict' });
+    await settled();
+
+    expect(service.tasks()[0].startDate).toBe('2026-09-01');
+    expect(service.tasks()[0].endDate).toBe('2026-09-05');
+  });
+
   it('explains an unreachable server rather than repeating its silence', async () => {
     const done = service.load();
     await settled();

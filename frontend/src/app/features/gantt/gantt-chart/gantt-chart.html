@@ -171,6 +171,11 @@
                        aria-hidden="true"></div>
                 }
 
+                <!--
+                  No (click) binding. A click fires after every pointerup, so
+                  the form would open at the end of each drag; pointerup
+                  decides for itself whether the press ever became one.
+                -->
                 <button type="button"
                         class="bar"
                         [style.grid-column-start]="barStart(row)"
@@ -180,9 +185,35 @@
                         [class.bar--done]="row.task.status === 'DONE'"
                         [class.bar--critical]="isCritical(row.task.id)"
                         [class.bar--static]="!projects.canEdit()"
-                        [title]="barTitle(row)"
-                        (click)="openEdit(row.task)">
+                        [class.bar--dragging]="isDragging(row.task.id)"
+                        [title]="isDragging(row.task.id) ? (dragLabel() ?? '') : barTitle(row)"
+                        (pointerdown)="onBarPointerDown(row, 'move', $event)"
+                        (pointermove)="onBarPointerMove($event)"
+                        (pointerup)="onBarPointerUp(row, $event)"
+                        (pointercancel)="drag.set(null)"
+                        (keydown)="onBarKeyDown($event)">
+
+                  <!-- Two grips, so the ends move independently of the whole.
+                       Hidden from assistive technology: the form is the
+                       accessible way to change a date, and a keyboard has no
+                       use for a drag handle. -->
+                  @if (projects.canEdit()) {
+                    <span class="bar__grip bar__grip--start"
+                          aria-hidden="true"
+                          (pointerdown)="onBarPointerDown(row, 'start', $event)"
+                          (pointermove)="onBarPointerMove($event)"
+                          (pointerup)="onBarPointerUp(row, $event)"></span>
+                  }
+
                   <span class="bar__label">{{ row.task.title }}</span>
+
+                  @if (projects.canEdit()) {
+                    <span class="bar__grip bar__grip--end"
+                          aria-hidden="true"
+                          (pointerdown)="onBarPointerDown(row, 'end', $event)"
+                          (pointermove)="onBarPointerMove($event)"
+                          (pointerup)="onBarPointerUp(row, $event)"></span>
+                  }
                 </button>
               </div>
             }
