@@ -35,6 +35,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # A mail server that never delivers anything.
+  #
+  # "Forgot password" is not a link, it is a round trip through email, so
+  # without somewhere for that message to go the link exists and then fails at
+  # the moment it matters. Mailpit accepts the message and shows it in a web
+  # inbox instead of sending it, which makes the whole flow demonstrable on a
+  # laptop with no account anywhere.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: vpm-mailpit
+    restart: unless-stopped
+    environment:
+      # Keycloak is configured to connect without credentials; these keep
+      # Mailpit from refusing it on either count.
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      # The inbox. SMTP itself stays on the compose network, unpublished:
+      # nothing outside needs to send through it.
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+
   # Keycloak gets its own database rather than sharing the application's. An
   # identity provider's schema is its own business: mixing them means a Flyway
   # migration and a Keycloak upgrade can collide over the same tables.
@@ -65,9 +86,22 @@ services:
       # identity setup is reproducible with one command instead of a page of
       # click-here instructions.
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      # The login theme, mounted rather than baked into an image so editing a
+      # stylesheet does not mean rebuilding Keycloak. The realm selects it with
+      # loginTheme: "vpm".
+      #
+      # Theme caching would otherwise serve the previous stylesheet after every
+      # edit — start-dev already turns it off, along with template caching, so
+      # there is nothing further to configure here. On `start` it comes back on,
+      # which is what you want in front of real users.
+      - ./keycloak/themes:/opt/keycloak/themes:ro
     depends_on:
       keycloak-db:
         condition: service_healthy
+      # No health condition: the connection is made only when a message is
+      # actually sent, long after both have started.
+      mailpit:
+        condition: service_started
     healthcheck:
       # The image ships neither curl nor wget, hence the shell's own /dev/tcp.
       # Without a check the container reports "Up" as soon as the socket binds,

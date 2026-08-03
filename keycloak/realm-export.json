@@ -3,7 +3,9 @@
   "enabled": true,
   "displayName": "Visual Project Manager",
   "sslRequired": "none",
-  "registrationAllowed": false,
+  "loginTheme": "vpm",
+  "registrationAllowed": true,
+  "resetPasswordAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "accessTokenLifespan": 900,
@@ -12,6 +14,15 @@
   "permanentLockout": false,
   "maxFailureWaitSeconds": 900,
   "failureFactor": 5,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@vpm.local",
+    "fromDisplayName": "Visual Project Manager",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
   "roles": {
     "realm": [
       {
@@ -20,7 +31,9 @@
       }
     ]
   },
-  "defaultRoles": ["vpm-user"],
+  "defaultRoles": [
+    "vpm-user"
+  ],
   "clients": [
     {
       "clientId": "vpm-frontend",
@@ -32,38 +45,16 @@
       "directAccessGrantsEnabled": true,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:4200/*"],
-      "webOrigins": ["http://localhost:4200"],
+      "redirectUris": [
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:4200/*"
       }
-    }
-  ],
-  "users": [
-    {
-      "username": "ada",
-      "enabled": true,
-      "emailVerified": true,
-      "email": "ada@example.com",
-      "firstName": "Ada",
-      "lastName": "Lovelace",
-      "credentials": [
-        { "type": "password", "value": "password", "temporary": false }
-      ],
-      "realmRoles": ["vpm-user"]
-    },
-    {
-      "username": "grace",
-      "enabled": true,
-      "emailVerified": true,
-      "email": "grace@example.com",
-      "firstName": "Grace",
-      "lastName": "Hopper",
-      "credentials": [
-        { "type": "password", "value": "password", "temporary": false }
-      ],
-      "realmRoles": ["vpm-user"]
     }
   ]
 }
