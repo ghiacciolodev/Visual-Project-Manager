@@ -17,8 +17,8 @@ class ProjectAuthorizationIT extends AbstractIT {
 
     @Test
     void aStrangerGetsNotFoundRatherThanForbidden() throws Exception {
-        Long adasProject = firstProjectOf("ada");
-        firstProjectOf("grace");   // provisions grace with a project of her own
+        Long adasProject = newProject("ada", "Ada's plan");
+        newProject("grace", "Grace's plan");
 
         // 404, deliberately. A 403 would confirm the project exists, turning
         // the id into an oracle for enumerating other people's work.
@@ -28,7 +28,8 @@ class ProjectAuthorizationIT extends AbstractIT {
 
     @Test
     void aViewerMayReadButNotWrite() throws Exception {
-        Long project = firstProjectOf("bea");
+        Plan plan = aPlanFor("bea");
+        Long project = plan.project();
 
         mockMvc.perform(post("/api/v1/projects/{p}/members", project)
                 .with(as("bea"))
@@ -39,7 +40,7 @@ class ProjectAuthorizationIT extends AbstractIT {
         mockMvc.perform(get("/api/v1/projects/{p}/tasks", project).with(as("carl")))
             .andExpect(status().isOk());
 
-        Long task = taskIdByTitle("bea", project, "Write the documentation");
+        Long task = plan.docs();
 
         // 403 this time, not 404: carl can see the project, so telling him the
         // action needs a higher role is more useful than pretending the task
@@ -50,7 +51,7 @@ class ProjectAuthorizationIT extends AbstractIT {
 
     @Test
     void anEditorMayChangeThePlanButNotTheMembership() throws Exception {
-        Long project = firstProjectOf("dana");
+        Long project = newProject("dana", "Dana's plan");
 
         mockMvc.perform(post("/api/v1/projects/{p}/members", project)
                 .with(as("dana"))
@@ -71,7 +72,7 @@ class ProjectAuthorizationIT extends AbstractIT {
 
     @Test
     void theLastOwnerCannotStepDown() throws Exception {
-        Long project = firstProjectOf("fay");
+        Long project = newProject("fay", "Fay's plan");
 
         String members = mockMvc.perform(
                 get("/api/v1/projects/{p}/members", project).with(as("fay")))

@@ -1,7 +1,5 @@
 package it.ghiacciolodev.vpm.security;
 
-import it.ghiacciolodev.vpm.project.ProjectRepository;
-import it.ghiacciolodev.vpm.project.SampleProjectFactory;
 import it.ghiacciolodev.vpm.user.User;
 import it.ghiacciolodev.vpm.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,15 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class CurrentUser {
 
     private final UserRepository users;
-    private final ProjectRepository projects;
-    private final SampleProjectFactory sampleProject;
 
-    public CurrentUser(UserRepository users,
-                       ProjectRepository projects,
-                       SampleProjectFactory sampleProject) {
+    public CurrentUser(UserRepository users) {
         this.users = users;
-        this.projects = projects;
-        this.sampleProject = sampleProject;
     }
 
     /**
@@ -121,19 +113,14 @@ public class CurrentUser {
         // the caller's try block. With a deferred flush the violation would
         // surface at commit, outside the catch, and the losing request would
         // fail anyway — which is the whole thing being prevented here.
-        User saved = users.saveAndFlush(user);
-
-        // Somewhere to put work. Without this a new user signs in successfully
-        // and lands on an application that shows them nothing and lets them
-        // create nothing — technically correct, practically broken.
         //
-        // Checked rather than assumed: an invited account already belongs to a
-        // project, and a second empty one would only be in the way.
-        if (projects.findAllForUser(saved.getId()).isEmpty()) {
-            sampleProject.createFor(saved);
-        }
-
-        return saved;
+        // No sample project is created here any more. One used to be, because
+        // a new account with no project landed on an application that showed
+        // nothing and let them create nothing. The rail can create a project
+        // now, so the argument for seeding fake work has gone with it — and an
+        // empty schedule that the person fills themselves says more about what
+        // this is for than four invented tasks do.
+        return users.saveAndFlush(user);
     }
 
     /* --- internals ------------------------------------------------------ */

@@ -9,16 +9,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * The sample project ships a chain — set up → build API → build interface —
- * plus a standalone documentation task. Enough shape to exercise every rule
- * without building a fixture by hand.
+ * Each test builds a chain — set up → build API → build interface — plus a
+ * standalone documentation task. Enough shape to exercise every rule, and
+ * declared by the test rather than inherited from whatever provisioning
+ * happened to create.
  */
 class DependencyApiIT extends AbstractIT {
 
     @Test
     void reportsWhatIsBlockingATask() throws Exception {
-        Long project = firstProjectOf("quinn");
-        Long ui = taskIdByTitle("quinn", project, "Build the interface");
+        Plan plan = aPlanFor("quinn");
+        Long project = plan.project();
+        Long ui = plan.ui();
 
         mockMvc.perform(get("/api/v1/projects/{p}/tasks/{t}", project, ui).with(as("quinn")))
             .andExpect(status().isOk())
@@ -28,8 +30,9 @@ class DependencyApiIT extends AbstractIT {
 
     @Test
     void refusesToFinishATaskWhosePrerequisiteIsUnfinished() throws Exception {
-        Long project = firstProjectOf("rhea");
-        Long ui = taskIdByTitle("rhea", project, "Build the interface");
+        Plan plan = aPlanFor("rhea");
+        Long project = plan.project();
+        Long ui = plan.ui();
 
         String payload = """
                 {
@@ -52,9 +55,10 @@ class DependencyApiIT extends AbstractIT {
 
     @Test
     void refusesAnEdgeThatWouldCloseACycle() throws Exception {
-        Long project = firstProjectOf("sami");
-        Long setup = taskIdByTitle("sami", project, "Set up the database");
-        Long ui = taskIdByTitle("sami", project, "Build the interface");
+        Plan plan = aPlanFor("sami");
+        Long project = plan.project();
+        Long setup = plan.setup();
+        Long ui = plan.ui();
 
         // The chain already runs setup → api → ui, so making ui a prerequisite
         // of setup closes the loop. The path is indirect, which is what the
@@ -70,9 +74,10 @@ class DependencyApiIT extends AbstractIT {
 
     @Test
     void addsAndRemovesADependency() throws Exception {
-        Long project = firstProjectOf("tao");
-        Long docs = taskIdByTitle("tao", project, "Write the documentation");
-        Long setup = taskIdByTitle("tao", project, "Set up the database");
+        Plan plan = aPlanFor("tao");
+        Long project = plan.project();
+        Long docs = plan.docs();
+        Long setup = plan.setup();
 
         mockMvc.perform(post("/api/v1/projects/{p}/tasks/{t}/dependencies", project, docs)
                 .with(as("tao"))

@@ -11,7 +11,7 @@ class TaskApiIT extends AbstractIT {
 
     @Test
     void createsATaskAndReadsItBack() throws Exception {
-        Long project = firstProjectOf("nina");
+        Long project = newProject("nina", "Renderer work");
 
         String payload = """
                 {
@@ -35,13 +35,13 @@ class TaskApiIT extends AbstractIT {
 
         mockMvc.perform(get("/api/v1/projects/{p}/tasks", project).with(as("nina")))
             .andExpect(status().isOk())
-            // four sample tasks plus the one just created
-            .andExpect(jsonPath("$.length()").value(5));
+            // A new project starts empty, so the one just created is all of it.
+            .andExpect(jsonPath("$.length()").value(1));
     }
 
     @Test
     void rejectsAnEndDateBeforeTheStartDate() throws Exception {
-        Long project = firstProjectOf("omar");
+        Long project = newProject("omar", "Date rules");
 
         String payload = """
                 {
@@ -66,7 +66,7 @@ class TaskApiIT extends AbstractIT {
 
     @Test
     void rejectsAMalformedColour() throws Exception {
-        Long project = firstProjectOf("pia");
+        Long project = newProject("pia", "Colour rules");
 
         String payload = """
                 {

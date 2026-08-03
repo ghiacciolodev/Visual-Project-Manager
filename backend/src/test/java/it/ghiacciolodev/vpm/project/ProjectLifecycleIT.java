@@ -19,7 +19,7 @@ class ProjectLifecycleIT extends AbstractIT {
 
     @Test
     void anOwnerMayRenameTheirProject() throws Exception {
-        Long project = firstProjectOf("nina");
+        Long project = newProject("nina", "Rename me");
 
         mockMvc.perform(put("/api/v1/projects/{p}", project)
                 .with(as("nina"))
@@ -39,7 +39,7 @@ class ProjectLifecycleIT extends AbstractIT {
 
     @Test
     void anEditorMayNotRenameTheProject() throws Exception {
-        Long project = firstProjectOf("omar");
+        Long project = newProject("omar", "Omar's plan");
 
         mockMvc.perform(post("/api/v1/projects/{p}/members", project)
                 .with(as("omar"))
@@ -59,8 +59,8 @@ class ProjectLifecycleIT extends AbstractIT {
 
     @Test
     void aStrangerRenamingGetsNotFoundRatherThanForbidden() throws Exception {
-        Long quinns = firstProjectOf("quinn");
-        firstProjectOf("rosa");
+        Long quinns = newProject("quinn", "Quinn's plan");
+        newProject("rosa", "Rosa's plan");
 
         // Same reasoning as every other read: a 403 would confirm the project
         // exists, and an id that answers differently for members and strangers
@@ -74,7 +74,7 @@ class ProjectLifecycleIT extends AbstractIT {
 
     @Test
     void aBlankNameIsRefused() throws Exception {
-        Long project = firstProjectOf("sami");
+        Long project = newProject("sami", "Sami's plan");
 
         mockMvc.perform(put("/api/v1/projects/{p}", project)
                 .with(as("sami"))
@@ -86,8 +86,9 @@ class ProjectLifecycleIT extends AbstractIT {
 
     @Test
     void deletingAProjectTakesItsTasksWithIt() throws Exception {
-        Long project = firstProjectOf("tomas");
-        Long task = taskIdByTitle("tomas", project, "Build the API");
+        Plan plan = aPlanFor("tomas");
+        Long project = plan.project();
+        Long task = plan.api();
 
         mockMvc.perform(delete("/api/v1/projects/{p}", project).with(as("tomas")))
             .andExpect(status().isNoContent());
@@ -116,8 +117,9 @@ class ProjectLifecycleIT extends AbstractIT {
 
         Long project = ((Number) JsonPath.read(created, "$.id")).longValue();
 
-        // The sample tasks belong to provisioning, not to project creation:
-        // somebody making their second project is past needing an example.
+        // Nothing seeds a new project. Provisioning used to plant four
+        // invented tasks in a first project; now an empty schedule is the
+        // honest starting point, and the rail is what fills it.
         mockMvc.perform(get("/api/v1/projects/{p}/tasks", project).with(as("ugo")))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(0));
