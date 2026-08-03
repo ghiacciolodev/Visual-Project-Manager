@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
-import { Task, TaskStatus } from '../../../models/task.model';
+import { Task, TaskPriority, TaskStatus } from '../../../models/task.model';
 import {
   Span,
   durationDays,
@@ -8,6 +8,18 @@ import {
   positionInSpan,
   todayIso,
 } from '../../../core/schedule';
+
+const STATUS_WORDS: Record<TaskStatus, string> = {
+  TODO: 'To do',
+  DOING: 'Doing',
+  DONE: 'Done',
+};
+
+const PRIORITY_WORDS: Record<TaskPriority, string> = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+};
 
 @Component({
   selector: 'app-task-row',
@@ -75,22 +87,14 @@ export class TaskCard {
   });
 
   /**
-   * Text on the coloured gutter. Relative luminance per WCAG rather than an
-   * average of the channels: the eye weights green far above blue, so an
-   * average puts unreadable white numerals on yellow.
+   * Status and priority in prose rather than as the enum constant.
+   *
+   * The API speaks in TODO, DOING and HIGH; a reader should not have to. The
+   * mapping lives here rather than in the template so the badge and the select
+   * cannot end up wording the same state differently.
    */
-  readonly gutterText = computed(() => {
-    const hex = this.task().color.replace('#', '');
-    const toLinear = (c: number) =>
-      c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-
-    const luminance =
-      0.2126 * toLinear(parseInt(hex.slice(0, 2), 16) / 255) +
-      0.7152 * toLinear(parseInt(hex.slice(2, 4), 16) / 255) +
-      0.0722 * toLinear(parseInt(hex.slice(4, 6), 16) / 255);
-
-    return luminance > 0.55 ? '#14202b' : '#f7f9fa';
-  });
+  readonly statusLabel = computed(() => STATUS_WORDS[this.task().status]);
+  readonly priorityLabel = computed(() => PRIORITY_WORDS[this.task().priority]);
 
   onStatusChange(event: Event): void {
     const status = (event.target as HTMLSelectElement).value as TaskStatus;

@@ -10,8 +10,8 @@
     margin: 0;
     padding: calc(var(--u) * 8) 0;
     text-align: center;
-    font-size: 11px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
   }
 }
 
@@ -21,7 +21,7 @@
   align-items: flex-start;
   gap: calc(var(--u) * 3);
   padding: calc(var(--u) * 3) 0;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--border);
 
   &__identity {
     flex: 1;
@@ -36,21 +36,21 @@
     align-items: center;
     gap: calc(var(--u) * 2);
     font-size: 13px;
-    color: var(--ink);
+    color: var(--text);
   }
 
   // Marked because demoting yourself is the one change here you cannot undo:
   // a former owner has no way back into this panel.
   &__you {
-    font-size: 9px;
-    color: var(--ink-3);
-    border: 1px solid var(--rule-strong);
+    font-size: 13px;
+    color: var(--text-3);
+    border: 1px solid var(--border-2);
     padding: 0 calc(var(--u));
   }
 
   &__email {
-    font-size: 11px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -58,8 +58,8 @@
 
   &__pending {
     margin-top: calc(var(--u));
-    font-size: 9px;
-    color: var(--ink-2);
+    font-size: 13px;
+    color: var(--text-2);
   }
 
   &__controls {
@@ -70,20 +70,19 @@
   }
 
   &__role {
-    font-family: var(--font-label);
-    font-size: 10px;
+    font-family: var(--font-ui);
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    color: var(--ink);
+    color: var(--text);
     background: transparent;
-    border: 1px solid var(--rule-strong);
-    border-radius: 0;
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-sm);
     padding: calc(var(--u)) calc(var(--u) * 1.5);
     cursor: pointer;
 
     &:focus {
       outline: 0;
-      border-color: var(--ink);
+      border-color: var(--text);
     }
   }
 
@@ -93,7 +92,7 @@
   &__hint {
     flex-basis: 100%;
     margin: calc(var(--u)) 0 0;
-    font-size: 11px;
+    font-size: 13px;
   }
 
   &__conflict {
@@ -102,32 +101,32 @@
   }
 
   &__hint {
-    color: var(--ink-3);
+    color: var(--text-3);
   }
 }
 
 .invite {
   margin-top: calc(var(--u) * 7);
   padding-top: calc(var(--u) * 4);
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--border);
 
   &__label {
     margin: 0 0 calc(var(--u) * 4);
-    font-size: 10px;
-    color: var(--ink-2);
+    font-size: 13px;
+    color: var(--text-2);
   }
 
   &__note {
     display: block;
     margin-top: calc(var(--u) * 1.5);
-    font-size: 11px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
   }
 
   &__aside {
     margin: calc(var(--u) * 4) 0 0;
-    font-size: 11px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
   }
 }
 

@@ -3,11 +3,21 @@
   fifth of the screen restating what a pair of words already says.
 -->
 <nav class="rail">
-  <span class="rail__mark label">VPM</span>
+  <!-- Inline rather than an <img>: the mark is three rectangles, and a request
+       for it would cost more than the markup does. -->
+  <span class="rail__mark">
+    <svg class="rail__logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <rect width="32" height="32" rx="8" fill="currentColor"/>
+      <rect x="7"  y="9"  width="16" height="4.5" rx="2.25" fill="#fff"/>
+      <rect x="11" y="15" width="14" height="4.5" rx="2.25" fill="#fff" opacity="0.72"/>
+      <rect x="7"  y="21" width="9"  height="4.5" rx="2.25" fill="#fff" opacity="0.45"/>
+    </svg>
+    <span class="rail__wordmark">VPM</span>
+  </span>
 
   @if (session.authenticated()) {
-    <a class="rail__tab label" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
-    <a class="rail__tab label" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
+    <a class="rail__tab" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
+    <a class="rail__tab" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
 
     <!-- A button, not a tab: it opens a panel over whatever you are reading
          rather than taking you somewhere. Only owners may change who is in a
@@ -15,7 +25,7 @@
          endpoints regardless. -->
     @if (projects.canAdminister()) {
       <button type="button"
-              class="rail__tab label"
+              class="rail__tab"
               [class.is-current]="membersOpen()"
               (click)="openMembers()">
         Members
@@ -30,7 +40,7 @@
       ever had one.
     -->
     @if (projects.projects().length) {
-      <select class="rail__project label"
+      <select class="rail__project"
               [value]="projects.currentId()"
               (change)="onProjectChange($event)"
               aria-label="Project">
@@ -48,7 +58,7 @@
     } @else {
       <!-- Deleting your last project leaves nothing to pick from, and the
            way back has to be somewhere. -->
-      <button type="button" class="rail__tab label" (click)="openNewProject()">
+      <button type="button" class="rail__tab" (click)="openNewProject()">
         New project
       </button>
     }
@@ -56,11 +66,11 @@
     <div class="rail__account">
       @if (session.profile(); as profile) {
         <span class="who">
-          <span class="who__initials mono">{{ session.initials() }}</span>
+          <span class="who__initials">{{ session.initials() }}</span>
           <span class="who__name">{{ profile.displayName }}</span>
         </span>
       }
-      <button type="button" class="rail__tab label" (click)="session.signOut()">
+      <button type="button" class="rail__tab" (click)="session.signOut()">
         Sign out
       </button>
     </div>
@@ -102,13 +112,15 @@
     }
   } @else {
     <div class="gate">
-      <p class="gate__eyebrow label">Visual Project Manager</p>
+      <p class="gate__eyebrow">Visual Project Manager</p>
       <h1 class="gate__title">Plan the work. See what it costs.</h1>
       <p class="gate__body">Sign in to open your schedule.</p>
       <button type="button" class="action action--lg" (click)="session.signIn()">Sign in</button>
-      <p class="gate__hint mono">Try ada / password</p>
+      <!-- No shared demo account to borrow any more: the same button leads to
+           a sign-in form that offers registration. -->
+      <p class="gate__hint">No account yet? Register from the same screen.</p>
     </div>
   }
 } @else {
-  <p class="gate__waiting mono">Checking your session…</p>
+  <p class="gate__waiting">Checking your session…</p>
 }

@@ -10,7 +10,7 @@
          (click)="$event.stopPropagation()">
 
     <header class="panel__head">
-      <p class="label panel__eyebrow">{{ task() ? 'Edit' : 'New' }}</p>
+      <p class="panel__eyebrow">{{ task() ? 'Edit' : 'New' }}</p>
       <h2 class="panel__title" id="panel-title">
         {{ task() ? task()!.title : 'Task' }}
       </h2>
@@ -105,7 +105,7 @@
            multi-select: the order they were added carries no meaning, but
            being able to see and drop each one individually does. -->
       <div class="deps">
-        <label class="label deps__label" for="add-dep">Waits for</label>
+        <label class="deps__label" for="add-dep">Waits for</label>
 
         @if (picked().length) {
           <ul class="deps__list">
@@ -135,7 +135,7 @@
       </div>
 
       <footer class="panel__foot">
-        <button type="button" class="ghost label" (click)="cancel.emit()" [disabled]="submitting()">
+        <button type="button" class="ghost" (click)="cancel.emit()" [disabled]="submitting()">
           Cancel
         </button>
         <button type="submit" class="action" [disabled]="submitting()">

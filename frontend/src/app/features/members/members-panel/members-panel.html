@@ -11,7 +11,7 @@
          (click)="$event.stopPropagation()">
 
     <header class="panel__head">
-      <p class="label panel__eyebrow">Members</p>
+      <p class="panel__eyebrow">Members</p>
       <h2 class="panel__title" id="members-title">
         {{ projects.current()?.name ?? 'Project' }}
       </h2>
@@ -22,12 +22,12 @@
       @if (members.error(); as message) {
         <div class="notice" role="alert">
           <span>{{ message }}</span>
-          <button type="button" class="link label" (click)="members.clearError()">Dismiss</button>
+          <button type="button" class="link" (click)="members.clearError()">Dismiss</button>
         </div>
       }
 
       @if (members.loading()) {
-        <p class="roster__waiting mono">Loading members…</p>
+        <p class="roster__waiting">Loading members…</p>
       } @else {
         <ul class="roster">
           @for (member of members.members(); track member.userId) {
@@ -37,7 +37,7 @@
                 <span class="member__name">
                   {{ member.displayName }}
                   @if (isMe(member)) {
-                    <span class="member__you label">you</span>
+                    <span class="member__you">you</span>
                   }
                 </span>
                 <span class="member__email mono">{{ member.email }}</span>
@@ -46,7 +46,7 @@
                      member who is simply quiet, and the difference matters
                      when you are wondering why nothing has moved. -->
                 @if (!member.signedUp) {
-                  <span class="member__pending label">Invited · never signed in</span>
+                  <span class="member__pending">Invited · never signed in</span>
                 }
               </div>
 
@@ -65,7 +65,7 @@
                 </select>
 
                 <button type="button"
-                        class="link label link--danger"
+                        class="link link--danger"
                         [attr.aria-label]="'Remove ' + member.displayName"
                         (click)="onRemove(member)">
                   Remove
@@ -91,7 +91,7 @@
       <!-- Inviting is the one thing on this panel that adds rather than edits,
            so it sits below the list with a rule between them. -->
       <form class="invite" [formGroup]="form" (ngSubmit)="onInvite()">
-        <p class="label invite__label">Add somebody</p>
+        <p class="invite__label">Add somebody</p>
 
         <div class="field">
           <label class="label" for="invite-email">Email</label>
@@ -128,7 +128,7 @@
         </p>
 
         <footer class="panel__foot">
-          <button type="button" class="ghost label" (click)="close.emit()">Close</button>
+          <button type="button" class="ghost" (click)="close.emit()">Close</button>
           <button type="submit" class="action" [disabled]="inviting()">
             {{ inviting() ? 'Adding…' : 'Add member' }}
           </button>

@@ -1,42 +1,33 @@
 <!--
-  A ruled line in a document, not a card. The colour is carried by the gutter
-  block on the left; everything else stays in ink so the sheet reads as one
-  continuous schedule rather than a stack of tiles.
+  A card with a coloured spine, where this used to be a ruled line on a
+  continuous sheet. Separating the rows gives each task room and frees the
+  status to carry a colour of its own without fighting the ruling.
 -->
-<div class="row" [style.--task-color]="task().color" [style.--gutter-text]="gutterText()">
+<div class="row" [style.--task-color]="task().color">
 
-  <!-- Row number reversed out of the task colour. The colour is a physical
-       marker in the margin, the way a strip of tape marks a planning board. -->
-  <div class="row__gutter mono">{{ rowNumber() }}</div>
+  <div class="row__spine" aria-hidden="true"></div>
 
   <div class="row__identity">
-    <h2 class="row__title">{{ task().title }}</h2>
+    <div class="row__headline">
+      <span class="row__number mono">{{ rowNumber() }}</span>
+      <h2 class="row__title">{{ task().title }}</h2>
+    </div>
 
     <div class="row__meta">
-      <!-- The square encodes progress by how much of it is filled: empty,
-           half, solid. Colour is not doing the work, so it reads the same
-           for a colour-blind user. -->
-      <span class="state" [attr.data-state]="task().status">
-        <i class="state__box" aria-hidden="true"></i>
-        <span class="label">{{ task().status }}</span>
-      </span>
+      <!-- Colour is the fast path and the word is the reliable one, so the
+           badge carries both. Read without colour it still says what it is,
+           which the old fill-level square could not. -->
+      <span class="badge" [attr.data-status]="task().status">{{ statusLabel() }}</span>
 
       <!-- Only HIGH is emphasised. Marking all three priorities equally is
            the same as marking none. -->
-      @if (task().priority === 'HIGH') {
-        <span class="label priority priority--high">High</span>
-      } @else {
-        <span class="label priority">{{ task().priority }}</span>
-      }
+      <span class="priority" [attr.data-priority]="task().priority">{{ priorityLabel() }}</span>
 
       <!-- Blocking is stated in words, not left to an icon. "Waits for
            Build the API" tells you what to do next; a padlock only tells you
            that you cannot. -->
       @if (task().blockedBy.length) {
-        <span class="blocked">
-          <span class="blocked__mark" aria-hidden="true">⌸</span>
-          <span class="blocked__text">Waits for {{ blockerNames() }}</span>
-        </span>
+        <span class="blocked">Waits for {{ blockerNames() }}</span>
       } @else if (task().description) {
         <span class="row__note">{{ task().description }}</span>
       }
@@ -75,13 +66,13 @@
       conversation with the project's owner.
     -->
     @if (readonly()) {
-      <span class="label row__viewing">View only</span>
+      <span class="row__viewing">View only</span>
     } @else {
       <!--
         A native select for the status: keyboard accessible and working on
         mobile with no extra code, which a custom dropdown would not be.
       -->
-      <select class="select label"
+      <select class="select"
               [value]="task().status"
               (change)="onStatusChange($event)"
               [attr.aria-label]="'Status of ' + task().title">
@@ -90,8 +81,8 @@
         <option value="DONE">Done</option>
       </select>
 
-      <button type="button" class="link label" (click)="edit.emit(task())">Edit</button>
-      <button type="button" class="link label link--danger" (click)="remove.emit(task())">Delete</button>
+      <button type="button" class="link" (click)="edit.emit(task())">Edit</button>
+      <button type="button" class="link link--danger" (click)="remove.emit(task())">Delete</button>
     }
   </div>
 </div>

@@ -1,18 +1,13 @@
 .sheet {
-  max-width: 1000px;
+  max-width: 1060px;
   margin: 0 auto;
-  padding: calc(var(--u) * 12) calc(var(--u) * 6) calc(var(--u) * 20);
+  padding: calc(var(--u) * 10) calc(var(--u) * 6) calc(var(--u) * 20);
 }
 
 .masthead {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: calc(var(--u) * 6);
-  padding-bottom: calc(var(--u) * 3);
-
-  // A heavier rule under the masthead, lighter rules between rows: the weight
-  // of a line says how big a division it marks.
-  border-bottom: 2px solid var(--ink);
   margin-bottom: calc(var(--u) * 6);
 
   &__identity {
@@ -21,19 +16,19 @@
   }
 
   &__eyebrow {
-    margin: 0;
-    font-size: 10px;
-    color: var(--ink-3);
+    margin: 0 0 calc(var(--u));
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
   }
 
   &__title {
-    margin: calc(var(--u)) 0 0;
-    font-family: var(--font-label);
-    font-size: 32px;
+    margin: 0;
+    font-size: 30px;
     font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1;
-    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--text);
   }
 
   &__readout {
@@ -43,38 +38,54 @@
   &__span,
   &__counts {
     margin: 0;
-    font-size: 11px;
-    color: var(--ink-2);
+    font-size: 14px;
+    color: var(--text-2);
   }
 
   &__counts {
-    color: var(--ink-3);
-    margin-top: calc(var(--u));
+    color: var(--text-3);
+    margin-top: calc(var(--u) * 0.5);
   }
 }
 
+/* Cards with air between them, where this used to be one continuous ruled
+   sheet with rows sharing hairlines. */
 .ledger {
-  // The top rule closes the sheet; each row supplies its own bottom rule.
-  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 3);
 }
 
 .state {
-  padding: calc(var(--u) * 16) 0;
+  padding: calc(var(--u) * 20) calc(var(--u) * 6);
   text-align: center;
-  color: var(--ink-3);
-  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 
   &__line {
-    margin: 0 0 calc(var(--u) * 4);
-    font-family: var(--font-body);
-    font-size: 14px;
-    color: var(--ink-2);
+    margin: 0 0 calc(var(--u) * 2);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  &__hint {
+    margin: 0 0 calc(var(--u) * 5);
+    font-size: 15px;
+    color: var(--text-2);
+  }
+
+  // The empty state's own hint sits above its button, so the button needs the
+  // gap the hint would otherwise have supplied.
+  &--empty .action {
+    margin-top: calc(var(--u) * 4);
   }
 }
 
 @media (max-width: 700px) {
   .sheet {
-    padding: calc(var(--u) * 8) calc(var(--u) * 4) calc(var(--u) * 16);
+    padding: calc(var(--u) * 6) calc(var(--u) * 4) calc(var(--u) * 16);
   }
 
   .masthead {

@@ -2,7 +2,7 @@
 
   <header class="masthead">
     <div class="masthead__identity">
-      <p class="masthead__eyebrow label">Chart</p>
+      <p class="masthead__eyebrow">Chart</p>
       <h1 class="masthead__title">{{ projects.current()?.name ?? 'Chart' }}</h1>
     </div>
 
@@ -12,7 +12,7 @@
         @if (analysis.criticalDuration) {
           <div class="readout mono">
             <span class="readout__figure">{{ analysis.criticalDuration }}d</span>
-            <span class="readout__label label">critical path</span>
+            <span class="readout__label">critical path</span>
             @if (analysis.slackInPlan) {
               <span class="readout__aside">+{{ analysis.slackInPlan }}d slack in plan</span>
             }
@@ -20,26 +20,26 @@
         }
       }
 
-      <button type="button" class="zoom__step label float-toggle"
+      <button type="button" class="float-toggle"
               [class.is-current]="showFloat()"
               (click)="toggleFloat()">Float</button>
 
       <!-- Zoom changes the width of a day column, nothing else. One number
            drives the whole layout, so the header and the bars cannot drift. -->
       <div class="zoom" role="group" aria-label="Zoom">
-        <button type="button" class="zoom__step label"
+        <button type="button" class="zoom__step"
                 [class.is-current]="zoom() === 'days'"
                 (click)="setZoom('days')">Days</button>
-        <button type="button" class="zoom__step label"
+        <button type="button" class="zoom__step"
                 [class.is-current]="zoom() === 'weeks'"
                 (click)="setZoom('weeks')">Weeks</button>
-        <button type="button" class="zoom__step label"
+        <button type="button" class="zoom__step"
                 [class.is-current]="zoom() === 'months'"
                 (click)="setZoom('months')">Months</button>
       </div>
 
       @if (todayIndex() !== null) {
-        <button type="button" class="today-jump label" (click)="scrollToToday()">
+        <button type="button" class="today-jump" (click)="scrollToToday()">
           Today
         </button>
       }
@@ -49,12 +49,17 @@
   @if (taskService.error(); as message) {
     <div class="notice" role="alert">
       <span>{{ message }}</span>
-      <button type="button" class="link label" (click)="taskService.clearError()">Dismiss</button>
+      <button type="button" class="link" (click)="taskService.clearError()">Dismiss</button>
     </div>
   }
 
   @if (taskService.loading()) {
-    <p class="state mono">Drawing chart…</p>
+    <p class="state__line">Drawing chart…</p>
+  } @else if (projects.currentId() === null) {
+    <div class="state">
+      <p class="state__line">No project yet.</p>
+      <p class="state__hint">Create one from the picker at the top of the screen.</p>
+    </div>
   } @else if (taskService.isEmpty()) {
     <div class="state">
       <p class="state__line">Nothing to plot yet.</p>
@@ -71,7 +76,7 @@
       <!-- Fixed column. Stays put while the timeline scrolls sideways, so a
            bar is never separated from the name of its task. -->
       <div class="chart__names">
-        <div class="chart__names-head label">Task</div>
+        <div class="chart__names-head">Task</div>
 
         @for (row of rows(); track row.task.id; let i = $index) {
           <div class="name"
@@ -111,7 +116,7 @@
           <div class="tl__head">
             <div class="tl__months">
               @for (month of months(); track month.label) {
-                <div class="tl__month label" [style.grid-column]="'span ' + month.span">
+                <div class="tl__month" [style.grid-column]="'span ' + month.span">
                   {{ month.label }}
                 </div>
               }

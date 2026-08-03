@@ -2,7 +2,7 @@
 
   <header class="masthead">
     <div class="masthead__identity">
-      <p class="masthead__eyebrow label">Schedule</p>
+      <p class="masthead__eyebrow">Schedule</p>
       <h1 class="masthead__title">{{ projects.current()?.name ?? 'Schedule' }}</h1>
     </div>
 
@@ -28,12 +28,20 @@
   @if (taskService.error(); as message) {
     <div class="notice" role="alert">
       <span>{{ message }}</span>
-      <button type="button" class="link label" (click)="taskService.clearError()">Dismiss</button>
+      <button type="button" class="link" (click)="taskService.clearError()">Dismiss</button>
     </div>
   }
 
   @if (taskService.loading()) {
-    <p class="state mono">Loading schedule…</p>
+    <p class="state__line">Loading schedule…</p>
+  } @else if (projects.currentId() === null) {
+    <!-- No project at all, which is where a new account now starts. Saying
+         "nothing scheduled" here would describe the wrong absence and leave
+         the reader looking for a task button that cannot help them. -->
+    <div class="state state--empty">
+      <p class="state__line">No project yet.</p>
+      <p class="state__hint">Create one from the picker at the top of the screen.</p>
+    </div>
   } @else if (taskService.isEmpty()) {
     <div class="state state--empty">
       <p class="state__line">Nothing scheduled yet.</p>

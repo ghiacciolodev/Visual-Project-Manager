@@ -1,41 +1,51 @@
 .row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 280px auto;
+  grid-template-columns: 4px minmax(0, 1fr) 300px auto;
   align-items: stretch;
-  background: var(--sheet);
-
-  // Rows are separated by a single hairline, like ruled paper. No gaps, no
-  // radius, no shadow: the sheet is continuous.
-  border-bottom: 1px solid var(--rule);
-  transition: background 0.12s linear;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 
   &:hover {
-    background: var(--sheet-hover);
+    border-color: var(--border-2);
+    box-shadow: var(--shadow);
   }
 
-  &__gutter {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--task-color, var(--rule-strong));
-    color: var(--gutter-text, var(--ink));
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+  // The task's colour, as a spine down the left edge. It used to be a filled
+  // block carrying the row number in reversed-out text, which meant computing
+  // a readable foreground for an arbitrary user-chosen hue. A 4px spine says
+  // the same thing and never has to be legible.
+  &__spine {
+    background: var(--task-color, var(--border-2));
   }
 
   &__identity {
     min-width: 0;
-    padding: calc(var(--u) * 3) calc(var(--u) * 4);
+    padding: calc(var(--u) * 4);
+  }
+
+  &__headline {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--u) * 2);
+    min-width: 0;
+  }
+
+  &__number {
+    font-size: 13px;
+    color: var(--text-3);
+    flex-shrink: 0;
   }
 
   &__title {
     margin: 0;
-    font-family: var(--font-label);
     font-size: 16px;
     font-weight: 600;
-    letter-spacing: 0.005em;
-    color: var(--ink);
+    letter-spacing: -0.005em;
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -44,14 +54,15 @@
   &__meta {
     display: flex;
     align-items: center;
-    gap: calc(var(--u) * 3);
-    margin-top: calc(var(--u) * 1.5);
+    flex-wrap: wrap;
+    gap: calc(var(--u) * 2) calc(var(--u) * 3);
+    margin-top: calc(var(--u) * 2);
     min-width: 0;
   }
 
   &__note {
-    font-size: 12px;
-    color: var(--ink-3);
+    font-size: 14px;
+    color: var(--text-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -61,22 +72,22 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: calc(var(--u) * 1.5);
-    padding: calc(var(--u) * 3) calc(var(--u) * 4);
-    border-left: 1px solid var(--rule);
+    gap: calc(var(--u) * 2);
+    padding: calc(var(--u) * 4);
+    border-left: 1px solid var(--border);
   }
 
   &__actions {
     display: flex;
     align-items: center;
-    gap: calc(var(--u) * 2);
+    gap: calc(var(--u) * 3);
     padding: 0 calc(var(--u) * 4);
-    border-left: 1px solid var(--rule);
+    border-left: 1px solid var(--border);
   }
 
   &__viewing {
-    font-size: 10px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
   }
 }
 
@@ -84,33 +95,26 @@
 
 .track {
   position: relative;
-  height: 10px;
-
-  // Graph-paper ruling behind the bar. Drawn with a gradient rather than
-  // markup so the row stays one element per task.
-  background-image: repeating-linear-gradient(
-    to right,
-    var(--rule) 0 1px,
-    transparent 1px 100%
-  );
-  background-size: 12.5% 100%;
-  border-bottom: 1px solid var(--rule-strong);
+  height: 8px;
+  background: var(--surface-3);
+  border-radius: var(--radius-pill);
 
   &__bar {
     position: absolute;
-    top: 1px;
-    bottom: 1px;
+    top: 0;
+    bottom: 0;
     background: var(--task-color);
-    min-width: 3px;
+    border-radius: var(--radius-pill);
+    min-width: 4px;
   }
 
-  // The cursor that used to be a red slider on a wall planner. The only
-  // place this colour appears anywhere in the interface.
+  // The marker for the present moment. The one place this colour appears.
   &__now {
     position: absolute;
-    top: -3px;
-    bottom: -3px;
-    width: 1px;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    border-radius: 1px;
     background: var(--now);
   }
 }
@@ -119,94 +123,66 @@
   display: flex;
   align-items: baseline;
   gap: calc(var(--u) * 1.5);
-  font-size: 11px;
-  color: var(--ink-2);
+  font-size: 13px;
+  color: var(--text-2);
 
   &__arrow {
-    color: var(--ink-3);
+    color: var(--text-3);
   }
 
   &__duration {
     margin-left: auto;
-    color: var(--ink-3);
+    color: var(--text-3);
   }
 }
 
-/* --- state, priority, blocking ------------------------------------------ */
+/* --- priority and blocking ---------------------------------------------- */
 
-.state {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--u) * 1.5);
-  font-size: 10px;
-  color: var(--ink-2);
-
-  &__box {
-    width: 9px;
-    height: 9px;
-    border: 1px solid var(--ink-2);
-    flex-shrink: 0;
-  }
-
-  &[data-state='DOING'] &__box {
-    // Half filled: the work is under way.
-    background: linear-gradient(to right, var(--ink-2) 50%, transparent 50%);
-  }
-
-  &[data-state='DONE'] &__box {
-    background: var(--ink-2);
-  }
-
-  &[data-state='DONE'] {
-    color: var(--ink-3);
-  }
-}
-
+/* Status uses the shared .badge. Priority stays quieter: it is a property of
+   the work rather than a state of it, and giving both the same weight would
+   turn every row into a row of pills. */
 .priority {
-  font-size: 10px;
-  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--prio-low);
 
-  &--high {
-    color: var(--ink);
-    border-bottom: 2px solid var(--ink);
-    padding-bottom: 1px;
+  &[data-priority='MEDIUM'] { color: var(--prio-medium); }
+
+  &[data-priority='HIGH'] {
+    color: var(--prio-high);
+    font-weight: 600;
   }
 }
 
 .blocked {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--u) * 1.5);
   min-width: 0;
-  font-size: 11px;
-  color: var(--ink-2);
-
-  &__mark {
-    color: var(--ink-3);
-    font-size: 12px;
-    line-height: 1;
-  }
-
-  &__text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  font-size: 13px;
+  color: var(--doing);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* --- controls ----------------------------------------------------------- */
 
 .select {
-  font-size: 10px;
-  color: var(--ink-2);
-  padding: calc(var(--u)) calc(var(--u) * 1.5);
-  background: transparent;
-  border: 1px solid var(--rule-strong);
-  border-radius: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  padding: calc(var(--u) * 1.5) calc(var(--u) * 2);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
   cursor: pointer;
 
   &:hover {
-    border-color: var(--ink-2);
+    border-color: var(--text-3);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 }
 
@@ -214,22 +190,18 @@
 
 @media (max-width: 860px) {
   .row {
-    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-columns: 4px minmax(0, 1fr);
+
+    &__spine {
+      grid-row: 1 / -1;
+    }
 
     &__schedule,
     &__actions {
       grid-column: 2;
       border-left: 0;
-      border-top: 1px dashed var(--rule);
-      padding-left: calc(var(--u) * 4);
-    }
-
-    &__schedule {
-      width: auto;
-    }
-
-    &__gutter {
-      grid-row: 1 / -1;
+      border-top: 1px solid var(--border);
+      padding: calc(var(--u) * 3) calc(var(--u) * 4);
     }
   }
 }

@@ -11,13 +11,15 @@
 
   display: flex;
   align-items: stretch;
-  border: 1px solid var(--rule-strong);
-  background: var(--sheet);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
 
   &__names {
     flex: 0 0 var(--names-w);
-    border-right: 2px solid var(--ink);
-    background: var(--sheet);
+    border-right: 1px solid var(--border-2);
+    background: var(--surface);
     z-index: 2;
   }
 
@@ -26,9 +28,9 @@
     display: flex;
     align-items: flex-end;
     padding: 0 calc(var(--u) * 3) calc(var(--u) * 1.5);
-    font-size: 10px;
-    color: var(--ink-3);
-    border-bottom: 1px solid var(--rule-strong);
+    font-size: 13px;
+    color: var(--text-3);
+    border-bottom: 1px solid var(--border-2);
   }
 
   &__scroll {
@@ -44,22 +46,22 @@
   align-items: center;
   gap: calc(var(--u) * 2);
   padding: 0 calc(var(--u) * 3);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--border);
 
   &__chip {
     flex: 0 0 auto;
     width: 20px;
     text-align: center;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     line-height: 16px;
   }
 
   &__title {
-    font-family: var(--font-label);
+    font-family: var(--font-ui);
     font-size: 13px;
     font-weight: 500;
-    color: var(--ink);
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -67,14 +69,14 @@
 
   &__float {
     margin-left: auto;
-    font-size: 9px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
   }
 
   // Waiting work is set in the lighter ink: present, legible, and visibly not
   // the thing to start next.
   &--blocked &__title {
-    color: var(--ink-2);
+    color: var(--text-2);
     font-style: italic;
   }
 
@@ -99,7 +101,7 @@
   }
 
   &__col {
-    border-right: 1px solid var(--rule);
+    border-right: 1px solid var(--border);
 
     // Weekends are shaded because they explain the gap between a bar's length
     // and the working days inside it. Information, not decoration.
@@ -110,7 +112,7 @@
     // A month boundary is a bigger division than a day, so it gets a heavier
     // rule. Line weight encodes hierarchy.
     &--month {
-      border-left: 1px solid var(--rule-strong);
+      border-left: 1px solid var(--border-2);
     }
   }
 
@@ -139,8 +141,8 @@
     position: relative;
     z-index: 1;
     height: var(--head-h);
-    border-bottom: 1px solid var(--rule-strong);
-    background: var(--sheet);
+    border-bottom: 1px solid var(--border-2);
+    background: var(--surface);
   }
 
   &__months,
@@ -157,10 +159,10 @@
     display: flex;
     align-items: center;
     padding-left: calc(var(--u) * 1.5);
-    font-size: 10px;
-    color: var(--ink-2);
-    border-left: 1px solid var(--rule-strong);
-    border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--text-2);
+    border-left: 1px solid var(--border-2);
+    border-bottom: 1px solid var(--border);
     overflow: hidden;
     white-space: nowrap;
   }
@@ -173,12 +175,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 9px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
     overflow: hidden;
 
     &--weekend {
-      color: var(--rule-strong);
+      color: var(--border-2);
     }
 
     &--today {
@@ -202,7 +204,7 @@
   grid-auto-columns: 0;
   height: var(--row-h);
   align-items: center;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--border);
 }
 
 .bar {
@@ -210,7 +212,7 @@
   height: 18px;
   min-width: 4px;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   padding: 0 calc(var(--u) * 1.5);
   text-align: left;
   overflow: hidden;
@@ -235,7 +237,7 @@
   // decides the end date. Weight, not colour: the one saturated colour in this
   // interface is spoken for, and adding a second would flatten both.
   &--critical {
-    box-shadow: 0 3px 0 var(--ink);
+    box-shadow: 0 3px 0 var(--text);
   }
 
   // Nothing happens on click for a viewer, so the cursor should not promise
@@ -249,10 +251,9 @@
   }
 
   &__label {
-    font-family: var(--font-label);
-    font-size: 11px;
+    font-family: var(--font-ui);
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.01em;
     white-space: nowrap;
   }
 }
@@ -281,7 +282,7 @@
 
   path {
     fill: none;
-    stroke: var(--ink-2);
+    stroke: var(--text-2);
     stroke-width: 1;
     // Coordinates land on whole pixels, so a 1px stroke would straddle two of
     // them and render soft. This snaps it to the pixel grid.
@@ -289,7 +290,7 @@
   }
 
   marker path {
-    fill: var(--ink-2);
+    fill: var(--text-2);
     stroke: none;
   }
 }
@@ -307,7 +308,7 @@
   align-items: flex-end;
   gap: calc(var(--u) * 6);
   padding-bottom: calc(var(--u) * 3);
-  border-bottom: 2px solid var(--ink);
+  border-bottom: 2px solid var(--text);
   margin-bottom: calc(var(--u) * 6);
 
   &__identity {
@@ -317,13 +318,13 @@
 
   &__eyebrow {
     margin: 0;
-    font-size: 10px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
   }
 
   &__title {
     margin: calc(var(--u)) 0 0;
-    font-family: var(--font-label);
+    font-family: var(--font-ui);
     font-size: 32px;
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -345,32 +346,32 @@
   &__figure {
     font-size: 17px;
     font-weight: 600;
-    color: var(--ink);
+    color: var(--text);
   }
 
   &__label {
-    font-size: 9px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
   }
 
   &__aside {
-    font-size: 10px;
-    color: var(--ink-3);
+    font-size: 13px;
+    color: var(--text-3);
     padding-left: calc(var(--u) * 2);
-    border-left: 1px solid var(--rule-strong);
+    border-left: 1px solid var(--border-2);
   }
 }
 
 .zoom {
   display: flex;
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--border-2);
 
   &__step {
-    font-size: 10px;
-    color: var(--ink-2);
+    font-size: 13px;
+    color: var(--text-2);
     background: transparent;
     border: 0;
-    border-right: 1px solid var(--rule-strong);
+    border-right: 1px solid var(--border-2);
     padding: calc(var(--u) * 1.5) calc(var(--u) * 3);
     cursor: pointer;
 
@@ -379,12 +380,12 @@
     }
 
     &:hover {
-      background: var(--sheet-hover);
+      background: var(--surface-2);
     }
 
     &.is-current {
-      background: var(--ink);
-      color: var(--ink-invert);
+      background: var(--text);
+      color: var(--text-invert);
     }
   }
 }
@@ -392,11 +393,11 @@
 // Sits outside the zoom group but borrows its shape: same control vocabulary,
 // separate decision.
 .float-toggle {
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--border-2);
 }
 
 .today-jump {
-  font-size: 10px;
+  font-size: 13px;
   color: var(--now);
   background: none;
   border: 0;
@@ -407,21 +408,21 @@
 
 .legend {
   margin: calc(var(--u) * 3) 0 0;
-  font-size: 10px;
-  color: var(--ink-3);
+  font-size: 13px;
+  color: var(--text-3);
   line-height: 1.6;
 }
 
 .state {
   padding: calc(var(--u) * 16) 0;
   text-align: center;
-  color: var(--ink-3);
-  font-size: 12px;
+  color: var(--text-3);
+  font-size: 13px;
 
   &__line {
     margin: 0 0 calc(var(--u) * 4);
     font-size: 14px;
-    color: var(--ink-2);
+    color: var(--text-2);
   }
 }
 
