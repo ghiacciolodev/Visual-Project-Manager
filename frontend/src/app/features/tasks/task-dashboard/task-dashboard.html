@@ -32,6 +32,66 @@
     </div>
   }
 
+  <!--
+    Shown whenever the project has anything in it.
+
+    This was gated on having more than two tasks, on the theory that a filter
+    bar over a short list is furniture. That theory cost more than it saved:
+    it made the controls appear and disappear with the data, so somebody with
+    a small project could not find out the filters existed at all. Hidden only
+    on a project with nothing to filter, where the empty state has the floor.
+  -->
+  @if (taskService.tasks().length) {
+    <div class="filters" role="group" aria-label="Filter and sort">
+      <label class="filters__field">
+        <span class="filters__label">Status</span>
+        <select [value]="filter().status" (change)="onStatusFilter($event)">
+          <option [value]="any">Any</option>
+          @for (status of statuses; track status) {
+            <option [value]="status">{{ status }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filters__field">
+        <span class="filters__label">Priority</span>
+        <select [value]="filter().priority" (change)="onPriorityFilter($event)">
+          <option [value]="any">Any</option>
+          @for (priority of priorities; track priority) {
+            <option [value]="priority">{{ priority }}</option>
+          }
+        </select>
+      </label>
+
+      <!-- Overlap, not containment: a task running across the window is the
+           most relevant thing in it. -->
+      <label class="filters__field">
+        <span class="filters__label">Active from</span>
+        <input type="date" [value]="filter().from" (change)="onFrom($event)">
+      </label>
+
+      <label class="filters__field">
+        <span class="filters__label">to</span>
+        <input type="date" [value]="filter().to" (change)="onTo($event)">
+      </label>
+
+      <label class="filters__field filters__field--sort">
+        <span class="filters__label">Sort by</span>
+        <select [value]="sortKey()" (change)="onSort($event)">
+          <option value="start">Start date</option>
+          <option value="end">End date</option>
+          <option value="priority">Priority</option>
+          <option value="status">Status</option>
+          <option value="title">Title</option>
+        </select>
+      </label>
+
+      @if (filtering()) {
+        <button type="button" class="link" (click)="clearFilter()">Clear filters</button>
+      }
+    </div>
+  }
+
   @if (taskService.loading()) {
     <p class="state__line">Loading schedule…</p>
   } @else if (projects.currentId() === null) {
@@ -49,13 +109,21 @@
         <button type="button" class="action" (click)="openCreate()">Add the first task</button>
       }
     </div>
+  } @else if (visible().length === 0) {
+    <!-- Tasks exist, none of them match. Distinct from an empty project: the
+         way out is to widen the filter, not to write anything. -->
+    <div class="state state--empty">
+      <p class="state__line">Nothing matches those filters.</p>
+      <p class="state__hint">{{ taskService.tasks().length }} tasks are hidden.</p>
+      <button type="button" class="ghost" (click)="clearFilter()">Clear filters</button>
+    </div>
   } @else {
     <div class="ledger">
       <!--
         track by id, not by index: with an index key, deleting an item makes
         Angular reuse the wrong DOM nodes and the rows below inherit stale state.
       -->
-      @for (task of taskService.tasks(); track task.id; let i = $index) {
+      @for (task of visible(); track task.id; let i = $index) {
         <app-task-row
           [task]="task"
           [index]="i"
@@ -66,6 +134,13 @@
           (statusChange)="onStatusChange($event)" />
       }
     </div>
+
+    @if (hiddenCount() > 0) {
+      <p class="ledger__hidden">
+        {{ hiddenCount() }} more hidden by the filters.
+        <button type="button" class="link" (click)="clearFilter()">Show everything</button>
+      </p>
+    }
   }
 
   @if (formOpen()) {

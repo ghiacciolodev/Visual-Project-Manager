@@ -2,7 +2,22 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, v
 
 import { ConflictError, TaskService, ValidationError } from '../../../core/task.service';
 import { ProjectService } from '../../../core/project.service';
-import { Task, TaskStatus } from '../../../models/task.model';
+import {
+  Task,
+  TaskPriority,
+  TaskStatus,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+} from '../../../models/task.model';
+import {
+  ANY,
+  NO_FILTER,
+  SortKey,
+  TaskFilter,
+  filterTasks,
+  isFiltering,
+  sortTasks,
+} from '../../../core/task-filter';
 import { formatDay, projectSpan } from '../../../core/schedule';
 import { TaskCard } from '../task-card/task-card';
 import { TaskForm, TaskFormResult } from '../task-form/task-form';
@@ -25,7 +40,39 @@ export class TaskDashboard implements OnInit {
   readonly editing = signal<Task | null>(null);
   readonly submitting = signal(false);
 
-  /** Shared window for every row's timeline. Recomputes whenever tasks change. */
+  /* --- filtering and sorting ------------------------------------------- */
+
+  readonly statuses = TASK_STATUSES;
+  readonly priorities = TASK_PRIORITIES;
+  readonly any = ANY;
+
+  readonly filter = signal<TaskFilter>(NO_FILTER);
+  readonly sortKey = signal<SortKey>('start');
+
+  readonly filtering = computed(() => isFiltering(this.filter()));
+
+  /**
+   * What the ledger actually renders.
+   *
+   * A computed over the same signal both views read, so filtering costs no
+   * request and cannot disagree with the chart about what exists — it only
+   * disagrees about what is worth looking at right now.
+   */
+  readonly visible = computed(() =>
+    sortTasks(filterTasks(this.taskService.tasks(), this.filter()), this.sortKey())
+  );
+
+  readonly hiddenCount = computed(
+    () => this.taskService.tasks().length - this.visible().length
+  );
+
+  /**
+   * Shared window for every row's timeline.
+   *
+   * Measured against every task, not the visible ones. If the scale followed
+   * the filter, the same task would draw a different bar depending on what
+   * else was on screen, and two readings could not be compared.
+   */
   readonly span = computed(() => projectSpan(this.taskService.tasks()));
 
   readonly spanLabel = computed(() => {
@@ -90,6 +137,34 @@ export class TaskDashboard implements OnInit {
 
   onStatusChange({ task, status }: { task: Task; status: TaskStatus }): void {
     void this.taskService.changeStatus(task, status);
+  }
+
+  /* --- filter controls -------------------------------------------------- */
+
+  onStatusFilter(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as TaskStatus | typeof ANY;
+    this.filter.update(f => ({ ...f, status: value }));
+  }
+
+  onPriorityFilter(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as TaskPriority | typeof ANY;
+    this.filter.update(f => ({ ...f, priority: value }));
+  }
+
+  onFrom(event: Event): void {
+    this.filter.update(f => ({ ...f, from: (event.target as HTMLInputElement).value }));
+  }
+
+  onTo(event: Event): void {
+    this.filter.update(f => ({ ...f, to: (event.target as HTMLInputElement).value }));
+  }
+
+  onSort(event: Event): void {
+    this.sortKey.set((event.target as HTMLSelectElement).value as SortKey);
+  }
+
+  clearFilter(): void {
+    this.filter.set(NO_FILTER);
   }
 
   onDelete(task: Task): void {

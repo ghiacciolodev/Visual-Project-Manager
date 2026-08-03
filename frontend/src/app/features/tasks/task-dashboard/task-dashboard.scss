@@ -48,12 +48,70 @@
   }
 }
 
+/* --- filters ------------------------------------------------------------ */
+
+.filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 3) calc(var(--u) * 4);
+  padding: calc(var(--u) * 4);
+  margin-bottom: calc(var(--u) * 5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--u));
+
+    select,
+    input {
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      padding: calc(var(--u) * 1.5) calc(var(--u) * 2);
+      cursor: pointer;
+
+      &:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+    }
+
+    // Pushed to the far end: it orders what the others have chosen, so it is
+    // a different kind of control from the four beside it.
+    &--sort {
+      margin-left: auto;
+    }
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+}
+
 /* Cards with air between them, where this used to be one continuous ruled
    sheet with rows sharing hairlines. */
 .ledger {
   display: flex;
   flex-direction: column;
   gap: calc(var(--u) * 3);
+
+  // Says what is not on screen. A filtered list that does not admit to hiding
+  // things is how somebody concludes a task was deleted.
+  &__hidden {
+    margin: calc(var(--u) * 4) 0 0;
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-3);
+  }
 }
 
 .state {
