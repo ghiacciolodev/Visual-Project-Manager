@@ -114,6 +114,33 @@
   }
 }
 
+/* Built to the same measurements as a real row, so the page does not shift
+   when the data replaces it. */
+.row-skeleton {
+  padding: calc(var(--u) * 4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+
+  &__title {
+    width: 45%;
+    height: 16px;
+  }
+
+  &__meta {
+    width: 30%;
+    height: 13px;
+    margin-top: calc(var(--u) * 2.5);
+  }
+
+  &__track {
+    width: 100%;
+    height: 8px;
+    margin-top: calc(var(--u) * 3);
+    border-radius: var(--radius-pill);
+  }
+}
+
 .state {
   padding: calc(var(--u) * 20) calc(var(--u) * 6);
   text-align: center;
@@ -144,6 +171,40 @@
 @media (max-width: 700px) {
   .sheet {
     padding: calc(var(--u) * 6) calc(var(--u) * 4) calc(var(--u) * 16);
+  }
+
+  // Two columns rather than a wrapping row. Wrapping leaves the controls at
+  // whatever widths their contents happen to want — and the sort field, which
+  // is pushed to the far end on a wide screen, ends up alone on a line
+  // hugging the right edge for no reason a reader can see.
+  .filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+
+    &__field {
+      min-width: 0;
+
+      select,
+      input {
+        width: 100%;
+        // Date inputs claim an intrinsic width wider than a phone, and
+        // without this they push the grid past the viewport.
+        min-width: 0;
+      }
+
+      // The ordering applies to everything above it, so it spans the row
+      // rather than sitting in a column beside a filter.
+      &--sort {
+        grid-column: 1 / -1;
+        margin-left: 0;
+      }
+    }
+
+    .link {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
   }
 
   .masthead {

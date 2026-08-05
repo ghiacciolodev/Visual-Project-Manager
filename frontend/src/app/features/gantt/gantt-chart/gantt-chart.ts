@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  OnDestroy,
   OnInit,
   computed,
   effect,
@@ -20,6 +21,7 @@ import {
   DayCell,
   DragMode,
   addDays,
+  connectorPoints,
   dragDates,
   daysBetween,
   durationDays,
@@ -28,6 +30,7 @@ import {
   monthBands,
   padSpan,
   projectSpan,
+  roundedPath,
   todayIso,
 } from '../../../core/schedule';
 import { TaskForm, TaskFormResult } from '../../tasks/task-form/task-form';
@@ -88,7 +91,7 @@ const DRAG_THRESHOLD_PX = 4;
   styleUrl: './gantt-chart.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GanttChart implements OnInit, AfterViewInit {
+export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
 
   // The same store the dashboard reads. Neither view fetches on its own, which
   // is what makes an edit in one appear in the other with no wiring at all.
@@ -197,16 +200,25 @@ export class GanttChart implements OnInit, AfterViewInit {
   /* --- dependency connectors ------------------------------------------- */
 
   /**
-   * Orthogonal connectors between dependent bars.
+   * Connectors between dependent bars, with the geometry in schedule.ts.
    *
-   * Two routes, because a successor is not always scheduled after its
-   * predecessor finishes — an overlap is an ordinary state of a plan that has
-   * slipped, and a straight line backwards would cut through the bars in
-   * between.
+   * Three things were wrong with the previous version, all of them showing up
+   * when bars overlap — which is the ordinary state of a plan that has
+   * slipped, not an edge case.
    *
-   * The return route travels in the margin beside the predecessor's bar, not
-   * along the boundary between rows: a line drawn on the row divider is a line
-   * nobody can see.
+   * The corners were square, which at this density reads as a diagram rather
+   * than a drawn line. They are rounded now, and the radius is capped at half
+   * the shorter neighbouring segment so two turns close together cannot eat
+   * the same run of line and cross over.
+   *
+   * The descent happened immediately after the predecessor. It now happens
+   * just before the successor: the column to the left of a bar is far more
+   * often empty than the one to its right, because that is where the next
+   * task is about to start.
+   *
+   * And two connectors sharing a corridor were drawn on exactly the same
+   * line, so one hid the other and the pair read as a single arrow. Each
+   * additional lane between the same two rows is now nudged further out.
    */
   readonly connectors = computed(() => {
     const rows = this.rows();
@@ -214,12 +226,21 @@ export class GanttChart implements OnInit, AfterViewInit {
 
     // Tighter geometry at small zooms, where a fixed 8px stub would be wider
     // than the days it is drawn across.
-    const stub = dayWidth < 12 ? 4 : 8;       // clearance before the first turn
-    const approach = dayWidth < 12 ? 6 : 10;  // straight run into the arrowhead
-    const margin = 13;                        // half a bar, plus breathing room
+    const stub = dayWidth < 12 ? 4 : 8;
+    const approach = dayWidth < 12 ? 6 : 10;
+    const radius = dayWidth < 12 ? 3 : 6;
 
     const positionOf = new Map<number, { row: ChartRow; index: number }>();
     rows.forEach((row, index) => positionOf.set(row.task.id, { row, index }));
+
+    /**
+     * How many backward routes already run between a given pair of rows.
+     *
+     * Two connectors travelling the same corridor used to be drawn on exactly
+     * the same line, which reads as one arrow and hides the other. Each
+     * subsequent lane is nudged a little further out.
+     */
+    const laneUse = new Map<string, number>();
 
     const paths: string[] = [];
 
@@ -228,27 +249,28 @@ export class GanttChart implements OnInit, AfterViewInit {
         const from = positionOf.get(predecessor.id);
         if (!from || from.index === index) continue;
 
-        const x1 = (from.row.offset + from.row.length) * dayWidth;
-        const y1 = from.index * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const x2 = row.offset * dayWidth;
-        const y2 = index * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const start = {
+          x: (from.row.offset + from.row.length) * dayWidth,
+          y: from.index * ROW_HEIGHT + ROW_HEIGHT / 2,
+        };
+        const end = {
+          x: row.offset * dayWidth,
+          y: index * ROW_HEIGHT + ROW_HEIGHT / 2,
+        };
 
-        // Stop short of the bar so the arrowhead sits beside it, not on it.
-        const tip = x2 - 4;
-        const towards = y2 > y1 ? 1 : -1;
+        // The corridor between the two rows, biased towards the successor so
+        // the line is already heading the right way when it turns.
+        const key = `${Math.min(from.index, index)}:${Math.max(from.index, index)}`;
+        const taken = laneUse.get(key) ?? 0;
+        laneUse.set(key, taken + 1);
 
-        if (tip - x1 > stub + approach) {
-          // Room to cross directly: out, one turn, in.
-          paths.push(`M ${x1} ${y1} H ${x1 + stub} V ${y2} H ${tip}`);
-        } else {
-          // No room: drop into the clear strip beside the predecessor's bar,
-          // travel back along it, then down into the successor.
-          const lane = y1 + towards * margin;
-          const turn = x2 - approach;
-          paths.push(
-            `M ${x1} ${y1} H ${x1 + stub} V ${lane} H ${turn} V ${y2} H ${tip}`
-          );
-        }
+        const towards = end.y > start.y ? 1 : -1;
+        const lane = start.y + towards * (ROW_HEIGHT / 2 + 3 + taken * 4);
+
+        paths.push(roundedPath(
+          connectorPoints(start, end, { stub, approach, radius, lane }),
+          radius
+        ));
       }
     });
 
@@ -312,6 +334,14 @@ export class GanttChart implements OnInit, AfterViewInit {
     // load() resolves the project first, so one call covers both — and keeps
     // a deep link to /gantt working without the dashboard having run.
     void this.taskService.load();
+    this.taskService.startPolling();
+  }
+
+  ngOnDestroy(): void {
+    this.taskService.stopPolling();
+    // A drag interrupted by navigation would otherwise leave polling off for
+    // the rest of the session.
+    this.taskService.resumePolling();
   }
 
   ngAfterViewInit(): void {
@@ -365,6 +395,11 @@ export class GanttChart implements OnInit, AfterViewInit {
 
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
 
+    // A poll landing mid-gesture replaces the task list, and the drawn window
+    // is measured from it — the columns would shift under a pointer that is
+    // aiming at them.
+    this.taskService.pausePolling();
+
     this.drag.set({
       taskId: row.task.id,
       mode,
@@ -406,6 +441,7 @@ export class GanttChart implements OnInit, AfterViewInit {
 
     (event.target as HTMLElement).releasePointerCapture?.(event.pointerId);
     this.drag.set(null);
+    this.taskService.resumePolling();
 
     if (!drag.moved) {
       this.openEdit(row.task);
@@ -422,10 +458,23 @@ export class GanttChart implements OnInit, AfterViewInit {
     void this.taskService.reschedule(row.task, drag.startDate, drag.endDate);
   }
 
+  /**
+   * The browser took the pointer away — a context menu, a system gesture.
+   *
+   * Its own handler rather than an inline drag.set(null), because abandoning
+   * a gesture has to put polling back as well; leaving that out means one
+   * interrupted drag stops the view updating for the rest of the session.
+   */
+  onBarCancel(): void {
+    this.drag.set(null);
+    this.taskService.resumePolling();
+  }
+
   /** Escape abandons the drag; the bar returns to where it was. */
   onBarKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && this.drag()) {
       this.drag.set(null);
+      this.taskService.resumePolling();
     }
   }
 

@@ -1,5 +1,6 @@
 import {
   addDays,
+  connectorPoints,
   daysBetween,
   dragDates,
   durationDays,
@@ -9,6 +10,7 @@ import {
   parseDay,
   positionInSpan,
   projectSpan,
+  roundedPath,
   toIso,
 } from './schedule';
 import { Task } from '../models/task.model';
@@ -17,6 +19,7 @@ function task(startDate: string, endDate: string): Task {
   return {
     id: 1, title: 't', description: null, status: 'TODO', priority: 'MEDIUM',
     startDate, endDate, color: '#3B82F6', dependsOn: [], blockedBy: [], assignee: null,
+    updatedAt: '2026-01-01T00:00:00Z',
   };
 }
 
@@ -113,6 +116,83 @@ describe('schedule', () => {
       expect(bands).toHaveLength(2);
       expect(bands[0].span).toBe(2);
       expect(bands[1].span).toBe(2);
+    });
+  });
+
+  describe('connector geometry', () => {
+
+    const options = { stub: 8, approach: 10, radius: 6, lane: 40 };
+
+    it('crosses directly when there is room, turning once', () => {
+      const points = connectorPoints({ x: 100, y: 10 }, { x: 300, y: 44 }, options);
+
+      // Out along the row, down just before the successor, in to the tip. The
+      // descent is near the target rather than near the source: the column to
+      // the left of a bar is usually empty, the one to its right is where the
+      // next task starts.
+      expect(points).toEqual([
+        { x: 100, y: 10 },
+        { x: 286, y: 10 },
+        { x: 286, y: 44 },
+        { x: 296, y: 44 },
+      ]);
+    });
+
+    it('takes the long way round when the bars overlap', () => {
+      // The successor starts before the predecessor ends, which is what a
+      // slipped plan looks like. A straight line backwards would cut through
+      // everything in between.
+      const points = connectorPoints({ x: 300, y: 10 }, { x: 200, y: 44 }, options);
+
+      expect(points).toHaveLength(6);
+      expect(points[1]).toEqual({ x: 308, y: 10 });   // clear of the bar first
+      expect(points[2].y).toBe(40);                    // into the lane
+      expect(points[3].y).toBe(40);                    // back along it
+      expect(points.at(-1)).toEqual({ x: 196, y: 44 });
+    });
+
+    it('stops short of the successor so the arrowhead sits beside it', () => {
+      const points = connectorPoints({ x: 100, y: 10 }, { x: 300, y: 44 }, options);
+      expect(points.at(-1)!.x).toBe(296);
+    });
+
+    it('rounds every corner of a polyline', () => {
+      const path = roundedPath(
+        [{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 50, y: 50 }], 6
+      );
+
+      // One curve per interior vertex, and the corner itself becomes the
+      // control point rather than a drawn position.
+      expect(path.match(/Q/g)).toHaveLength(1);
+      expect(path).toContain('Q 50 0');
+      expect(path.startsWith('M 0 0')).toBe(true);
+    });
+
+    it('never cuts more than half a segment, however large the radius', () => {
+      // A 10px run between two turns with a 50px radius: without the cap both
+      // curves would reach past each other and the line would double back.
+      const path = roundedPath(
+        [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 20, y: 10 }], 50
+      );
+
+      expect(path).not.toContain('NaN');
+      // The straight piece between the two curves has collapsed to the
+      // midpoint rather than overshooting it.
+      expect(path).toContain('L 5 0');
+    });
+
+    it('draws a straight line rather than nothing when there is no corner', () => {
+      expect(roundedPath([{ x: 0, y: 0 }, { x: 10, y: 0 }], 6)).toBe('M 0 0 L 10 0');
+      expect(roundedPath([{ x: 0, y: 0 }], 6)).toBe('');
+    });
+
+    it('survives a repeated point without emitting NaN', () => {
+      // Two bars of the same length on adjacent rows can produce a zero-length
+      // segment, and dividing by that length is how the whole path disappears.
+      const path = roundedPath(
+        [{ x: 10, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 20 }], 6
+      );
+      expect(path).not.toContain('NaN');
     });
   });
 

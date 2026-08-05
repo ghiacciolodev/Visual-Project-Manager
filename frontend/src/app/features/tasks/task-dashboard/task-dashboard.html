@@ -33,32 +33,37 @@
   }
 
   <!--
-    Shown whenever the project has anything in it.
+    Always present, once a project is open.
 
-    This was gated on having more than two tasks, on the theory that a filter
-    bar over a short list is furniture. That theory cost more than it saved:
-    it made the controls appear and disappear with the data, so somebody with
-    a small project could not find out the filters existed at all. Hidden only
-    on a project with nothing to filter, where the empty state has the floor.
+    This was gated on the number of tasks, on the theory that a filter bar
+    over a short list is furniture. The theory cost more than it saved: it
+    made the controls appear and disappear with the data, so the feature was
+    undiscoverable on exactly the small projects people start with. A control
+    whose existence depends on how much data you have is one nobody can learn.
   -->
-  @if (taskService.tasks().length) {
+  @if (projects.currentId() !== null) {
     <div class="filters" role="group" aria-label="Filter and sort">
       <label class="filters__field">
         <span class="filters__label">Status</span>
-        <select [value]="filter().status" (change)="onStatusFilter($event)">
-          <option [value]="any">Any</option>
+        <!-- Selected on the option, for the same reason as the roster: a value
+             bound to the select is applied before @for has made the options.
+             Harmless here only because the default happens to be the first
+             one, which is the kind of luck that stops being lucky. -->
+        <select (change)="onStatusFilter($event)">
+          <option [value]="any" [selected]="filter().status === any">Any</option>
           @for (status of statuses; track status) {
-            <option [value]="status">{{ status }}</option>
+            <option [value]="status" [selected]="filter().status === status">{{ status }}</option>
           }
         </select>
       </label>
 
       <label class="filters__field">
         <span class="filters__label">Priority</span>
-        <select [value]="filter().priority" (change)="onPriorityFilter($event)">
-          <option [value]="any">Any</option>
+        <select (change)="onPriorityFilter($event)">
+          <option [value]="any" [selected]="filter().priority === any">Any</option>
           @for (priority of priorities; track priority) {
-            <option [value]="priority">{{ priority }}</option>
+            <option [value]="priority"
+                    [selected]="filter().priority === priority">{{ priority }}</option>
           }
         </select>
       </label>
@@ -93,7 +98,20 @@
   }
 
   @if (taskService.loading()) {
-    <p class="state__line">Loading schedule…</p>
+    <!-- Shaped like the rows that are coming, so nothing shifts when they
+         arrive. The word is carried by the live region rather than the
+         rectangles, which announce nothing. -->
+    <p class="visually-hidden" role="status">Loading schedule…</p>
+
+    <div class="ledger" aria-hidden="true">
+      @for (placeholder of [1, 2, 3, 4]; track placeholder) {
+        <div class="row-skeleton">
+          <div class="skeleton row-skeleton__title"></div>
+          <div class="skeleton row-skeleton__meta"></div>
+          <div class="skeleton row-skeleton__track"></div>
+        </div>
+      }
+    </div>
   } @else if (projects.currentId() === null) {
     <!-- No project at all, which is where a new account now starts. Saying
          "nothing scheduled" here would describe the wrong absence and leave

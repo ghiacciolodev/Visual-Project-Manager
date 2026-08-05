@@ -171,13 +171,40 @@
 }
 
 @media (max-width: 700px) {
+  // Scrolls sideways rather than wrapping. Four tabs, a project picker and an
+  // account do not fit across a phone, and wrapping turns the bar into three
+  // stacked rows that push the schedule off the first screen. A strip that
+  // slides is the convention people already know from every tab bar.
   .rail {
-    flex-wrap: wrap;
     gap: calc(var(--u));
-    padding: 0 calc(var(--u) * 4);
+    padding: 0 calc(var(--u) * 3);
+    overflow-x: auto;
+    // No scrollbar track eating four pixels of a 44px-high bar.
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &__tab {
+      flex-shrink: 0;
+      padding: calc(var(--u) * 4) calc(var(--u) * 2);
+    }
+
+    &__mark {
+      margin-right: calc(var(--u) * 2);
+    }
 
     &__project {
-      max-width: 150px;
+      max-width: 130px;
+      flex-shrink: 0;
+    }
+
+    &__account {
+      flex-shrink: 0;
+      // margin-left: auto only works while there is slack; in a scrolling
+      // strip there never is, so the gap has to be explicit.
+      margin-left: calc(var(--u) * 4);
     }
   }
 

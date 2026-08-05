@@ -127,6 +127,24 @@ export class MemberService {
     }
   }
 
+  /**
+   * Removes the caller from a project.
+   *
+   * Separate from remove(userId) even though the endpoint is the same, because
+   * the outcome is not: this one ends the caller's access, so the roster it
+   * would update is one they can no longer read. Nothing is patched locally —
+   * the shell refetches the project list instead.
+   */
+  async leave(projectId: number, userId: number): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.delete<void>(`${API_BASE_URL}/projects/${projectId}/members/${userId}`)
+      );
+    } catch (err) {
+      throw this.toError(err);
+    }
+  }
+
   clearError(): void {
     this._error.set(null);
   }

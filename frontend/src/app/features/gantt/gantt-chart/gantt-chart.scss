@@ -297,6 +297,32 @@
   cursor: grab;
 }
 
+/* Same overall height and rhythm as the drawn chart, so the page holds still
+   when the real one replaces it. */
+.chart-skeleton {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: calc(var(--u) * 4);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 4);
+    height: 34px;
+  }
+
+  &__name {
+    flex: 0 0 140px;
+    height: 13px;
+  }
+
+  &__bar {
+    height: 18px;
+    border-radius: var(--radius-sm);
+  }
+}
+
 .tail {
   grid-row: 1;
   height: 10px;

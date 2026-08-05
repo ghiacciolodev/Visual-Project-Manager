@@ -1,0 +1,93 @@
+// The panel shell, the notice and the buttons come from styles.scss.
+
+.history {
+  list-style: none;
+  margin: 0 0 calc(var(--u) * 5);
+  padding: 0;
+
+  &__waiting {
+    margin: 0;
+    padding: calc(var(--u) * 10) 0;
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-3);
+  }
+
+  // Sticky, so the date the reader is inside stays named while they scroll a
+  // long day.
+  &__day {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0 0 calc(var(--u) * 2);
+    padding: calc(var(--u) * 2) 0;
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+}
+
+.event {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--u) * 3);
+  padding: calc(var(--u) * 2.5) 0;
+  border-bottom: 1px solid var(--border);
+
+  &__who {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: var(--radius-pill);
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__summary {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text);
+    // Summaries carry task titles, which people do write long.
+    overflow-wrap: anywhere;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: calc(var(--u) * 2);
+    margin: calc(var(--u)) 0 0;
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  &__tag {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 calc(var(--u) * 1.5);
+    border-radius: var(--radius-pill);
+    color: var(--todo);
+    background: var(--todo-soft);
+
+    // Colour by what happened rather than by what it happened to: scanning a
+    // log, "was anything deleted" is the question, not "was it a task".
+    &[data-action='CREATE'] { color: var(--done);   background: var(--done-soft); }
+    &[data-action='DELETE'] { color: var(--danger); background: var(--danger-soft); }
+    &[data-action='UPDATE'] { color: var(--doing);  background: var(--doing-soft); }
+  }
+
+  &__time {
+    margin-left: auto;
+  }
+}

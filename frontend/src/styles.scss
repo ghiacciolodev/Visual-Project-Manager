@@ -308,6 +308,19 @@ body {
 }
 
 /**
+ * A notice with nowhere of its own to sit — raised by an action taken from
+ * the rail, above whichever view happens to be open.
+ */
+.notice--floating {
+  position: sticky;
+  top: calc(var(--u) * 3);
+  z-index: 40;
+  max-width: 1060px;
+  margin: calc(var(--u) * 3) auto 0;
+  box-shadow: var(--shadow);
+}
+
+/**
  * A refusal about the shape of the data rather than about one field, so it
  * sits above a form instead of under an input.
  */
@@ -398,6 +411,52 @@ body {
 @keyframes panel-slide-in {
   from { transform: translateX(24px); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* --- loading ------------------------------------------------------ */
+
+/**
+ * A placeholder in the shape of the thing that is coming.
+ *
+ * Better than a line of text for one specific reason: the page does not jump
+ * when the data lands. A "Loading…" line is one row tall and the schedule is
+ * twenty, so every load ends with the content shoving the page down.
+ *
+ * aria-hidden at the call site, with a live region carrying the word for a
+ * screen reader — a grid of grey rectangles announces nothing.
+ */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 65%),
+    transparent
+  );
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  to { transform: translateX(100%); }
+}
+
+/* Held still for anyone who has asked for less movement — the global
+   reduced-motion rule shortens the duration, which for a loop means it
+   flickers rather than stops. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
 }
 
 /* --- form fields -------------------------------------------------- */

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 
 import { ConflictError, TaskService, ValidationError } from '../../../core/task.service';
 import { ProjectService } from '../../../core/project.service';
@@ -29,7 +29,7 @@ import { TaskForm, TaskFormResult } from '../task-form/task-form';
   styleUrl: './task-dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TaskDashboard implements OnInit {
+export class TaskDashboard implements OnInit, OnDestroy {
 
   // Injected as public fields so the template reads their signals directly.
   // No local copy of the list: duplicating it here is how two views drift.
@@ -86,6 +86,12 @@ export class TaskDashboard implements OnInit {
   ngOnInit(): void {
     // load() resolves the project first, so one call covers both.
     void this.taskService.load();
+    // Somebody else's changes arrive on their own while this is on screen.
+    this.taskService.startPolling();
+  }
+
+  ngOnDestroy(): void {
+    this.taskService.stopPolling();
   }
 
   openCreate(): void {

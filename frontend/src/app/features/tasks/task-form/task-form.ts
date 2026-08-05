@@ -178,6 +178,9 @@ export class TaskForm implements OnInit {
         description: description.trim() || null,
         // '' is the picker's way of saying nobody; the API wants null.
         assigneeId: assigneeId ? Number(assigneeId) : null,
+        // The version the form was filled in against. Null when creating,
+        // where there is nothing yet to be stale against.
+        expectedUpdatedAt: this.task()?.updatedAt ?? null,
       },
       dependencies: this.picked().map(ref => ref.id),
     });

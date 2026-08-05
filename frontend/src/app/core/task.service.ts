@@ -91,6 +91,86 @@ export class TaskService {
     }
   }
 
+  /* --- keeping up with other people ------------------------------------ */
+
+  /**
+   * How often an open view checks for somebody else's changes.
+   *
+   * Twenty seconds is a compromise, and worth naming as one. Shorter turns a
+   * quiet project into steady background traffic for no benefit; longer and
+   * the optimistic-concurrency refusal becomes the normal way you find out a
+   * colleague edited something, which is a worse way to learn it than seeing
+   * their change appear.
+   *
+   * This is polling rather than a push. A server-sent stream would be tidier
+   * to use and considerably less tidy to run: the backend is stateless by
+   * design, so a second instance behind a load balancer means a client's
+   * stream is attached to whichever replica it happened to reach and hears
+   * nothing about writes handled by the other.
+   */
+  private static readonly POLL_MS = 20_000;
+
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollWatchers = 0;
+  private pollPaused = false;
+
+  /**
+   * Counted rather than a boolean, because both views ask for it and either
+   * may be destroyed first. A plain flag would have the schedule switch
+   * polling off as it left, for a chart that is still on screen.
+   */
+  startPolling(): void {
+    this.pollWatchers++;
+    if (this.pollTimer !== null) return;
+
+    this.pollTimer = setInterval(() => this.poll(), TaskService.POLL_MS);
+    document.addEventListener('visibilitychange', this.onVisible);
+  }
+
+  stopPolling(): void {
+    this.pollWatchers = Math.max(0, this.pollWatchers - 1);
+    if (this.pollWatchers > 0 || this.pollTimer === null) return;
+
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
+    document.removeEventListener('visibilitychange', this.onVisible);
+  }
+
+  /**
+   * Held off while a gesture is in progress.
+   *
+   * A poll landing mid-drag replaces the task list, and the drawn window is
+   * measured from it — so the columns would shift under a pointer that is
+   * trying to aim at them.
+   */
+  pausePolling(): void {
+    this.pollPaused = true;
+  }
+
+  resumePolling(): void {
+    this.pollPaused = false;
+  }
+
+  private readonly onVisible = (): void => {
+    // Coming back to the tab is the moment somebody most wants to be current,
+    // and the moment the interval is least likely to have just fired: browsers
+    // throttle timers in background tabs heavily.
+    if (document.visibilityState === 'visible') {
+      void this.poll();
+    }
+  };
+
+  private async poll(): Promise<void> {
+    if (this.pollPaused) return;
+    // A hidden tab has nobody reading it. Polling one is traffic spent on an
+    // update no one will see before the visibility handler fetches it again.
+    if (document.visibilityState !== 'visible') return;
+    if (this._loading()) return;
+    if (this.projects.currentId() === null) return;
+
+    await this.refresh();
+  }
+
   /** Clears and reloads. Called when the person switches project. */
   async reloadFor(): Promise<void> {
     this._tasks.set([]);
@@ -169,6 +249,10 @@ export class TaskService {
     } catch (err) {
       this._tasks.set(previous);
       this._error.set(this.readMessage(err, 'Could not update the task'));
+      // The refusal is usually somebody else having got there first, and the
+      // message tells the reader to reload. Doing it for them means the other
+      // version is on screen by the time they finish reading the sentence.
+      void this.refresh();
     }
   }
 
@@ -202,6 +286,7 @@ export class TaskService {
     } catch (err) {
       this._tasks.set(previous);
       this._error.set(this.readMessage(err, 'Could not move the task'));
+      void this.refresh();
     }
   }
 
@@ -291,6 +376,10 @@ export class TaskService {
       endDate: task.endDate,
       color: task.color,
       assigneeId: task.assignee?.id ?? null,
+      // The version this payload was built from. Every write from here is
+      // conditional; the server accepts unconditional ones, and taking that
+      // offer would put back the silent overwrite it exists to prevent.
+      expectedUpdatedAt: task.updatedAt,
     };
   }
 

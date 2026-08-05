@@ -54,7 +54,21 @@
   }
 
   @if (taskService.loading()) {
-    <p class="state__line">Drawing chart…</p>
+    <p class="visually-hidden" role="status">Drawing chart…</p>
+
+    <!-- Bars of varying length and offset rather than a block of equal
+         rectangles: a chart is irregular, and a placeholder that is not
+         reads as a broken chart rather than a loading one. -->
+    <div class="chart-skeleton" aria-hidden="true">
+      @for (bar of [[6, 4], [22, 8], [40, 6], [30, 12], [12, 5]]; track $index) {
+        <div class="chart-skeleton__row">
+          <div class="skeleton chart-skeleton__name"></div>
+          <div class="skeleton chart-skeleton__bar"
+               [style.margin-left.%]="bar[0]"
+               [style.width.%]="bar[1] * 3"></div>
+        </div>
+      }
+    </div>
   } @else if (projects.currentId() === null) {
     <div class="state">
       <p class="state__line">No project yet.</p>
@@ -190,7 +204,7 @@
                         (pointerdown)="onBarPointerDown(row, 'move', $event)"
                         (pointermove)="onBarPointerMove($event)"
                         (pointerup)="onBarPointerUp(row, $event)"
-                        (pointercancel)="drag.set(null)"
+                        (pointercancel)="onBarCancel()"
                         (keydown)="onBarKeyDown($event)">
 
                   <!-- Two grips, so the ends move independently of the whole.

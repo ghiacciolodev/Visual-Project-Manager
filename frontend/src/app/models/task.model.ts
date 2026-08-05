@@ -47,6 +47,14 @@ export interface Task {
    * editor holds no roster to resolve an id against.
    */
   assignee: Assignee | null;
+
+  /**
+   * When the server last changed this task.
+   *
+   * Handed back on the next write so the server can tell whether anybody got
+   * there first. Opaque to the client — it is compared, never interpreted.
+   */
+  updatedAt: string;
 }
 
 /** Matches TaskRequest. No id: the server assigns it. */
@@ -59,6 +67,13 @@ export interface TaskRequest {
   endDate: string;
   color: string;
   assigneeId: number | null;
+
+  /**
+   * The updatedAt this payload was built from, or null for an unconditional
+   * write. Always sent from here: omitting it restores last-write-wins, and
+   * silently.
+   */
+  expectedUpdatedAt: string | null;
 }
 
 /**

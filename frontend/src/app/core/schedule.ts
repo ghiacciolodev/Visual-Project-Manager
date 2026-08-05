@@ -84,6 +84,114 @@ export function dragDates(
   return { startDate: fromStart, endDate: addDays(fromEnd, Math.max(days, -room)) };
 }
 
+/* --- connector geometry ------------------------------------------------- */
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * An orthogonal polyline as an SVG path, with the corners rounded off.
+ *
+ * Each interior vertex is cut back along both of its segments and replaced by
+ * a quadratic through the original corner. The cut is capped at half the
+ * shorter neighbour, so a short segment between two turns cannot be consumed
+ * from both ends and leave the curves crossing each other — which is what a
+ * fixed radius does the first time two bars are close together.
+ */
+export function roundedPath(points: Point[], radius: number): string {
+  if (points.length < 2) return '';
+  if (points.length === 2) {
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+  }
+
+  const parts = [`M ${points[0].x} ${points[0].y}`];
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const previous = points[i - 1];
+    const corner = points[i];
+    const next = points[i + 1];
+
+    const inLength = Math.hypot(corner.x - previous.x, corner.y - previous.y);
+    const outLength = Math.hypot(next.x - corner.x, next.y - corner.y);
+    const cut = Math.min(radius, inLength / 2, outLength / 2);
+
+    // A zero-length segment means two identical points; stepping through the
+    // corner with no curve is the only sane answer, and dividing by the
+    // length would otherwise produce NaN and drop the whole path.
+    const before = inLength === 0 ? corner : {
+      x: corner.x - ((corner.x - previous.x) / inLength) * cut,
+      y: corner.y - ((corner.y - previous.y) / inLength) * cut,
+    };
+    const after = outLength === 0 ? corner : {
+      x: corner.x + ((next.x - corner.x) / outLength) * cut,
+      y: corner.y + ((next.y - corner.y) / outLength) * cut,
+    };
+
+    parts.push(`L ${round(before.x)} ${round(before.y)}`);
+    parts.push(`Q ${round(corner.x)} ${round(corner.y)} ${round(after.x)} ${round(after.y)}`);
+  }
+
+  const last = points[points.length - 1];
+  parts.push(`L ${round(last.x)} ${round(last.y)}`);
+
+  return parts.join(' ');
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+export interface ConnectorOptions {
+  /** Clearance before the first turn, so the line leaves the bar cleanly. */
+  stub: number;
+  /** Straight run into the arrowhead, so it points along the row. */
+  approach: number;
+  /** Corner radius. */
+  radius: number;
+  /** Where the return lane sits when the line has to travel backwards. */
+  lane: number;
+}
+
+/**
+ * The route from the end of one bar to the start of another.
+ *
+ * Two shapes, because a successor is not always scheduled after its
+ * predecessor finishes — an overlap is an ordinary state of a plan that has
+ * slipped, and a straight line backwards would cut through everything between.
+ *
+ * When there is room, the descent happens just before the successor rather
+ * than just after the predecessor. Both are legal elbows; this one is tidier
+ * in practice, because the column immediately to the left of a bar is far
+ * more often empty than the column immediately to its right — that is where
+ * the next task is about to start.
+ */
+export function connectorPoints(
+  from: Point,
+  to: Point,
+  options: ConnectorOptions
+): Point[] {
+  const tip = { x: to.x - 4, y: to.y };
+  const turn = tip.x - options.approach;
+  const out = from.x + options.stub;
+
+  if (turn > out) {
+    return [from, { x: turn, y: from.y }, { x: turn, y: to.y }, tip];
+  }
+
+  // No room to cross directly: out of the predecessor, into a lane running
+  // back beneath or above it, then down into the successor.
+  return [
+    from,
+    { x: out, y: from.y },
+    { x: out, y: options.lane },
+    { x: turn, y: options.lane },
+    { x: turn, y: to.y },
+    tip,
+  ];
+}
+
 export interface Span {
   start: string;
   end: string;

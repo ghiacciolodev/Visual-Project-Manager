@@ -32,6 +32,17 @@
       </button>
     }
 
+    <!-- Any member, not just owners. The log answers "who moved this?", which
+         is a question anybody working from the plan has. -->
+    @if (projects.currentId() !== null) {
+      <button type="button"
+              class="rail__tab"
+              [class.is-current]="historyOpen()"
+              (click)="openHistory()">
+        History
+      </button>
+    }
+
     <!--
       Shown from the first project rather than the second. The old rule was
       that a picker with one option is a label pretending to be a control, and
@@ -40,12 +51,16 @@
       ever had one.
     -->
     @if (projects.projects().length) {
+      <!-- [selected] on the option rather than [value] on the select: the
+           value is assigned before @for has made any options, so the picker
+           named whichever project happened to be listed first while the rest
+           of the screen showed a different one. -->
       <select class="rail__project"
-              [value]="projects.currentId()"
               (change)="onProjectChange($event)"
               aria-label="Project">
         @for (project of projects.projects(); track project.id) {
-          <option [value]="project.id">{{ project.name }}</option>
+          <option [value]="project.id"
+                  [selected]="project.id === projects.currentId()">{{ project.name }}</option>
         }
 
         <optgroup label="Manage">
@@ -53,6 +68,9 @@
             <option value="edit">Rename or delete…</option>
           }
           <option value="new">New project…</option>
+          <!-- Offered to owners as well. An owner who has handed over may
+               leave; the last one may not, and the server says so. -->
+          <option value="leave">Leave this project…</option>
         </optgroup>
       </select>
     } @else {
@@ -83,6 +101,16 @@
 -->
 @if (session.ready()) {
   @if (session.authenticated()) {
+    <!-- Leaving is triggered from the rail, so there is no panel to put its
+         refusal in. The commonest one is the last owner being told to hand
+         over first, which is an instruction rather than an error. -->
+    @if (leaveError(); as message) {
+      <div class="notice notice--floating" role="alert">
+        <span>{{ message }}</span>
+        <button type="button" class="link" (click)="leaveError.set(null)">Dismiss</button>
+      </div>
+    }
+
     <router-outlet />
 
     <!--
@@ -108,6 +136,12 @@
         <app-project-panel [project]="editingProject()"
                            (close)="closeProjectPanel()"
                            (deleted)="onProjectDeleted()" />
+      }
+    }
+
+    @defer (when historyOpen()) {
+      @if (historyOpen()) {
+        <app-history-panel (close)="closeHistory()" />
       }
     }
   } @else {

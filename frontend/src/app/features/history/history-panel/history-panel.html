@@ -1,0 +1,66 @@
+<div class="scrim" (click)="close.emit()">
+  <aside class="panel"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="history-title"
+         (click)="$event.stopPropagation()">
+
+    <header class="panel__head">
+      <p class="panel__eyebrow">History</p>
+      <h2 class="panel__title" id="history-title">
+        {{ projects.current()?.name ?? 'Project' }}
+      </h2>
+    </header>
+
+    <div class="panel__body">
+
+      @if (audit.error(); as message) {
+        <div class="notice" role="alert">
+          <span>{{ message }}</span>
+        </div>
+      }
+
+      @if (audit.loading()) {
+        <p class="history__waiting">Loading history…</p>
+      } @else if (days().length === 0) {
+        <p class="history__waiting">Nothing has happened here yet.</p>
+      } @else {
+        @for (day of days(); track day.label) {
+          <h3 class="history__day">{{ day.label }}</h3>
+
+          <ul class="history">
+            @for (entry of day.entries; track entry.id) {
+              <li class="event">
+                <span class="event__who" [title]="entry.actorName" aria-hidden="true">
+                  {{ initialsOf(entry.actorName) }}
+                </span>
+
+                <div class="event__body">
+                  <p class="event__summary">{{ entry.summary }}</p>
+                  <p class="event__meta">
+                    <span class="event__actor">{{ entry.actorName }}</span>
+                    <!-- The kind of thing, in case the summary is ambiguous
+                         about it — "Removed Ada" reads differently under
+                         MEMBER than under TASK. -->
+                    <span class="event__tag" [attr.data-action]="entry.action">
+                      {{ entry.entityType }}
+                    </span>
+                    <time class="event__time mono" [attr.datetime]="entry.at">
+                      {{ timeOf(entry.at) }}
+                    </time>
+                  </p>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      }
+
+      <!-- No controls. There is nothing to edit here and no endpoint that
+           would accept one: a history somebody can tidy up is not a history. -->
+      <footer class="panel__foot">
+        <button type="button" class="ghost" (click)="close.emit()">Close</button>
+      </footer>
+    </div>
+  </aside>
+</div>

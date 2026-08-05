@@ -10,11 +10,13 @@ import { ProjectService } from './core/project.service';
 import { TaskService } from './core/task.service';
 import { MembersPanel } from './features/members/members-panel/members-panel';
 import { ProjectPanel } from './features/projects/project-panel/project-panel';
+import { HistoryPanel } from './features/history/history-panel/history-panel';
+import { AuditService } from './core/audit.service';
 import { Project } from './models/project.model';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MembersPanel, ProjectPanel],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MembersPanel, ProjectPanel, HistoryPanel],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -24,13 +26,15 @@ export class App {
   readonly projects = inject(ProjectService);
 
   private readonly tasks = inject(TaskService);
-  private readonly members = inject(MemberService);
+  readonly members = inject(MemberService);
+  private readonly audit = inject(AuditService);
   private readonly http = inject(HttpClient);
 
   /** The membership panel, which opens over the current view rather than replacing it. */
   readonly membersOpen = signal(false);
 
   readonly projectPanelOpen = signal(false);
+  readonly historyOpen = signal(false);
 
   /** null while creating, the current project while renaming. */
   readonly editingProject = signal<Project | null>(null);
@@ -66,8 +70,13 @@ export class App {
     const select = event.target as HTMLSelectElement;
     const choice = select.value;
 
-    if (choice === 'new' || choice === 'edit') {
+    if (choice === 'new' || choice === 'edit' || choice === 'leave') {
       select.value = String(this.projects.currentId());
+
+      if (choice === 'leave') {
+        void this.leaveProject();
+        return;
+      }
 
       this.editingProject.set(choice === 'edit' ? this.projects.current() : null);
       this.projectPanelOpen.set(true);
@@ -80,6 +89,7 @@ export class App {
     // The roster belonged to the project just left. Dropping it rather than
     // refetching keeps the request for whoever actually opens the panel.
     this.members.clear();
+    this.audit.clear();
     void this.tasks.reloadFor();
 
     // A role is a property of the pairing, so the same person can own the
@@ -93,6 +103,48 @@ export class App {
 
   openMembers(): void {
     this.membersOpen.set(true);
+  }
+
+  /**
+   * Leaves the current project.
+   *
+   * Confirmed, because it is not undoable from this side: getting back in
+   * needs somebody who is still in it to invite you. The refusal that matters
+   * — the last owner walking away and leaving a project nobody can administer
+   * — comes from the server, and its wording is what the reader sees.
+   */
+  private async leaveProject(): Promise<void> {
+    const project = this.projects.current();
+    const me = this.session.profile();
+    if (!project || !me) return;
+
+    const confirmed = confirm(
+      `Leave "${project.name}"? You will lose access until somebody invites you back.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await this.members.leave(project.id, me.id);
+      await this.onLeftProject();
+    } catch (err) {
+      this.leaveError.set((err as Error).message);
+    }
+  }
+
+  /**
+   * Why leaving was refused.
+   *
+   * Held on the shell rather than in a panel: the action is taken from the
+   * rail, and there is no panel open to put the message in.
+   */
+  readonly leaveError = signal<string | null>(null);
+
+  openHistory(): void {
+    this.historyOpen.set(true);
+  }
+
+  closeHistory(): void {
+    this.historyOpen.set(false);
   }
 
   openNewProject(): void {
