@@ -1,5 +1,8 @@
 package it.ghiacciolodev.vpm.project;
 
+import it.ghiacciolodev.vpm.audit.AuditAction;
+import it.ghiacciolodev.vpm.audit.AuditEntity;
+import it.ghiacciolodev.vpm.audit.AuditService;
 import it.ghiacciolodev.vpm.common.exception.ConflictException;
 import it.ghiacciolodev.vpm.common.exception.NotFoundException;
 import it.ghiacciolodev.vpm.project.dto.*;
@@ -24,17 +27,20 @@ public class ProjectService {
     private final UserRepository users;
     private final CurrentUser currentUser;
     private final ProjectAccess access;
+    private final AuditService audit;
 
     public ProjectService(ProjectRepository projects,
                           ProjectMemberRepository members,
                           UserRepository users,
                           CurrentUser currentUser,
-                          ProjectAccess access) {
+                          ProjectAccess access,
+                          AuditService audit) {
         this.projects = projects;
         this.members = members;
         this.users = users;
         this.currentUser = currentUser;
         this.access = access;
+        this.audit = audit;
     }
 
     /* --- projects ------------------------------------------------------- */
@@ -49,8 +55,7 @@ public class ProjectService {
     public List<ProjectResponse> findMine() {
         Long userId = currentUser.require().getId();
 
-        Map<Long, ProjectRole> roles = members.findAll().stream()
-            .filter(m -> m.getUserId().equals(userId))
+        Map<Long, ProjectRole> roles = members.findByUserId(userId).stream()
             .collect(Collectors.toMap(ProjectMember::getProjectId, ProjectMember::getRole));
 
         return projects.findAllForUser(userId).stream()
@@ -88,6 +93,11 @@ public class ProjectService {
         membership.setRole(ProjectRole.OWNER);
         members.save(membership);
 
+        // The first line of the project's history, and the only one whose
+        // project id has to come from the saved entity rather than an argument.
+        audit.record(saved.getId(), AuditEntity.PROJECT, saved.getId(), AuditAction.CREATE,
+            "Created \"%s\"".formatted(saved.getName()));
+
         return new ProjectResponse(
             saved.getId(), saved.getName(), saved.getDescription(), ProjectRole.OWNER);
     }
@@ -105,8 +115,15 @@ public class ProjectService {
         Project project = projects.findById(projectId)
             .orElseThrow(() -> new NotFoundException("Project " + projectId + " not found"));
 
+        String was = project.getName();
+
         project.setName(request.name());
         project.setDescription(request.description());
+
+        if (!was.equals(request.name())) {
+            audit.record(projectId, AuditEntity.PROJECT, projectId, AuditAction.UPDATE,
+                "Renamed from \"%s\" to \"%s\"".formatted(was, request.name()));
+        }
 
         // No save(): the entity is managed inside the transaction and Hibernate
         // flushes on commit, the same as a task update.
@@ -185,6 +202,9 @@ public class ProjectService {
         membership.setRole(request.role());
         members.save(membership);
 
+        audit.record(projectId, AuditEntity.MEMBER, user.getId(), AuditAction.CREATE,
+            "Added %s as %s".formatted(user.getDisplayName(), request.role()));
+
         return new MemberResponse(
             user.getId(), user.getEmail(), user.getDisplayName(),
             request.role(), user.getKeycloakSub() != null);
@@ -200,16 +220,30 @@ public class ProjectService {
             assertNotTheLastOwner(projectId);
         }
 
+        ProjectRole was = membership.getRole();
         membership.setRole(request.role());
 
         User user = users.findById(userId).orElseThrow();
+
+        if (was != request.role()) {
+            audit.record(projectId, AuditEntity.MEMBER, userId, AuditAction.UPDATE,
+                "%s: %s → %s".formatted(user.getDisplayName(), was, request.role()));
+        }
+
         return new MemberResponse(
             user.getId(), user.getEmail(), user.getDisplayName(),
             request.role(), user.getKeycloakSub() != null);
     }
 
+    /**
+     * Removes somebody, or lets somebody remove themselves.
+     *
+     * Guarded by canRemoveMember rather than canAdminister: leaving a project
+     * is not an act of administration, and requiring an owner for it left
+     * editors and viewers with no way out of a plan they had been added to.
+     */
     @Transactional
-    @PreAuthorize("@access.canAdminister(#projectId)")
+    @PreAuthorize("@access.canRemoveMember(#projectId, #userId)")
     public void removeMember(Long projectId, Long userId) {
         ProjectMember membership = members.findByProjectIdAndUserId(projectId, userId)
             .orElseThrow(() -> new NotFoundException("That person is not in this project"));
@@ -219,6 +253,10 @@ public class ProjectService {
         }
 
         members.delete(membership);
+
+        audit.record(projectId, AuditEntity.MEMBER, userId, AuditAction.DELETE,
+            "Removed %s from the project".formatted(
+                users.findById(userId).map(User::getDisplayName).orElse("someone")));
     }
 
     /**

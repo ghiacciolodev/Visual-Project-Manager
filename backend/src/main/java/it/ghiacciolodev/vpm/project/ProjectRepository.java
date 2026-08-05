@@ -22,14 +22,4 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
             ORDER BY p.createdAt
             """)
     List<Project> findAllForUser(@Param("userId") Long userId);
-
-    @Query("""
-            SELECT p FROM Project p
-            WHERE p.id IN (
-                SELECT m.projectId FROM ProjectMember m
-                WHERE m.userId = :userId AND m.role = 'OWNER'
-            )
-            ORDER BY p.createdAt
-            """)
-    List<Project> findOwnedBy(@Param("userId") Long userId);
 }

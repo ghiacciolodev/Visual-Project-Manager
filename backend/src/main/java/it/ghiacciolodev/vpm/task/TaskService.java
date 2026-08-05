@@ -1,5 +1,8 @@
 package it.ghiacciolodev.vpm.task;
 
+import it.ghiacciolodev.vpm.audit.AuditAction;
+import it.ghiacciolodev.vpm.audit.AuditEntity;
+import it.ghiacciolodev.vpm.audit.AuditService;
 import it.ghiacciolodev.vpm.common.exception.ConflictException;
 import it.ghiacciolodev.vpm.common.exception.NotFoundException;
 import it.ghiacciolodev.vpm.project.ProjectMemberRepository;
@@ -39,15 +42,18 @@ public class TaskService {
     private final DependencyGraphRepository graph;
     private final UserRepository users;
     private final ProjectMemberRepository members;
+    private final AuditService audit;
 
     public TaskService(TaskRepository repository,
                        DependencyGraphRepository graph,
                        UserRepository users,
-                       ProjectMemberRepository members) {
+                       ProjectMemberRepository members,
+                       AuditService audit) {
         this.repository = repository;
         this.graph = graph;
         this.users = users;
         this.members = members;
+        this.audit = audit;
     }
 
     /* --- reads ---------------------------------------------------------- */
@@ -94,6 +100,11 @@ public class TaskService {
         apply(request, task);
 
         Task saved = repository.save(task);
+
+        audit.record(projectId, AuditEntity.TASK, saved.getId(), AuditAction.CREATE,
+            "Added \"%s\", %s to %s".formatted(
+                saved.getTitle(), saved.getStartDate(), saved.getEndDate()));
+
         // A brand new task has no predecessors, so no blocking check is needed
         // and the list is empty by construction.
         return TaskResponse.from(saved, List.of(), assigneeOf(saved));
@@ -104,6 +115,8 @@ public class TaskService {
     public TaskResponse update(Long projectId, Long id, TaskRequest request) {
         Task task = loadOrThrow(projectId, id);
 
+        assertNobodyGotHereFirst(task, request);
+
         // The rule lives here, not in the browser. The frontend disables the
         // control as a courtesy; this is what actually enforces it, including
         // against a direct API call.
@@ -111,7 +124,18 @@ public class TaskService {
             assertNothingIsBlocking(id);
         }
 
+        // Captured before apply(), which is the whole reason this is written
+        // here rather than by a listener: after the change there is nothing
+        // left to compare against.
+        String changed = describeChange(task, request);
+
         apply(request, task);
+
+        if (!changed.isEmpty()) {
+            audit.record(projectId, AuditEntity.TASK, id, AuditAction.UPDATE,
+                "\"%s\": %s".formatted(task.getTitle(), changed));
+        }
+
         // No explicit save(): the entity is managed inside the transaction and
         // Hibernate flushes the changes on commit.
         return TaskResponse.from(task, graph.findPredecessors(id), assigneeOf(task));
@@ -123,6 +147,9 @@ public class TaskService {
         Task task = loadOrThrow(projectId, id);
         graph.unlinkAll(id);
         task.setDeletedAt(Instant.now());
+
+        audit.record(projectId, AuditEntity.TASK, id, AuditAction.DELETE,
+            "Deleted \"%s\"".formatted(task.getTitle()));
     }
 
     /* --- dependencies --------------------------------------------------- */
@@ -160,6 +187,10 @@ public class TaskService {
         }
 
         graph.link(predecessorId, taskId);
+
+        audit.record(projectId, AuditEntity.DEPENDENCY, taskId, AuditAction.CREATE,
+            "\"%s\" now waits for \"%s\"".formatted(task.getTitle(), predecessor.getTitle()));
+
         return TaskResponse.from(task, graph.findPredecessors(taskId), assigneeOf(task));
     }
 
@@ -173,10 +204,37 @@ public class TaskService {
                 "Task %d does not depend on task %d".formatted(taskId, predecessorId));
         }
 
+        audit.record(projectId, AuditEntity.DEPENDENCY, taskId, AuditAction.DELETE,
+            "\"%s\" no longer waits for task %d".formatted(task.getTitle(), predecessorId));
+
         return TaskResponse.from(task, graph.findPredecessors(taskId), assigneeOf(task));
     }
 
     /* --- internals ------------------------------------------------------ */
+
+    /**
+     * Refuses a write built from a version of the task somebody has replaced.
+     *
+     * Two people editing one task ended in last-write-wins, silently: whoever
+     * saved second overwrote the other with a form filled in before their
+     * change existed, and nothing said so. The person whose work disappeared
+     * had no way to find out — the schedule only ever shows the current state.
+     *
+     * Compared by equality rather than by "is older", deliberately. A clock
+     * that steps backwards, or two application instances a few milliseconds
+     * apart, would make an ordering test quietly accept a stale write. The
+     * question here is not "is this newer" but "is this the same task I read".
+     */
+    private void assertNobodyGotHereFirst(Task task, TaskRequest request) {
+        if (request.expectedUpdatedAt() == null) {
+            return;
+        }
+        if (!request.expectedUpdatedAt().equals(task.getUpdatedAt())) {
+            throw new ConflictException(
+                "Somebody else changed this task while you were editing it. "
+                    + "Reload to see their version before saving yours.");
+        }
+    }
 
     private void assertNothingIsBlocking(Long taskId) {
         List<TaskRef> blockers = graph.findPredecessors(taskId).stream()
@@ -219,6 +277,50 @@ public class TaskService {
         task.setEndDate(request.endDate());
         task.setColor(request.color());
         task.setAssigneeId(assignableOrThrow(task.getProjectId(), request.assigneeId()));
+    }
+
+    /* --- history -------------------------------------------------------- */
+
+    /**
+     * What this update actually changes, in words, compared against the task
+     * as it stands.
+     *
+     * Must be called before apply(). This is the argument for writing history
+     * from the code that makes the change rather than from a listener or an
+     * aspect: both of those see the task only after it has been mutated, when
+     * the previous value is gone and the best they can honestly report is
+     * that something was updated.
+     *
+     * Returns empty when nothing moved. Saving a form without touching it is
+     * a common thing to do and does not belong in a history.
+     */
+    private String describeChange(Task task, TaskRequest request) {
+        List<String> changes = new java.util.ArrayList<>();
+
+        if (!task.getTitle().equals(request.title())) {
+            changes.add("renamed to \"%s\"".formatted(request.title()));
+        }
+        if (task.getStatus() != request.status()) {
+            changes.add("%s → %s".formatted(task.getStatus(), request.status()));
+        }
+        if (task.getPriority() != request.priority()) {
+            changes.add("priority %s → %s".formatted(task.getPriority(), request.priority()));
+        }
+        if (!task.getStartDate().equals(request.startDate())
+            || !task.getEndDate().equals(request.endDate())) {
+            changes.add("moved to %s – %s".formatted(request.startDate(), request.endDate()));
+        }
+        if (!Objects.equals(task.getAssigneeId(), request.assigneeId())) {
+            changes.add(request.assigneeId() == null
+                ? "unassigned"
+                : "assigned to %s".formatted(nameOf(request.assigneeId())));
+        }
+
+        return String.join(", ", changes);
+    }
+
+    private String nameOf(Long userId) {
+        return users.findById(userId).map(User::getDisplayName).orElse("someone");
     }
 
     /* --- assignees ------------------------------------------------------ */

@@ -14,6 +14,16 @@ public interface ProjectMemberRepository
 
     List<ProjectMember> findByProjectId(Long projectId);
 
+    /**
+     * Every membership belonging to one person.
+     *
+     * findMine used to call findAll() and filter in memory, which reads every
+     * membership row in the database — every project of every user — to answer
+     * a question about one of them. Harmless with three accounts and quadratic
+     * nonsense with three thousand.
+     */
+    List<ProjectMember> findByUserId(Long userId);
+
     /** Guards the "a project always has an owner" rule. */
     long countByProjectIdAndRole(Long projectId, ProjectRole role);
 }

@@ -4,6 +4,7 @@ import it.ghiacciolodev.vpm.task.Task;
 import it.ghiacciolodev.vpm.task.TaskPriority;
 import it.ghiacciolodev.vpm.task.TaskStatus;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -36,7 +37,16 @@ public record TaskResponse(
     List<TaskRef> blockedBy,
 
     /** Who is doing this, or null when nobody has been named. */
-    AssigneeRef assignee
+    AssigneeRef assignee,
+
+    /**
+     * When this task last changed.
+     *
+     * Sent so the client can hand it back on the next write and have the
+     * server check nobody else got there first. Without it on the way out
+     * there is nothing to compare against on the way in.
+     */
+    Instant updatedAt
 ) {
 
     public static TaskResponse from(Task task, List<TaskRef> predecessors) {
@@ -59,7 +69,8 @@ public record TaskResponse(
             task.getColor(),
             predecessors,
             blockers,
-            assignee
+            assignee,
+            task.getUpdatedAt()
         );
     }
 }

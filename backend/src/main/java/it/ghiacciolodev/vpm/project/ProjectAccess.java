@@ -66,4 +66,24 @@ public class ProjectAccess {
     public boolean canAdminister(Long projectId) {
         return roleIn(projectId) == ProjectRole.OWNER;
     }
+
+    /**
+     * Owners may remove anybody. Everybody may remove themselves.
+     *
+     * The second half was missing, and its absence was a trap rather than a
+     * restriction: an editor or a viewer had no way out of a project at all.
+     * Somebody added to a plan they have nothing to do with could only ask an
+     * owner to undo it — and if that owner had gone, nobody could.
+     *
+     * Leaving is not administering. The one rule it still has to respect is
+     * that a project cannot be left without an owner, which ProjectService
+     * enforces for departures and demotions alike.
+     */
+    public boolean canRemoveMember(Long projectId, Long userId) {
+        if (currentUser.require().getId().equals(userId)) {
+            roleIn(projectId);   // 404 if they are not in it to begin with
+            return true;
+        }
+        return canAdminister(projectId);
+    }
 }

@@ -6,6 +6,7 @@ import it.ghiacciolodev.vpm.task.TaskPriority;
 import it.ghiacciolodev.vpm.task.TaskStatus;
 import jakarta.validation.constraints.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 /**
@@ -57,7 +58,27 @@ public record TaskRequest(
      * project, which is what stops a task being assigned to an arbitrary user
      * id guessed from outside.
      */
-    Long assigneeId
+    Long assigneeId,
+
+    /**
+     * The updatedAt this caller last saw, for an optimistic concurrency check.
+     *
+     * Two people editing one task used to end in last-write-wins, silently:
+     * whoever pressed save second replaced the other's work with a form filled
+     * in before it existed, and nothing anywhere said so. Sending back the
+     * timestamp the form was built from lets the server notice.
+     *
+     * Optional, and that is a real weakness rather than a convenience. A
+     * client that omits it gets the old behaviour with no warning. It is
+     * optional because requiring it would break every existing caller at once
+     * and because there are legitimate unconditional writes — but a client
+     * that means to be safe must send it, and this application always does.
+     *
+     * Not If-Unmodified-Since, which would be the obvious HTTP answer: that
+     * header carries an HTTP-date, whole seconds only, and two edits inside
+     * the same second are exactly the case being defended against.
+     */
+    Instant expectedUpdatedAt
 
 ) implements DateRange {
 }
