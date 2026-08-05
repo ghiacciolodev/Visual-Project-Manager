@@ -20,15 +20,69 @@ import java.util.List;
 @RequestMapping("/api/v1/projects/{projectId}/tasks")
 public class TaskController {
 
+    /** Used when a caller asks for pages without saying how big. */
+    private static final int DEFAULT_PAGE_SIZE = 50;
+
+    /**
+     * The largest page anyone may ask for.
+     *
+     * Without a ceiling, size=1000000 is a way to ask for everything while
+     * looking like a paginated request — which is to say, no ceiling at all.
+     */
+    private static final int MAX_PAGE_SIZE = 200;
+
     private final TaskService service;
 
     public TaskController(TaskService service) {
         this.service = service;
     }
 
+    /**
+     * Every task in the project, or one page of them.
+     *
+     * Paging is opt-in and reported in headers rather than by wrapping the
+     * body. Two reasons.
+     *
+     * The response shape never changes, so a caller that does not ask for
+     * pages cannot be broken by its arrival — and this application is such a
+     * caller, deliberately. The Gantt chart measures its window from the
+     * earliest start to the latest end across the whole plan, and the
+     * dashboard's filters are computed over the same list; hand either of them
+     * a page and the chart draws the wrong scale while the filters silently
+     * narrow one fiftieth of the data.
+     *
+     * And the alternative — an envelope — would put the count in the same
+     * place as the data for every caller, including the ones who only ever
+     * want all of it.
+     *
+     * The dashboard slowing down at a few hundred tasks is a rendering cost
+     * rather than a transfer one: several hundred rows of JSON is nothing, and
+     * several hundred live components is not. Virtualising the list is the fix
+     * for that, and it does not need this.
+     */
     @GetMapping
-    public List<TaskResponse> list(@PathVariable Long projectId) {
-        return service.findAll(projectId);
+    public ResponseEntity<List<TaskResponse>> list(
+        @PathVariable Long projectId,
+        @RequestParam(required = false) Integer page,
+        @RequestParam(required = false) Integer size) {
+
+        List<TaskResponse> all = service.findAll(projectId);
+
+        if (page == null && size == null) {
+            return ResponseEntity.ok(all);
+        }
+
+        int pageNumber = Math.max(0, page == null ? 0 : page);
+        int pageSize = Math.clamp(size == null ? DEFAULT_PAGE_SIZE : size, 1, MAX_PAGE_SIZE);
+
+        int from = Math.min(pageNumber * pageSize, all.size());
+        int to = Math.min(from + pageSize, all.size());
+
+        return ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(all.size()))
+            .header("X-Page", String.valueOf(pageNumber))
+            .header("X-Page-Size", String.valueOf(pageSize))
+            .body(all.subList(from, to));
     }
 
     @GetMapping("/{id}")

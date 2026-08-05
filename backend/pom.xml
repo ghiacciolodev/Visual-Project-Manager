@@ -55,6 +55,20 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
+		<!--
+			Token buckets for rate limiting. bucket4j-core only: the buckets
+			live in this process's memory, which is the right size for one
+			instance and the wrong one the moment there are two. Behind a load
+			balancer each replica would enforce the limit separately, so the
+			effective allowance multiplies by the number of instances — at
+			which point this needs the Hazelcast or Redis backend instead.
+		-->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j-core</artifactId>
+			<version>8.10.1</version>
+		</dependency>
+
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>

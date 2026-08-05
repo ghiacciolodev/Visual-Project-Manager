@@ -57,6 +57,18 @@ app:
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
 
+  # Writes only, per caller, refilling continuously. Reads are what a person
+  # does by having the page open; writes are what grows the database and sets
+  # the dependency and critical-path work going.
+  #
+  # 120 a minute is well above anything a human does through the interface —
+  # dragging a bar across a month is one request — and low enough to stop a
+  # script. Lower it to something small to see the 429 for yourself.
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    capacity: ${RATE_LIMIT_CAPACITY:120}
+    period: ${RATE_LIMIT_PERIOD:1m}
+
   # Keycloak is addressed by two different URLs, and the split is deliberate.
   #
   # The browser reaches it at localhost:8081, so that is the issuer written
