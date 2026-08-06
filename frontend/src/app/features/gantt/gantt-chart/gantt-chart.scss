@@ -66,6 +66,33 @@
   }
 
   /**
+   * The schedule: one column, and the table has all of it.
+   *
+   * Not the split with the timeline collapsed to zero — that would leave a
+   * grid still reserving a track, a sticky column still holding still against
+   * a scroll that cannot happen, and a horizontal scrollbar for content that
+   * fits. One column, no frozen edge on that axis, and only the head stays put.
+   */
+  &--table-only {
+    .chart__scroll {
+      grid-template-columns: minmax(0, 1fr);
+      overflow-x: hidden;
+    }
+
+    .chart__corner {
+      // Nothing scrolls sideways, so nothing needs pinning sideways — and the
+      // rule on its right edge divided it from a pane that is no longer there.
+      left: auto;
+      border-right: 0;
+    }
+
+    .chart__table {
+      position: static;
+      border-right: 0;
+    }
+  }
+
+  /**
    * The table pane. Holds still while the days scroll under it.
    *
    * Its width is --table-w, which the divider writes and the grid above reads,

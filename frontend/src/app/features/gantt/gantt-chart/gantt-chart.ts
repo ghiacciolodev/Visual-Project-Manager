@@ -131,22 +131,55 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
 
   /* --- the split ------------------------------------------------------- */
 
+  private readonly route = inject(ActivatedRoute).snapshot.data;
+
+  readonly viewTitle: string = this.route['title'] ?? 'Plan';
+
   /**
-   * Width of the table pane, in pixels.
+   * Whether this route draws the timeline beside the table.
    *
-   * The two routes are the same view at two settings of this one number:
-   * Schedule opens with the table wide enough for every column, Chart opens
-   * with it cut back to the task's number and name. Neither is a mode — the
-   * divider is draggable from either, and dragging it far enough turns one
-   * into the other.
+   * It did on both for a while, on the argument that one screen answering
+   * questions about dates and people at once beats two screens answering half
+   * each. The argument holds on a wide monitor and falls over on a laptop,
+   * where the table's own columns leave the timeline about ten days wide — a
+   * sliver of chart that reads as a mistake rather than as a choice.
+   *
+   * So the schedule is a table and nothing else. What it gains is not just the
+   * width: it stops being a chart with a table stapled to it and goes back to
+   * being a list you can read straight down.
+   */
+  readonly showTimeline: boolean = this.route['timeline'] !== false;
+
+  /**
+   * Width of the table pane, in pixels. Only meaningful beside a timeline —
+   * without one the table has the whole view and there is nothing to divide.
    */
   readonly tableWidth = signal(
-    // Clamped to the window as well as to the preset: 660px of table on a
+    // Clamped to the window as well as to the preset: 820px of table on a
     // phone leaves nothing for the thing the table is describing.
     Math.min(
-      inject(ActivatedRoute).snapshot.data['pane'] === 'timeline' ? 232 : 820,
+      this.route['pane'] === 'timeline' ? 232 : 820,
       Math.max(window.innerWidth - 300, 168)
     )
+  );
+
+  /**
+   * How wide the table actually is.
+   *
+   * Two different questions depending on the route, and the honest answer to
+   * each is a different measurement. Beside a timeline the divider decides, so
+   * the window is irrelevant. Alone, the window decides, so the divider is —
+   * which is why this is not a media query: a media query could only ever
+   * answer the second.
+   */
+  private readonly viewportWidth = signal(window.innerWidth);
+
+  readonly paneWidth = computed(() =>
+    this.showTimeline
+      ? this.tableWidth()
+      // The rail takes 208px of it, and gives them back below the width where
+      // it lies down across the top.
+      : Math.max(this.viewportWidth() - (this.viewportWidth() > 900 ? 208 : 0), 168)
   );
 
   /**
@@ -158,7 +191,7 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
    * them is drawn from exactly those two numbers.
    */
   readonly tier = computed<'narrow' | 'mid' | 'wide'>(() => {
-    const w = this.tableWidth();
+    const w = this.paneWidth();
     if (w < 470) return 'narrow';
     return w < 800 ? 'mid' : 'wide';
   });
@@ -186,9 +219,10 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     wide: '3px 28px minmax(0, 1fr) 80px 64px minmax(0, 120px) 112px 36px 160px',
   }[this.tier()]));
 
-  readonly viewTitle = inject(ActivatedRoute).snapshot.data['title'] ?? 'Plan';
-
   private readonly resizing = signal(false);
+
+  /** Keeps paneWidth honest when the table is the whole view. */
+  private readonly onResize = (): void => this.viewportWidth.set(window.innerWidth);
 
   /* --- filtering and sorting ------------------------------------------- */
 
@@ -443,9 +477,14 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     // load() resolves the project first, so one call covers both — and keeps
-    // a deep link to /gantt working without the dashboard having run.
+    // a deep link to either path working without the other having run.
     void this.taskService.load();
     this.taskService.startPolling();
+
+    // Only where the window is what decides the columns. Beside a timeline the
+    // divider decides, and listening would be answering a question nobody
+    // asked.
+    if (!this.showTimeline) window.addEventListener('resize', this.onResize);
   }
 
   ngOnDestroy(): void {
@@ -453,12 +492,14 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     // A drag interrupted by navigation would otherwise leave polling off for
     // the rest of the session.
     this.taskService.resumePolling();
+    window.removeEventListener('resize', this.onResize);
   }
 
   ngAfterViewInit(): void {
     // Scrolls today into view rather than starting at the far left. On a long
-    // project the interesting part is almost never the beginning.
-    queueMicrotask(() => this.scrollToToday());
+    // project the interesting part is almost never the beginning. Nothing to
+    // scroll when there is no timeline.
+    if (this.showTimeline) queueMicrotask(() => this.scrollToToday());
   }
 
   scrollToToday(): void {

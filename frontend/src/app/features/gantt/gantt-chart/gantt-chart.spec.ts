@@ -32,7 +32,9 @@ function task(over: Partial<Task> & { id: number }): Task {
  * that here would test the wiring twice and the view not at all. What the view
  * needs from it is a list of tasks and somewhere for its lifecycle calls to go.
  */
-function setup(options: { tasks?: Task[]; critical?: number[]; pane?: string } = {}) {
+function setup(
+  options: { tasks?: Task[]; critical?: number[]; timeline?: boolean } = {}
+) {
   const tasks = signal<Task[]>(options.tasks ?? []);
 
   const taskService = {
@@ -62,7 +64,16 @@ function setup(options: { tasks?: Task[]; critical?: number[]; pane?: string } =
       { provide: ProjectService, useValue: projects },
       {
         provide: ActivatedRoute,
-        useValue: { snapshot: { data: { pane: options.pane ?? 'table', title: 'Schedule' } } },
+        useValue: {
+          snapshot: {
+            data: {
+              title: 'Chart',
+              // Most of what there is to test only exists beside a timeline.
+              timeline: options.timeline ?? true,
+              pane: 'timeline',
+            },
+          },
+        },
       },
     ],
   });
@@ -170,12 +181,21 @@ describe('GanttChart', () => {
     });
   });
 
-  describe('the route preset', () => {
+  describe('the two routes', () => {
 
-    it('opens the chart with the table cut back and the schedule with it wide', () => {
-      expect(setup({ pane: 'timeline' }).view.tier()).toBe('narrow');
-      expect(setup({ pane: 'table' }).view.tableWidth())
-        .toBeGreaterThan(setup({ pane: 'timeline' }).view.tableWidth());
+    it('opens the chart with the table cut back to a name', () => {
+      expect(setup({ timeline: true }).view.tier()).toBe('narrow');
+    });
+
+    it('gives the schedule the whole width and none of the chart controls', () => {
+      // Without a timeline the divider decides nothing, so the width the
+      // columns answer to is the window's — which is why paneWidth exists
+      // rather than the tier reading tableWidth directly.
+      const { view } = setup({ timeline: false });
+
+      expect(view.showTimeline).toBe(false);
+      expect(view.paneWidth()).not.toBe(view.tableWidth());
+      expect(view.tier()).toBe('wide');
     });
   });
 });

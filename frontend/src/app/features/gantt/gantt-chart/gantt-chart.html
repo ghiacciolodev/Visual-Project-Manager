@@ -43,26 +43,32 @@
     }
 
     <div class="toolbar__tools">
-      <button type="button" class="float-toggle"
-              [class.is-current]="showFloat()"
-              (click)="toggleFloat()">Float</button>
+      <!-- Every control in this group changes how the timeline is drawn, so
+           none of them belongs on a route that does not draw one. Float,
+           zoom and Today on a plain table are three buttons that do nothing
+           visible, which is worse than three buttons that are missing. -->
+      @if (showTimeline) {
+        <button type="button" class="float-toggle"
+                [class.is-current]="showFloat()"
+                (click)="toggleFloat()">Float</button>
 
-      <!-- Zoom changes the width of a day column, nothing else. One number
-           drives the whole layout, so the header and the bars cannot drift. -->
-      <div class="zoom" role="group" aria-label="Zoom">
-        <button type="button" class="zoom__step"
-                [class.is-current]="zoom() === 'days'"
-                (click)="setZoom('days')">Days</button>
-        <button type="button" class="zoom__step"
-                [class.is-current]="zoom() === 'weeks'"
-                (click)="setZoom('weeks')">Weeks</button>
-        <button type="button" class="zoom__step"
-                [class.is-current]="zoom() === 'months'"
-                (click)="setZoom('months')">Months</button>
-      </div>
+        <!-- Zoom changes the width of a day column, nothing else. One number
+             drives the whole layout, so the header and the bars cannot drift. -->
+        <div class="zoom" role="group" aria-label="Zoom">
+          <button type="button" class="zoom__step"
+                  [class.is-current]="zoom() === 'days'"
+                  (click)="setZoom('days')">Days</button>
+          <button type="button" class="zoom__step"
+                  [class.is-current]="zoom() === 'weeks'"
+                  (click)="setZoom('weeks')">Weeks</button>
+          <button type="button" class="zoom__step"
+                  [class.is-current]="zoom() === 'months'"
+                  (click)="setZoom('months')">Months</button>
+        </div>
 
-      @if (todayIndex() !== null) {
-        <button type="button" class="today-jump" (click)="scrollToToday()">Today</button>
+        @if (todayIndex() !== null) {
+          <button type="button" class="today-jump" (click)="scrollToToday()">Today</button>
+        }
       }
 
       <!-- Hidden for viewers. The server refuses the write either way; hiding
@@ -191,6 +197,7 @@
       table on the horizontal, the bars on neither.
     -->
     <div class="chart"
+         [class.chart--table-only]="!showTimeline"
          [style.--day-width]="dayWidth() + 'px'"
          [style.--row-h]="rowHeight + 'px'"
          [style.--day-count]="days().length"
@@ -217,6 +224,7 @@
           }
         </div>
 
+        @if (showTimeline) {
         <div class="tl__head">
           <div class="tl__months">
             @for (month of months(); track month.label) {
@@ -240,6 +248,7 @@
             </div>
           }
         </div>
+        }
 
         <div class="chart__table" #names>
           <!--
@@ -265,7 +274,12 @@
             The handle between the panes. A separator role rather than a
             button: it has a value along an axis, and a screen reader should
             say so rather than announce a press.
+
+            There are no panes to separate without a timeline, and a handle
+            that resizes the only thing on screen is a control that can only
+            make the view worse.
           -->
+          @if (showTimeline) {
           <div class="divider"
                role="separator"
                tabindex="0"
@@ -279,8 +293,10 @@
                (pointerup)="onDividerUp($event)"
                (pointercancel)="onDividerUp($event)"
                (keydown)="onDividerKey($event)"></div>
+          }
         </div>
 
+        @if (showTimeline) {
         <div class="tl__body" [style.height.px]="bodyHeight()">
 
           <!-- Backdrop: one element per day for the whole chart, not per row.
@@ -383,13 +399,17 @@
             </div>
           }
         </div>
+        }
       </div>
     </div>
 
-    <p class="legend mono">
-      Heavy rule marks the critical path · Hatched tails show how far a task can slip ·
-      Arrows point from a task to what waits on it · Shaded columns are weekends
-    </p>
+    <!-- Every clause of it describes a mark on the timeline. -->
+    @if (showTimeline) {
+      <p class="legend mono">
+        Heavy rule marks the critical path · Hatched tails show how far a task can slip ·
+        Arrows point from a task to what waits on it · Shaded columns are weekends
+      </p>
+    }
   }
 
   @if (formOpen()) {
