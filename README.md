@@ -8,7 +8,7 @@ slips by a day, moves the finish date by a day.
 Angular 21 in front, Spring Boot 4.1 behind, Keycloak for identity,
 PostgreSQL underneath, and one `docker compose up` to run all of it.
 
-![The chart view: fifteen tasks, their dependencies, and the critical path](docs/screenshots/chart.png)
+![The chart: bars, dependency arrows, hatched float tails and today's line, zoomed to single days over the first five weeks of the plan](docs/screenshots/chart.png)
 
 ---
 
@@ -58,6 +58,11 @@ The table beside the chart can be widened or narrowed with the divider,
 and sheds columns as it gets smaller — dates go first, because the bar
 next to them is drawn from exactly those two numbers.
 
+The picture at the top of this page is that view, zoomed to single days.
+Days, weeks and months are the three scales; the hatched tail on a bar is
+how far that task can slip before it moves something else, and the tasks
+with no tail at all are the critical path.
+
 ### Editing a task
 
 Dates, status, priority, colour, assignee and dependencies in one panel.
@@ -66,7 +71,7 @@ itself, cannot close a cycle, and cannot be marked done while something it
 waits on is unfinished. Each refusal names the task responsible rather
 than saying no.
 
-![The task panel, with dependencies and the tasks this one blocks](docs/screenshots/task.png)
+![The task panel: title, notes, status, priority, dates, assignee, colour, and the control for adding a prerequisite](docs/screenshots/task.png)
 
 ### People and roles
 
