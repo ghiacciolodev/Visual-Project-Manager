@@ -1,89 +1,122 @@
+/**
+ * The application occupies the window and does not scroll.
+ *
+ * 100dvh rather than 100vh: on a phone the viewport unit that matters is the
+ * one that accounts for the browser's own retracting chrome, and 100vh puts
+ * the bottom of the rail underneath it.
+ */
 :host {
   display: block;
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  height: 100%;
 }
 
 /**
- * A light top bar, where this used to be a dark rail.
+ * A rail down the side, where this was a strip across the top.
  *
- * The dark strip was the strongest element on screen and carried the least
- * important content — navigation you use twice a session. Inverting it lets
- * the schedule be the thing you look at, and puts the tabs on the same
- * surface as everything else.
+ * The top bar spent its full width on four words and then handed the view a
+ * page that scrolled the bar away. Down the side it costs 200px of a screen
+ * that is far wider than it is tall — the dimension a schedule does not want —
+ * and it stays put while forty rows go past it.
+ *
+ * Light, as the top bar was. The dark version this replaced was the strongest
+ * element on the screen and carried the least important content.
  */
 .rail {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: calc(var(--u) * 2);
-  padding: 0 calc(var(--u) * 6);
+  flex: 0 0 208px;
+  padding: calc(var(--u) * 4) calc(var(--u) * 3);
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
 
   &__mark {
     display: flex;
     align-items: center;
     gap: calc(var(--u) * 2);
-    margin-right: calc(var(--u) * 4);
+    padding: 0 calc(var(--u) * 2) calc(var(--u) * 2);
     color: var(--accent);
   }
 
   &__logo {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
     display: block;
   }
 
   &__wordmark {
-    font-size: 17px;
+    font-size: var(--fs-md);
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text);
   }
 
+  // Groups separated by a rule rather than by extra space: the distinction is
+  // between kinds of destination, and a gap alone reads as an accident.
+  &__group {
+    display: flex;
+    flex-direction: column;
+    padding-top: calc(var(--u) * 2);
+    border-top: 1px solid var(--border);
+  }
+
   &__tab {
     display: flex;
     align-items: center;
+    width: 100%;
     font-family: inherit;
-    font-size: 14px;
+    font-size: var(--fs-base);
     font-weight: 500;
+    text-align: left;
     color: var(--text-2);
     text-decoration: none;
     background: none;
     border: 0;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    padding: calc(var(--u) * 4) calc(var(--u) * 3);
+    padding: calc(var(--u) * 2) calc(var(--u) * 2);
 
-    // Marked by a rule underneath in the brand colour, which is the
-    // convention people already read without being taught.
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    transition: color 0.15s ease, border-color 0.15s ease;
+    // The current view is marked by a bar in the gutter, which is the vertical
+    // equivalent of the underline a tab bar uses. Drawn in the same place
+    // whether or not it is lit, so nothing shifts sideways when it comes on.
+    border-left: 2px solid transparent;
+    padding-left: calc(var(--u) * 2 - 2px);
+    transition: color 0.15s ease, background 0.15s ease;
 
     &:hover {
       color: var(--text);
+      background: var(--surface-2);
     }
 
     &.is-current {
       color: var(--accent);
-      border-bottom-color: var(--accent);
+      border-left-color: var(--accent);
+      background: var(--accent-soft);
       font-weight: 600;
     }
   }
 
   &__project {
-    align-self: center;
-    margin-left: calc(var(--u) * 3);
+    width: 100%;
+    margin-bottom: calc(var(--u) * 2);
     font-family: inherit;
-    font-size: 14px;
+    font-size: var(--fs-base);
     font-weight: 500;
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--border-2);
     border-radius: var(--radius-sm);
-    padding: calc(var(--u) * 1.5) calc(var(--u) * 2.5);
+    padding: calc(var(--u) * 2);
     cursor: pointer;
-    max-width: 220px;
 
     &:hover {
       border-color: var(--text-3);
@@ -97,9 +130,13 @@
 
   &__account {
     display: flex;
-    align-items: center;
-    gap: calc(var(--u) * 3);
-    margin-left: auto;
+    flex-direction: column;
+    gap: calc(var(--u));
+    // Pinned to the bottom of the rail: it is who you are, not where you are
+    // going, and it should not sit in the path of the things that are.
+    margin-top: auto;
+    padding-top: calc(var(--u) * 3);
+    border-top: 1px solid var(--border);
   }
 }
 
@@ -107,13 +144,16 @@
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 2);
+  padding: 0 calc(var(--u) * 2) calc(var(--u));
+  min-width: 0;
 
   &__initials {
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
-    font-size: 12px;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--accent);
     background: var(--accent-soft);
@@ -121,9 +161,27 @@
   }
 
   &__name {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+}
+
+/**
+ * The one region that scrolls, and it delegates: the routed view decides which
+ * of its own parts moves and which stays. The schedule holds its toolbar and
+ * column heads still and scrolls the rows; the chart holds two heads and a
+ * frozen column and scrolls in both directions.
+ */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
 }
 
 /* --- the sign-in screen ------------------------------------------------- */
@@ -136,14 +194,14 @@
 
   &__eyebrow {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--fs-base);
     font-weight: 600;
     color: var(--accent);
   }
 
   &__title {
     margin: calc(var(--u) * 3) 0 calc(var(--u) * 4);
-    font-size: 36px;
+    font-size: var(--fs-2xl);
     font-weight: 700;
     line-height: 1.15;
     letter-spacing: -0.02em;
@@ -152,71 +210,113 @@
 
   &__body {
     margin: 0 0 calc(var(--u) * 7);
-    font-size: 17px;
+    font-size: var(--fs-md);
     color: var(--text-2);
   }
 
   &__hint {
     margin: calc(var(--u) * 5) 0 0;
-    font-size: 14px;
+    font-size: var(--fs-base);
     color: var(--text-3);
   }
 
   &__waiting {
     padding: calc(var(--u) * 30) calc(var(--u) * 6);
     text-align: center;
-    font-size: 14px;
+    font-size: var(--fs-base);
     color: var(--text-3);
   }
 }
 
-@media (max-width: 700px) {
-  // Scrolls sideways rather than wrapping. Four tabs, a project picker and an
-  // account do not fit across a phone, and wrapping turns the bar into three
-  // stacked rows that push the schedule off the first screen. A strip that
-  // slides is the convention people already know from every tab bar.
+@media (max-width: 900px) {
+  // Back across the top on a narrow screen. A 208px rail beside a phone-width
+  // schedule leaves the schedule with nothing, and the vertical dimension the
+  // rail was buying is the one a phone is short of.
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
   .rail {
+    flex-direction: row;
+    align-items: center;
     gap: calc(var(--u));
+    flex: 0 0 auto;
     padding: 0 calc(var(--u) * 3);
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+
+    // Scrolls sideways rather than wrapping. Wrapping turns the bar into three
+    // stacked rows that push the schedule off the first screen; a strip that
+    // slides is the convention people already know from every tab bar.
     overflow-x: auto;
-    // No scrollbar track eating four pixels of a 44px-high bar.
+    overflow-y: hidden;
     scrollbar-width: none;
 
     &::-webkit-scrollbar {
       display: none;
     }
 
-    &__tab {
+    &__mark {
       flex-shrink: 0;
-      padding: calc(var(--u) * 4) calc(var(--u) * 2);
+      padding: 0 calc(var(--u) * 2) 0 0;
     }
 
-    &__mark {
-      margin-right: calc(var(--u) * 2);
+    &__group {
+      flex-direction: row;
+      flex-shrink: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    &__tab {
+      width: auto;
+      flex-shrink: 0;
+      white-space: nowrap;
+      padding: calc(var(--u) * 3) calc(var(--u) * 2);
+
+      // The gutter bar has no room to be a gutter here, so the current view
+      // goes back to being underlined.
+      border-left: 0;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      padding-left: calc(var(--u) * 2);
+
+      &.is-current {
+        border-left-color: transparent;
+        border-bottom-color: var(--accent);
+        background: none;
+      }
     }
 
     &__project {
-      max-width: 130px;
+      width: auto;
+      max-width: 150px;
       flex-shrink: 0;
+      margin-bottom: 0;
     }
 
     &__account {
+      flex-direction: row;
+      align-items: center;
       flex-shrink: 0;
-      // margin-left: auto only works while there is slack; in a scrolling
-      // strip there never is, so the gap has to be explicit.
+      // margin-left rather than margin-top: the axis changed.
+      margin-top: 0;
       margin-left: calc(var(--u) * 4);
+      padding-top: 0;
+      border-top: 0;
     }
   }
 
-  .who__name {
-    display: none;
+  .who {
+    padding: 0;
+
+    &__name {
+      display: none;
+    }
   }
 
   .gate {
     padding-top: calc(var(--u) * 16);
-
-    &__title {
-      font-size: 28px;
-    }
   }
 }

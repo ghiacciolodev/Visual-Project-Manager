@@ -3,7 +3,6 @@ import { TestBed } from '@angular/core/testing';
 
 import { TaskCard } from './task-card';
 import { Task } from '../../../models/task.model';
-import { projectSpan } from '../../../core/schedule';
 
 function task(over: Partial<Task> & { id: number }): Task {
   return {
@@ -27,14 +26,16 @@ function task(over: Partial<Task> & { id: number }): Task {
   imports: [TaskCard],
   template: `
     @for (t of rows(); track t.id; let i = $index) {
-      <app-task-row [task]="t" [index]="i" [span]="span()" [readonly]="readonly()" />
+      <app-task-row [task]="t" [index]="i" [tier]="tier()" [readonly]="readonly()" />
     }
   `,
 })
 class Host {
   readonly rows = signal<Task[]>([]);
   readonly readonly = signal(false);
-  readonly span = signal(projectSpan([task({ id: 1 })]));
+  // The row no longer measures anything: the timeline beside it does. What it
+  // takes now is how much room the divider has left it.
+  readonly tier = signal<'narrow' | 'mid' | 'wide'>('wide');
 }
 
 async function render(rows: Task[], readonly = false) {

@@ -11,12 +11,28 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 
 import { ConflictError, TaskService, ValidationError } from '../../../core/task.service';
 import { ScheduleAnalysisService } from '../../../core/schedule-analysis.service';
 import { ProjectService } from '../../../core/project.service';
-import { Task } from '../../../models/task.model';
+import {
+  Task,
+  TaskPriority,
+  TaskStatus,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+} from '../../../models/task.model';
+import {
+  ANY,
+  NO_FILTER,
+  SortKey,
+  TaskFilter,
+  filterTasks,
+  isFiltering,
+  sortTasks,
+} from '../../../core/task-filter';
+import { TaskCard } from '../../tasks/task-card/task-card';
 import {
   DayCell,
   DragMode,
@@ -86,7 +102,7 @@ const DRAG_THRESHOLD_PX = 4;
 
 @Component({
   selector: 'app-gantt-chart',
-  imports: [TaskForm, RouterLink],
+  imports: [TaskForm, TaskCard],
   templateUrl: './gantt-chart.html',
   styleUrl: './gantt-chart.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -109,10 +125,105 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
   /** Float tails are informative on a busy chart and noise on a simple one. */
   readonly showFloat = signal(true);
 
+  readonly formOpen = signal(false);
   readonly editing = signal<Task | null>(null);
   readonly submitting = signal(false);
 
+  /* --- the split ------------------------------------------------------- */
+
+  /**
+   * Width of the table pane, in pixels.
+   *
+   * The two routes are the same view at two settings of this one number:
+   * Schedule opens with the table wide enough for every column, Chart opens
+   * with it cut back to the task's number and name. Neither is a mode — the
+   * divider is draggable from either, and dragging it far enough turns one
+   * into the other.
+   */
+  readonly tableWidth = signal(
+    // Clamped to the window as well as to the preset: 660px of table on a
+    // phone leaves nothing for the thing the table is describing.
+    Math.min(
+      inject(ActivatedRoute).snapshot.data['pane'] === 'timeline' ? 232 : 820,
+      Math.max(window.innerWidth - 300, 168)
+    )
+  );
+
+  /**
+   * How much of the table the divider has left room for.
+   *
+   * Three settings rather than two, because there is a wide band of widths
+   * where the status and the controls fit and the dates do not — and the dates
+   * are the columns the reader can most afford to lose, since the bar beside
+   * them is drawn from exactly those two numbers.
+   */
+  readonly tier = computed<'narrow' | 'mid' | 'wide'>(() => {
+    const w = this.tableWidth();
+    if (w < 470) return 'narrow';
+    return w < 800 ? 'mid' : 'wide';
+  });
+
+  /**
+   * The table's columns, as one grid template shared by the head and every row.
+   *
+   * Declared here rather than in the stylesheet because which one applies
+   * depends on the divider, and the divider is state. Both the column head and
+   * every row read it through --row-cols, so a column cannot be widened in one
+   * and not the other.
+   *
+   * The task column floors at 0 and not at a readable minimum, which looks
+   * like the wrong choice and is not: a floor big enough to be worth having is
+   * a floor that, added to the fixed columns, exceeds the pane — and a grid
+   * that cannot fit its minimums does not shrink, it overflows, silently
+   * flattening whichever flexible column comes next. Measured: a 120px floor
+   * here collapsed the assignee column to nothing and pushed the controls
+   * seventy pixels out over the timeline. A title that ellipsises is the
+   * cheaper failure.
+   */
+  readonly columns = computed(() => ({
+    narrow: '3px 28px minmax(0, 1fr)',
+    mid: '3px 28px minmax(0, 1fr) 80px 64px 160px',
+    wide: '3px 28px minmax(0, 1fr) 80px 64px minmax(0, 120px) 112px 36px 160px',
+  }[this.tier()]));
+
+  readonly viewTitle = inject(ActivatedRoute).snapshot.data['title'] ?? 'Plan';
+
+  private readonly resizing = signal(false);
+
+  /* --- filtering and sorting ------------------------------------------- */
+
+  readonly statuses = TASK_STATUSES;
+  readonly priorities = TASK_PRIORITIES;
+  readonly any = ANY;
+
+  readonly filter = signal<TaskFilter>(NO_FILTER);
+  readonly sortKey = signal<SortKey>('start');
+  readonly filtering = computed(() => isFiltering(this.filter()));
+
+  /**
+   * The rows to draw, filtered and ordered.
+   *
+   * The window is measured from every task rather than from these, so
+   * filtering thins the chart out without rescaling it — the bars that remain
+   * stay exactly where they were, which is the only way a filter is useful
+   * for comparing.
+   */
+  readonly visible = computed(() =>
+    sortTasks(filterTasks(this.taskService.tasks(), this.filter()), this.sortKey())
+  );
+
+  readonly hiddenCount = computed(() => this.taskService.tasks().length - this.visible().length);
+
+  readonly spanLabel = computed(() => {
+    const span = projectSpan(this.taskService.tasks());
+    return span ? `${formatDay(span.start)} → ${formatDay(span.end)}` : null;
+  });
+
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
+
+  /** The frozen task-name column, for measuring how much of the scroller the
+      timeline actually gets. */
+  private readonly names = viewChild<ElementRef<HTMLElement>>('names');
   private readonly form = viewChild(TaskForm);
 
   constructor() {
@@ -161,7 +272,7 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
 
     const drag = this.drag();
 
-    return this.taskService.tasks().map(task => {
+    return this.visible().map(task => {
       // The dragged bar is drawn where the pointer has it, not where the
       // server still thinks it is.
       const dragged = drag?.taskId === task.id;
@@ -355,7 +466,12 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     const element = this.scroller()?.nativeElement;
     if (index === null || !element) return;
 
-    const target = index * this.dayWidth() - element.clientWidth / 3;
+    // The names column is inside the scroller now and sits over the timeline
+    // rather than beside it, so the width available to the days is the
+    // scroller's minus the frozen column. Measured rather than assumed: the
+    // width is a CSS variable that the narrow layout changes.
+    const frozen = this.names()?.nativeElement.offsetWidth ?? 0;
+    const target = index * this.dayWidth() - (element.clientWidth - frozen) / 3;
     element.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   }
 
@@ -368,6 +484,96 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     // this is what stops the form opening only to fail on submit.
     if (!this.projects.canEdit()) return;
     this.editing.set(task);
+    this.formOpen.set(true);
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.formOpen.set(true);
+  }
+
+  onDelete(task: Task): void {
+    if (confirm(`Delete "${task.title}"? This cannot be undone.`)) {
+      void this.taskService.delete(task.id);
+    }
+  }
+
+  onStatusChange({ task, status }: { task: Task; status: TaskStatus }): void {
+    void this.taskService.changeStatus(task, status);
+  }
+
+  /* --- filter controls -------------------------------------------------- */
+
+  onStatusFilter(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as TaskStatus | typeof ANY;
+    this.filter.update(f => ({ ...f, status: value }));
+  }
+
+  onPriorityFilter(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as TaskPriority | typeof ANY;
+    this.filter.update(f => ({ ...f, priority: value }));
+  }
+
+  onFrom(event: Event): void {
+    this.filter.update(f => ({ ...f, from: (event.target as HTMLInputElement).value }));
+  }
+
+  onTo(event: Event): void {
+    this.filter.update(f => ({ ...f, to: (event.target as HTMLInputElement).value }));
+  }
+
+  onSort(event: Event): void {
+    this.sortKey.set((event.target as HTMLSelectElement).value as SortKey);
+  }
+
+  clearFilter(): void {
+    this.filter.set(NO_FILTER);
+  }
+
+  /* --- the divider ------------------------------------------------------ */
+
+  /**
+   * Drags the boundary between the table and the timeline.
+   *
+   * Measured from the scroller's left edge rather than by accumulating deltas:
+   * the pane is what the pointer is pointing at, so an absolute measurement
+   * cannot drift away from the cursor over a long drag the way a running total
+   * can.
+   */
+  onDividerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    (event.target as HTMLElement).setPointerCapture(event.pointerId);
+    this.resizing.set(true);
+  }
+
+  onDividerMove(event: PointerEvent): void {
+    if (!this.resizing()) return;
+
+    const left = this.scroller()?.nativeElement.getBoundingClientRect().left ?? 0;
+    // Floors at a width that still fits a number and a name, and stops well
+    // short of the full pane so the timeline never disappears entirely.
+    const width = Math.min(Math.max(event.clientX - left, 168), 960);
+    this.tableWidth.set(Math.round(width));
+  }
+
+  onDividerUp(event: PointerEvent): void {
+    if (!this.resizing()) return;
+    (event.target as HTMLElement).releasePointerCapture(event.pointerId);
+    this.resizing.set(false);
+  }
+
+  /** Keyboard equivalent, so the split is not mouse-only. */
+  onDividerKey(event: KeyboardEvent): void {
+    const step = event.shiftKey ? 96 : 24;
+    if (event.key === 'ArrowLeft') {
+      this.tableWidth.update(w => Math.max(w - step, 168));
+    } else if (event.key === 'ArrowRight') {
+      this.tableWidth.update(w => Math.min(w + step, 960));
+    } else {
+      return;
+    }
+    event.preventDefault();
   }
 
   /* --- dragging and resizing ------------------------------------------- */
@@ -493,19 +699,30 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
   }
 
   closeForm(): void {
+    this.formOpen.set(false);
     this.editing.set(null);
   }
 
+  /**
+   * Saves the fields first, then reconciles the dependencies.
+   *
+   * That order matters: a status change to DONE is rejected while prerequisites
+   * are unfinished, so the task update has to be judged against the graph as it
+   * stood, not against edges added moments earlier in the same save.
+   */
   async onSave({ request, dependencies }: TaskFormResult): Promise<void> {
-    const task = this.editing();
-    if (!task) return;
-
     this.submitting.set(true);
     try {
-      await this.taskService.update(task.id, request);
+      const editing = this.editing();
+      const task = editing
+        ? await this.taskService.update(editing.id, request)
+        : await this.taskService.create(request);
+
       await this.taskService.syncDependencies(task.id, dependencies);
       this.closeForm();
     } catch (err) {
+      // The panel stays open on failure: closing it would throw away the
+      // user's input for a problem they can still fix.
       if (err instanceof ValidationError) {
         this.form()?.applyServerErrors(err.fieldErrors);
       } else if (err instanceof ConflictError) {

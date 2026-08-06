@@ -1,137 +1,110 @@
+/**
+ * The row is a grid item of the ledger, not a box of its own.
+ *
+ * --row-cols is defined once on the ledger and used by both the column head
+ * and every row, so a column cannot be widened in one place and not the other.
+ */
+:host {
+  display: block;
+}
+
 .row {
   display: grid;
-  grid-template-columns: 4px minmax(0, 1fr) 300px auto;
-  align-items: stretch;
+  grid-template-columns: var(--row-cols);
+  align-items: center;
+  gap: 0 calc(var(--u) * 3);
+  height: var(--row-h);
+  padding-right: calc(var(--u) * 3);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+  // A hairline between rows, not a border around each one. Rows in a table
+  // share their edges; that is what makes them read as a table.
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s ease;
 
   &:hover {
-    border-color: var(--border-2);
-    box-shadow: var(--shadow);
+    background: var(--surface-2);
   }
 
   // The task's colour, as a spine down the left edge. It used to be a filled
   // block carrying the row number in reversed-out text, which meant computing
-  // a readable foreground for an arbitrary user-chosen hue. A 4px spine says
-  // the same thing and never has to be legible.
+  // a readable foreground for an arbitrary user-chosen hue. A spine says the
+  // same thing and never has to be legible.
   &__spine {
+    align-self: stretch;
     background: var(--task-color, var(--border-2));
   }
 
-  &__identity {
-    min-width: 0;
-    padding: calc(var(--u) * 4);
+  &__number {
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+    text-align: right;
   }
 
-  &__headline {
+  &__identity {
     display: flex;
     align-items: baseline;
     gap: calc(var(--u) * 2);
     min-width: 0;
   }
 
-  &__number {
-    font-size: 13px;
-    color: var(--text-3);
-    flex-shrink: 0;
-  }
-
   &__title {
     margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    font-size: var(--fs-sm);
+    font-weight: 500;
     color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  &__meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: calc(var(--u) * 2) calc(var(--u) * 3);
-    margin-top: calc(var(--u) * 2);
+  &__who {
     min-width: 0;
   }
 
-  &__note {
-    font-size: 14px;
+  &__days {
+    font-size: var(--fs-xs);
     color: var(--text-3);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: right;
   }
 
-  &__schedule {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: calc(var(--u) * 2);
-    padding: calc(var(--u) * 4);
-    border-left: 1px solid var(--border);
+  // Float, shown only in the narrow pane. Pushed to the far edge so it lines
+  // up down the column rather than trailing each title at a different point.
+  &__slip {
+    margin-left: auto;
+    padding-left: calc(var(--u) * 2);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+  }
+
+  // On the critical path. The same weight the chart gives the bar, so a task
+  // that reads as decisive on one side of the divider reads that way on both.
+  &--critical &__title {
+    font-weight: 700;
   }
 
   &__actions {
     display: flex;
     align-items: center;
-    gap: calc(var(--u) * 3);
-    padding: 0 calc(var(--u) * 4);
-    border-left: 1px solid var(--border);
+    justify-content: flex-end;
+    gap: calc(var(--u) * 2);
   }
 
   &__viewing {
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: var(--text-3);
-  }
-}
-
-/* --- the inline timeline ------------------------------------------------ */
-
-.track {
-  position: relative;
-  height: 8px;
-  background: var(--surface-3);
-  border-radius: var(--radius-pill);
-
-  &__bar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    background: var(--task-color);
-    border-radius: var(--radius-pill);
-    min-width: 4px;
-  }
-
-  // The marker for the present moment. The one place this colour appears.
-  &__now {
-    position: absolute;
-    top: -4px;
-    bottom: -4px;
-    width: 2px;
-    border-radius: 1px;
-    background: var(--now);
   }
 }
 
 .dates {
   display: flex;
   align-items: baseline;
-  gap: calc(var(--u) * 1.5);
-  font-size: 13px;
+  gap: calc(var(--u));
+  font-size: var(--fs-xs);
   color: var(--text-2);
+  white-space: nowrap;
 
   &__arrow {
-    color: var(--text-3);
-  }
-
-  &__duration {
-    margin-left: auto;
     color: var(--text-3);
   }
 }
@@ -142,7 +115,7 @@
    the work rather than a state of it, and giving both the same weight would
    turn every row into a row of pills. */
 .priority {
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   color: var(--prio-low);
 
@@ -156,7 +129,8 @@
 
 .blocked {
   min-width: 0;
-  font-size: 13px;
+  flex-shrink: 1;
+  font-size: var(--fs-xs);
   color: var(--doing);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -170,16 +144,17 @@
   align-items: center;
   gap: calc(var(--u) * 1.5);
   min-width: 0;
+  max-width: 100%;
 
   // Initials as well as the name, so the row still scans when the column is
   // narrow enough to clip the text.
   &__initials {
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--accent);
     background: var(--accent-soft);
@@ -187,7 +162,7 @@
   }
 
   &__name {
-    font-size: 13px;
+    font-size: var(--fs-xs);
     color: var(--text-2);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -195,21 +170,14 @@
   }
 }
 
-@media (max-width: 1000px) {
-  // The initials carry it on their own once space is short.
-  .assignee__name {
-    display: none;
-  }
-}
-
 /* --- controls ----------------------------------------------------------- */
 
 .select {
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   color: var(--text);
-  padding: calc(var(--u) * 1.5) calc(var(--u) * 2);
+  padding: calc(var(--u)) calc(var(--u) * 1.5);
   background: var(--surface);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-sm);
@@ -227,20 +195,28 @@
 
 /* --- narrow screens ----------------------------------------------------- */
 
-@media (max-width: 860px) {
-  .row {
-    grid-template-columns: 4px minmax(0, 1fr);
-
-    &__spine {
-      grid-row: 1 / -1;
-    }
-
-    &__schedule,
-    &__actions {
-      grid-column: 2;
-      border-left: 0;
-      border-top: 1px solid var(--border);
-      padding: calc(var(--u) * 3) calc(var(--u) * 4);
-    }
+/**
+ * Below the width where ten columns fit, the row stops pretending to be one.
+ *
+ * It folds into two lines — identity above, schedule and controls below — and
+ * the ledger drops its column head to match, because a head over columns that
+ * are no longer aligned is worse than no head at all.
+ */
+/**
+ * No media query here any more.
+ *
+ * The row used to fold at a window width, which was the wrong question: the
+ * row is as wide as the pane the divider left it, and the window can be huge
+ * while the pane is 200px. The pane decides, through [compact], and drops the
+ * columns from the markup rather than hiding them with CSS — a hidden cell
+ * still occupies its track and still holds the grid to its width.
+ *
+ * The row must never fold onto a second line whatever the width: it is one
+ * line of a table whose other half is a bar drawn at a fixed height, and a
+ * row that grew would slide the two out of register all the way down.
+ */
+.row--compact {
+  .row__title {
+    font-size: var(--fs-sm);
   }
 }

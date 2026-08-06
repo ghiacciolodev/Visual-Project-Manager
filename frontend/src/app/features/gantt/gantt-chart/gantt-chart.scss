@@ -1,96 +1,127 @@
-/* Header heights and column widths live here so the fixed name column and the
-   scrolling timeline stay locked together. Two grids, one set of measurements.
-   --row-h and --day-width are set inline by the component: the connector
-   geometry is computed from the row height, so a second copy here could
-   silently disagree with the drawn arrows. */
+/* Header heights live here so the frozen table and the scrolling timeline stay
+   locked together. Two grids, one set of measurements. */
 .chart {
   --month-h: 24px;
   --days-h: 22px;
-  --names-w: 200px;
   --head-h: calc(var(--month-h) + var(--days-h));
+  // --table-w, --row-cols, --day-width, --row-h and --day-count are all set
+  // inline by the component: every one of them is state the divider, the zoom
+  // or the data decides, and a copy here could only ever disagree.
 
   display: flex;
-  align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
+  flex: 1;
+  min-height: 0;
   background: var(--surface);
+  border-top: 1px solid var(--border);
 
-  &__names {
-    flex: 0 0 var(--names-w);
-    border-right: 1px solid var(--border-2);
-    background: var(--surface);
-    z-index: 2;
+  /**
+   * One element scrolls, in both directions, and three of its four cells
+   * refuse to move on one axis or the other.
+   *
+   * The alternative — a fixed name column beside a strip that scrolls
+   * sideways, which is what this was — cannot keep the day header on screen,
+   * because the vertical scroll then belongs to an ancestor and a sticky
+   * child resolves against the nearest scrollport rather than against that.
+   * Putting both axes here is what makes `position: sticky` mean anything.
+   */
+  &__scroll {
+    display: grid;
+    // max-content as the floor so the column never squeezes the days, 1fr as
+    // the ceiling so a short plan fills the width instead of leaving the
+    // right-hand third of the frame empty.
+    grid-template-columns: var(--table-w) minmax(max-content, 1fr);
+    grid-template-rows: auto auto;
+    align-content: start;
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
   }
 
-  &__names-head {
+  /* The one cell that holds still on both axes. */
+  &__corner {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 4;
+
+    // The table's own column template, so the head sits over the fields it
+    // names rather than over wherever a flex row happened to put them.
+    display: grid;
+    grid-template-columns: var(--row-cols);
+    gap: 0 calc(var(--u) * 3);
+    align-items: end;
+
     height: var(--head-h);
-    display: flex;
-    align-items: flex-end;
     padding: 0 calc(var(--u) * 3) calc(var(--u) * 1.5);
-    font-size: 13px;
+    font-size: var(--fs-xs);
+    font-weight: 500;
     color: var(--text-3);
+    background: var(--surface);
+    border-right: 1px solid var(--border-2);
     border-bottom: 1px solid var(--border-2);
   }
 
-  &__scroll {
-    flex: 1;
-    overflow-x: auto;
-    overflow-y: hidden;
+  &__corner-right {
+    text-align: right;
+  }
+
+  /**
+   * The table pane. Holds still while the days scroll under it.
+   *
+   * Its width is --table-w, which the divider writes and the grid above reads,
+   * so there is one number rather than a pane width and a column width that
+   * have to be kept in agreement.
+   */
+  &__table {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+
+    // Opaque, and it has to be: the bars scroll underneath it.
+    background: var(--surface);
+    border-right: 1px solid var(--border-2);
   }
 }
 
-.name {
-  height: var(--row-h);
-  display: flex;
-  align-items: center;
-  gap: calc(var(--u) * 2);
-  padding: 0 calc(var(--u) * 3);
-  border-bottom: 1px solid var(--border);
+/**
+ * The handle between the panes.
+ *
+ * Six pixels wide and drawn as nothing: the border it sits on is the visible
+ * edge, and a second line beside that border would read as a seam. It lights
+ * up under the pointer and on focus, which is the whole affordance.
+ */
+.divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 6px;
+  z-index: 5;
+  cursor: col-resize;
+  // The pointer must not lose the handle to a text selection the moment the
+  // drag starts.
+  touch-action: none;
+  user-select: none;
 
-  &__chip {
-    flex: 0 0 auto;
-    width: 20px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 16px;
-  }
-
-  &__title {
-    font-family: var(--font-ui);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__float {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--text-3);
-  }
-
-  // Waiting work is set in the lighter ink: present, legible, and visibly not
-  // the thing to start next.
-  &--blocked &__title {
-    color: var(--text-2);
-    font-style: italic;
-  }
-
-  &--critical &__title {
-    font-weight: 700;
+  &:hover,
+  &:focus-visible {
+    background: var(--accent);
+    outline: none;
   }
 }
 
 /* --- timeline ----------------------------------------------------------- */
 
+/* The day grid. Two cells of the scroller — a header and a body — each as
+   wide as the number of days it draws. The wrapper they used to share is
+   gone: it was one element spanning both rows of the grid, which is exactly
+   what stops either of them holding still on its own. */
 .tl {
-  position: relative;
-  width: calc(var(--day-count) * var(--day-width));
-  min-width: 100%;
+  &__head,
+  &__body {
+    width: calc(var(--day-count) * var(--day-width));
+    min-width: 100%;
+  }
 
   &__backdrop {
     position: absolute;
@@ -106,7 +137,7 @@
     // Weekends are shaded because they explain the gap between a bar's length
     // and the working days inside it. Information, not decoration.
     &--weekend {
-      background: rgb(20 32 43 / 4%);
+      background: rgb(41 37 30 / 5%);
     }
 
     // A month boundary is a bigger division than a day, so it gets a heavier
@@ -138,8 +169,9 @@
   }
 
   &__head {
-    position: relative;
-    z-index: 1;
+    position: sticky;
+    top: 0;
+    z-index: 3;
     height: var(--head-h);
     border-bottom: 1px solid var(--border-2);
     background: var(--surface);
@@ -300,6 +332,7 @@
 /* Same overall height and rhythm as the drawn chart, so the page holds still
    when the real one replaces it. */
 .chart-skeleton {
+  margin: calc(var(--u) * 4);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -362,107 +395,206 @@
 
 /* --- page furniture ----------------------------------------------------- */
 
-.sheet {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: calc(var(--u) * 12) calc(var(--u) * 6) calc(var(--u) * 20);
+/**
+ * The view fills the frame. The chart is the only part that scrolls, and the
+ * max-width that used to sit here was the worst line in the file: a chart of
+ * time on a screen 1900px wide, told to stop at 1200.
+ */
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
-.masthead {
+.sheet {
   display: flex;
-  align-items: flex-end;
-  gap: calc(var(--u) * 6);
-  padding-bottom: calc(var(--u) * 3);
-  border-bottom: 2px solid var(--text);
-  margin-bottom: calc(var(--u) * 6);
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 
-  &__identity {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__eyebrow {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-3);
-  }
+/**
+ * The same band as the schedule's: same padding, same alignment, same
+ * treatment for the reading beside the title. It measures a pixel taller,
+ * because the zoom group's outline is a pixel taller than the schedule's one
+ * button — not worth chasing, and recorded here so nobody re-measures it.
+ *
+ * Named `toolbar` and not `bar`, which it was for one commit and which broke
+ * it. `.bar` in this file is the task bar in the chart — 18px tall, clipped,
+ * grab cursor — and a component stylesheet is one namespace, so the header
+ * inherited a height smaller than its own padding and collapsed to 25px with
+ * its contents hanging out of it. The schedule had no such collision, which is
+ * exactly why the same band looked right there and wrong here.
+ */
+.toolbar {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--u) * 5);
+  flex: 0 0 auto;
+  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 
   &__title {
-    margin: calc(var(--u)) 0 0;
-    font-family: var(--font-ui);
-    font-size: 32px;
-    font-weight: 700;
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: 600;
     letter-spacing: -0.01em;
-    line-height: 1;
+    color: var(--text);
+  }
+
+  &__readout {
+    margin: 0;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+    // The band is a single line. A reading that wraps turns it into two and
+    // shoves the plan down by the height of the taller one.
+    white-space: nowrap;
   }
 
   &__tools {
     display: flex;
     align-items: center;
     gap: calc(var(--u) * 4);
+    margin-left: auto;
+    // The controls are boxes, not text, so they centre on the band rather
+    // than sitting on the baseline the words share.
+    align-self: center;
+  }
+
+  // The only filled thing in the band, at the far end of it.
+  &__new {
+    padding: calc(var(--u) * 1.5) calc(var(--u) * 3);
+    font-size: var(--fs-sm);
   }
 }
 
-.readout {
+/**
+ * A strip, not a card.
+ *
+ * Always present, once a project is open. This was gated on the number of
+ * tasks, on the theory that a filter bar over a short list is furniture. The
+ * theory cost more than it saved: it made the controls appear and disappear
+ * with the data, so the feature was undiscoverable on exactly the small
+ * projects people start with.
+ */
+.filters {
   display: flex;
-  align-items: baseline;
-  gap: calc(var(--u) * 1.5);
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  gap: calc(var(--u) * 2) calc(var(--u) * 4);
+  padding: calc(var(--u) * 2) calc(var(--u) * 4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 
-  &__figure {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text);
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 1.5);
+
+    select,
+    input {
+      font-family: inherit;
+      font-size: var(--fs-xs);
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      padding: calc(var(--u)) calc(var(--u) * 1.5);
+      cursor: pointer;
+      // Date inputs claim an intrinsic width wider than a phone, and without
+      // this they push the strip past the viewport.
+      min-width: 0;
+
+      &:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+    }
+
+    // Pushed to the far end: it orders what the others have chosen, so it is
+    // a different kind of control from the four beside it.
+    &--sort {
+      margin-left: auto;
+    }
   }
 
   &__label {
-    font-size: 13px;
+    font-size: var(--fs-xs);
+    font-weight: 500;
     color: var(--text-3);
+    white-space: nowrap;
   }
 
-  &__aside {
-    font-size: 13px;
+  &__hidden {
+    font-size: var(--fs-xs);
     color: var(--text-3);
-    padding-left: calc(var(--u) * 2);
-    border-left: 1px solid var(--border-2);
+  }
+}
+
+/**
+ * The two switches in the toolbar, stated once.
+ *
+ * Float used to carry a border and nothing else, on a comment that said it
+ * borrowed the zoom group's shape. It did not: a bare <button> inherits none
+ * of the page's typography, so it drew itself in the browser's own font at
+ * whatever size that is, with the browser's padding, beside three segments set
+ * in Plex at 13px. Sharing the rule is what the comment was describing.
+ */
+.zoom__step,
+.float-toggle {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  padding: calc(var(--u) * 1.5) calc(var(--u) * 3);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--surface-2);
+  }
+
+  // Lit rather than tinted: these are switches, and a switch that is on should
+  // not have to be compared with its neighbour to be read.
+  &.is-current {
+    background: var(--text);
+    color: var(--text-invert);
   }
 }
 
 .zoom {
   display: flex;
   border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  // So the lit segment's fill stops at the group's corner instead of squaring
+  // it off.
+  overflow: hidden;
 
   &__step {
-    font-size: 13px;
-    color: var(--text-2);
-    background: transparent;
-    border: 0;
     border-right: 1px solid var(--border-2);
-    padding: calc(var(--u) * 1.5) calc(var(--u) * 3);
-    cursor: pointer;
 
     &:last-child {
       border-right: 0;
     }
-
-    &:hover {
-      background: var(--surface-2);
-    }
-
-    &.is-current {
-      background: var(--text);
-      color: var(--text-invert);
-    }
   }
 }
 
-// Sits outside the zoom group but borrows its shape: same control vocabulary,
-// separate decision.
+// Sits outside the zoom group and carries the outline the group draws for its
+// segments.
 .float-toggle {
   border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
 }
 
 .today-jump {
-  font-size: 13px;
+  // A <button> inherits none of the page's typography unless told to. Without
+  // this it drew "Today" in the browser's own face beside four controls set in
+  // Plex — the same defect float-toggle had, one element along.
+  font-family: inherit;
+  font-size: var(--fs-sm);
   color: var(--now);
   background: none;
   border: 0;
@@ -471,47 +603,59 @@
   cursor: pointer;
 }
 
+/* A footer band below the chart rather than a paragraph after it: the chart
+   now runs to the bottom of the frame, so there is no "after". */
 .legend {
-  margin: calc(var(--u) * 3) 0 0;
-  font-size: 13px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: calc(var(--u) * 2) calc(var(--u) * 4);
+  font-size: var(--fs-xs);
   color: var(--text-3);
-  line-height: 1.6;
+  line-height: 1.5;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
 }
 
 .state {
-  padding: calc(var(--u) * 16) 0;
+  padding: calc(var(--u) * 16) calc(var(--u) * 6);
   text-align: center;
   color: var(--text-3);
-  font-size: 13px;
+  font-size: var(--fs-sm);
 
   &__line {
-    margin: 0 0 calc(var(--u) * 4);
-    font-size: 14px;
+    margin: 0 0 calc(var(--u) * 2);
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  &__hint {
+    margin: 0 0 calc(var(--u) * 5);
+    font-size: var(--fs-base);
     color: var(--text-2);
   }
 }
 
 @media (max-width: 900px) {
-  .masthead {
+  .toolbar {
     flex-wrap: wrap;
-
-    &__title {
-      font-size: 24px;
-    }
+    gap: calc(var(--u) * 3);
 
     &__tools {
       flex-wrap: wrap;
       gap: calc(var(--u) * 3);
+      margin-left: 0;
     }
   }
 }
 
 @media (max-width: 700px) {
-  .sheet {
-    padding: calc(var(--u) * 8) calc(var(--u) * 4) calc(var(--u) * 16);
-  }
+  // No --table-w override here: the component sets it inline, which no
+  // stylesheet can outrank, and it already clamps its opening width to the
+  // window. The divider does the rest.
 
-  .chart {
-    --names-w: 120px;
+  // Four lines of prose under a chart on a phone is most of the screen.
+  .legend {
+    display: none;
   }
 }

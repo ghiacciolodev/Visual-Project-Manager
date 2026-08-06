@@ -1,85 +1,147 @@
 /* ===================================================================
-   Direction: a calm, conventional planning tool.
+   Direction: an instrument, not a document.
 
-   What this replaces: a "production sheet" made of cool grey paper,
-   9–11px condensed uppercase lettering, hairline rules and a single
-   saturated colour. It had a strong identity and it was hard to read —
-   the muted grey used for emails, hints and states measured about
-   2.2:1 against its background, where the standard asks for 4.5:1,
-   and almost every label was set in capitals at ten pixels.
+   The previous pass fixed a real problem — the muted grey it inherited
+   measured about 2.2:1 where the standard asks for 4.5 — but it paid
+   for the fix by adopting the house style of every generated admin
+   panel: blue-grey paper, white cards floating on a resting shadow,
+   10px corners, a blue accent, and a row of pastel pills. Nothing in
+   it was wrong. All of it was anonymous.
 
-   What replaces it: white surfaces on a soft neutral, rounded corners,
-   type that starts at 13px and is sentence case, and colour doing
-   actual work — status and priority each carry their own hue instead
-   of being spelled out in small capitals.
+   What changes here is the surface language, not the accessibility
+   work. Every ratio below is still measured and still clears AA; the
+   numbers are in the comments so the next person changing a value
+   knows what they are spending.
 
-   Every text colour below is checked against the surface it sits on
-   and clears WCAG AA. The ratios are in the comments so the next
-   person changing a value knows what they are spending.
+   Three decisions carry the rest:
+
+   1. The neutrals are warm. Blue-tinted greys are what a framework
+      ships with. Paper is warm, and this screen is a plan on paper.
+
+   2. There is one hue in the chrome, and it is not blue. Tasks carry
+      arbitrary user-chosen colours across the chart, so every hue the
+      interface spends on itself is a hue competing with the data.
+
+   3. Depth is for things that are actually in front of something
+      else. A shadow under every row is decoration; a shadow under the
+      side panel is information.
    =================================================================== */
 
 :root {
   /* --- surfaces --------------------------------------------------- */
-  --bg:          #f4f6f8;   /* behind everything */
-  --surface:     #ffffff;   /* cards, rows, panels */
-  --surface-2:   #f7f9fb;   /* hover, subtle fills */
-  --surface-3:   #eef2f6;   /* pressed, inset areas */
+  /* Warm greys. Same lightness steps as before, hue rotated off the
+     blue that made the whole screen read as a template. */
+  --bg:          #f2f1ed;   /* behind everything */
+  --surface:     #ffffff;   /* rows, panels, fields */
+  --surface-2:   #f8f7f4;   /* hover, subtle fills */
+  --surface-3:   #ebe9e3;   /* pressed, inset areas, skeletons */
 
-  --border:      #e3e8ed;   /* the ordinary divider */
-  --border-2:    #ccd4dd;   /* inputs, stronger separation */
+  --border:      #dfdcd4;   /* the ordinary divider */
+  --border-2:    #c4bfb4;   /* inputs, stronger separation */
 
   /* --- text ------------------------------------------------------- */
-  --text:        #1a2230;   /* 15.8:1 on white */
-  --text-2:      #4a5768;   /*  7.4:1 on white — secondary prose */
-  --text-3:      #5c6b7a;   /*  5.5:1 on white — the quietest text allowed.
-                                The old equivalent was 2.2:1. */
+  --text:        #1b1a17;   /* 16.4:1 on white */
+  --text-2:      #57534a;   /*  7.7:1 on white — secondary prose */
+  --text-3:      #6b6659;   /*  5.6:1 on white — the quietest text allowed */
   --text-invert: #ffffff;
 
   /* --- brand ------------------------------------------------------ */
+  /*
+    Blue, on warm paper.
+
+    The argument against blue was that it is what every generated admin
+    panel ships with — but what made those look generic was blue ink on
+    blue-grey paper, the whole screen sitting at one temperature. Against
+    a warm neutral the same blue reads as drawing ink on a print, which
+    is the oldest convention this kind of chart has.
+
+    Spent on one thing at a time: the current view, a link, a focus ring,
+    the primary button. Not on priorities, not on eyebrows, and not on
+    anything a task colour has to sit next to.
+  */
   --accent:       #2f5bd8;  /* 5.8:1 on white, and white is 5.8:1 on it */
   --accent-hover: #2449b5;
-  --accent-soft:  #eaf0fe;
+  --accent-soft:  #eaeefb;
   --accent-ring:  #b9ccf7;
 
   /* --- status ----------------------------------------------------- */
-  /* Colour carries the state now. It used to be a small capital word
-     and a square that had to be decoded from a legend. */
-  --todo:        #64748b;
-  --todo-soft:   #f1f5f9;
-  --doing:       #b45309;
-  --doing-soft:  #fef4e6;
-  --done:        #15803d;
-  --done-soft:   #e9f7ee;
+  /*
+    Three states, one hue.
+
+    The pastel trio spent a colour on each state, which meant the two
+    states nobody is looking for were as loud as the one they are. On
+    a plan the question is what is running now: DOING gets the hue.
+    TODO is work not started, so it is drawn hollow — outline, no
+    fill. DONE is finished, so it recedes into the grey it came from.
+
+    Form separates them as well as colour does, which is what keeps
+    them apart for a reader who cannot see the difference. Each badge
+    still carries its word regardless.
+  */
+  --todo:        #57534a;
+  --todo-soft:   #ffffff;   /* hollow: the outline does the work */
+  --doing:       #8a5510;   /* 6.2:1 on white */
+  --doing-soft:  #f9f0e0;
+  --done:        #6b6659;
+  --done-soft:   #ebe9e3;
 
   /* --- priority --------------------------------------------------- */
-  --prio-low:    #5c6b7a;
-  --prio-medium: #2f5bd8;
-  --prio-high:   #b91c1c;
+  /* Only HIGH is emphasised, as before. MEDIUM used to be painted in
+     the brand blue, which made an ordinary priority the most colourful
+     thing in the row. */
+  --prio-low:    #6b6659;
+  --prio-medium: #57534a;
+  --prio-high:   #a3302a;
 
   /* --- signals ---------------------------------------------------- */
-  --danger:      #b91c1c;   /* 6.4:1 on white */
-  --danger-hover:#991616;
-  --danger-soft: #fdecec;
+  --danger:       #a3302a;  /* 7.0:1 on white */
+  --danger-hover: #862621;
+  --danger-soft:  #faedeb;
+  --danger-line:  #e6c4bf;  /* the border on a soft danger surface */
 
   /* Kept saturated and kept rare: the marker for the present moment,
-     and nothing else. */
-  --now:         #dc2626;
+     and nothing else. Vermilion rather than a UI red, so it cannot be
+     mistaken for an error. */
+  --now:         #cc3311;
 
   /* --- type ------------------------------------------------------- */
-  /* IBM Plex stays. The typeface was never the problem — setting it at
-     ten pixels in condensed capitals was. Sans for everything, Mono
-     for figures that have to line up in a column. */
+  /* IBM Plex stays. Sans for everything, Mono for figures that have to
+     line up in a column. All four weights are loaded now — the CSS was
+     asking for 600 and 700 against a file that carried 400 and 500,
+     and every heading and button in the app was faux-bold. */
   --font-ui:    'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
 
+  /*
+    A scale, so sizes are chosen from a set rather than invented per
+    component. It steps 12 · 13 · 14 · 15 · 18 · 22 · 28, tighter than
+    the old one at the bottom and shorter at the top: this is a tool
+    you read all day at arm's length, not a page you land on.
+  */
+  --fs-xs:   12px;  /* badges, chips, the smallest figures */
+  --fs-sm:   13px;  /* labels, meta, dense rows */
+  --fs-base: 14px;  /* body, controls, buttons */
+  --fs-md:   15px;  /* a row title, an input you type into */
+  --fs-lg:   18px;  /* a panel or empty-state headline */
+  --fs-xl:   22px;  /* a panel title */
+  --fs-2xl:  28px;  /* the sign-in screen, and nothing else */
+
   /* --- shape and depth -------------------------------------------- */
-  --radius:    10px;
-  --radius-sm: 6px;
+  /* Squarer. 10px on every surface is a consumer radius; at 6 the
+     corner still reads as deliberate without softening a grid. */
+  --radius:    6px;
+  --radius-sm: 4px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
-  --shadow:    0 2px 8px rgb(16 24 40 / 8%);
-  --shadow-lg: 0 12px 32px rgb(16 24 40 / 14%);
+  /*
+    Reserved for things that float over other things: the side panel,
+    a menu, a bar being dragged. Nothing at rest gets one. Tinted with
+    the warm neutral rather than a blue-black, so the edge of a shadow
+    does not sit at a different temperature from the paper under it.
+  */
+  --shadow-sm: 0 1px 2px rgb(41 37 30 / 8%);
+  --shadow:    0 4px 12px rgb(41 37 30 / 10%);
+  --shadow-lg: 0 16px 40px rgb(41 37 30 / 18%);
 
   /* Rhythm. 4px base. */
   --u: 4px;
@@ -101,8 +163,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 15px;          /* was 14 */
-  line-height: 1.55;
+  font-size: var(--fs-base);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -120,7 +182,7 @@ body {
  * than a word, and at ten pixels the tracking made it worse.
  */
 .label {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text-2);
   letter-spacing: 0;
@@ -170,7 +232,7 @@ body {
   justify-content: center;
   gap: calc(var(--u) * 2);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 600;
   line-height: 1.2;
   text-decoration: none;
@@ -180,25 +242,25 @@ body {
   border-radius: var(--radius-sm);
   padding: calc(var(--u) * 2.5) calc(var(--u) * 4);
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: var(--shadow-sm);
+
+  /* No resting shadow. A button that is already the only filled thing
+     on the screen does not need to be lifted off it as well. */
+  transition: background 0.15s ease;
 }
 
 .action:hover:not(:disabled) {
   background: var(--accent-hover);
-  box-shadow: var(--shadow);
 }
 
 .action:disabled {
-  background: var(--border-2);
+  background: var(--surface-3);
   color: var(--text-3);
-  box-shadow: none;
   cursor: not-allowed;
 }
 
 /** The single button on an otherwise empty screen. */
 .action--lg {
-  font-size: 15px;
+  font-size: var(--fs-md);
   padding: calc(var(--u) * 3.5) calc(var(--u) * 6);
 }
 
@@ -216,7 +278,7 @@ body {
   display: inline-flex;
   align-items: center;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 500;
   color: var(--text-2);
   background: var(--surface);
@@ -241,7 +303,7 @@ body {
 /** An inline action inside a row or a notice. */
 .link {
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 500;
   color: var(--accent);
   background: none;
@@ -269,24 +331,35 @@ body {
 /* --- badges ------------------------------------------------------- */
 
 /**
- * A status or a count, as a filled pill.
+ * A status or a count.
  *
  * Readable at a glance and, crucially, not only by colour: each one still
  * carries its word. Colour is the fast path, the label is the reliable one.
+ *
+ * The three states differ in fill as well as hue — hollow, tinted, grey —
+ * so they stay apart in a screenshot, in print, and for a reader who does
+ * not separate the colours.
  */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: calc(var(--u) * 1.5);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 1;
   padding: calc(var(--u) * 1.25) calc(var(--u) * 2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   white-space: nowrap;
 }
 
-.badge[data-status='TODO']  { color: var(--todo);  background: var(--todo-soft); }
+/* Outline drawn with an inset shadow rather than a border: a border would
+   add a pixel to every side and shift the row it sits in. */
+.badge[data-status='TODO'] {
+  color: var(--todo);
+  background: var(--todo-soft);
+  box-shadow: inset 0 0 0 1px var(--border-2);
+}
+
 .badge[data-status='DOING'] { color: var(--doing); background: var(--doing-soft); }
 .badge[data-status='DONE']  { color: var(--done);  background: var(--done-soft); }
 
@@ -300,24 +373,26 @@ body {
   gap: calc(var(--u) * 4);
   padding: calc(var(--u) * 3) calc(var(--u) * 4);
   margin-bottom: calc(var(--u) * 4);
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--text);
   background: var(--danger-soft);
-  border: 1px solid #f6cfcf;
+  border: 1px solid var(--danger-line);
   border-radius: var(--radius);
 }
 
 /**
  * A notice with nowhere of its own to sit — raised by an action taken from
  * the rail, above whichever view happens to be open.
+ *
+ * A band across the top of the frame rather than a floating card. It sits
+ * outside the region that scrolls, so it does not need to be told to stay.
  */
 .notice--floating {
-  position: sticky;
-  top: calc(var(--u) * 3);
-  z-index: 40;
-  max-width: 1060px;
-  margin: calc(var(--u) * 3) auto 0;
-  box-shadow: var(--shadow);
+  flex: 0 0 auto;
+  margin: 0;
+  border-inline: 0;
+  border-top: 0;
+  border-radius: 0;
 }
 
 /**
@@ -328,20 +403,20 @@ body {
   padding: calc(var(--u) * 3) calc(var(--u) * 4);
   margin-bottom: calc(var(--u) * 5);
   background: var(--danger-soft);
-  border: 1px solid #f6cfcf;
+  border: 1px solid var(--danger-line);
   border-radius: var(--radius);
 }
 
 .conflict__message {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--text);
 }
 
 .conflict__list {
   margin: calc(var(--u) * 2) 0 0;
   padding-left: calc(var(--u) * 4);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--text-2);
 }
 
@@ -350,7 +425,7 @@ body {
 .scrim {
   position: fixed;
   inset: 0;
-  background: rgb(16 24 40 / 45%);
+  background: rgb(28 25 20 / 45%);
   display: flex;
   justify-content: flex-end;
   z-index: 50;
@@ -379,7 +454,7 @@ body {
 
 .panel__eyebrow {
   margin: 0 0 calc(var(--u));
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--accent);
 }
@@ -387,7 +462,7 @@ body {
 .panel__title {
   margin: 0;
   font-family: var(--font-ui);
-  font-size: 22px;
+  font-size: var(--fs-xl);
   font-weight: 600;
   line-height: 1.25;
   letter-spacing: -0.01em;
@@ -470,7 +545,7 @@ body {
 .field label {
   display: block;
   margin-bottom: calc(var(--u) * 1.5);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text-2);
 }
@@ -481,7 +556,7 @@ body {
   width: 100%;
   padding: calc(var(--u) * 2.5) calc(var(--u) * 3);
   font: inherit;
-  font-size: 15px;
+  font-size: var(--fs-md);
   color: var(--text);
   background: var(--surface);
 
@@ -537,7 +612,7 @@ body {
 .field__error {
   display: block;
   margin-top: calc(var(--u) * 1.5);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--danger);
 }
 

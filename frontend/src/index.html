@@ -11,7 +11,13 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Every weight the stylesheet asks for, and nothing it does not.
+       Plex Sans was being loaded at 400 and 500 while the CSS set headings,
+       buttons and badges at 600 and 700, so the browser synthesised those by
+       smearing the 500 — which is why the type looked slightly wrong
+       everywhere without any single rule being wrong. Condensed was loaded in
+       three weights and used by nothing at all. -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <app-root></app-root>

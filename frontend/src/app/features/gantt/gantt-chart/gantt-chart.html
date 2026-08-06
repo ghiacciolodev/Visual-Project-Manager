@@ -1,25 +1,48 @@
+<!--
+  One view, not two.
+
+  The schedule and the chart were separate routes that each drew their own
+  timeline — a track inside every table row, and a bar in a lane — from the
+  same dates, in two implementations. Worse than the duplication: neither
+  screen could answer a question that needed both halves. The table knew who
+  a task was assigned to and the chart knew what it was waiting for, and
+  comparing the two meant remembering one while looking at the other.
+
+  So: one table and one timeline, side by side, sharing a row height and a
+  scrollbar. The two routes survive as two settings of the divider — Schedule
+  opens with the table wide, Chart opens with it narrow — and the divider is
+  draggable from either, so the setting is a starting point rather than a mode.
+-->
 <div class="sheet">
 
-  <header class="masthead">
-    <div class="masthead__identity">
-      <p class="masthead__eyebrow">Chart</p>
-      <h1 class="masthead__title">{{ projects.current()?.name ?? 'Chart' }}</h1>
-    </div>
+  <header class="toolbar">
+    <h1 class="toolbar__title">{{ viewTitle }}</h1>
 
-    <div class="masthead__tools">
-      <!-- The one number a planner asks for first: how short can this get? -->
-      @if (schedule.analysis(); as analysis) {
-        @if (analysis.criticalDuration) {
-          <div class="readout mono">
-            <span class="readout__figure">{{ analysis.criticalDuration }}d</span>
-            <span class="readout__label">critical path</span>
-            @if (analysis.slackInPlan) {
-              <span class="readout__aside">+{{ analysis.slackInPlan }}d slack in plan</span>
-            }
-          </div>
-        }
+    @if (spanLabel(); as summary) {
+      <p class="toolbar__readout mono">{{ summary }}</p>
+    }
+
+    <p class="toolbar__readout mono">
+      {{ taskService.counts().done }}/{{ taskService.counts().total }} complete
+      @if (taskService.counts().blocked) {
+        · {{ taskService.counts().blocked }} waiting
       }
+    </p>
 
+    <!-- The one number a planner asks for first: how short can this get?
+         Mono on the figures only — "critical path" is prose. -->
+    @if (schedule.analysis(); as analysis) {
+      @if (analysis.criticalDuration) {
+        <p class="toolbar__readout">
+          <span class="mono">{{ analysis.criticalDuration }}d</span> critical path
+          @if (analysis.slackInPlan) {
+            · <span class="mono">+{{ analysis.slackInPlan }}d</span> slack
+          }
+        </p>
+      }
+    }
+
+    <div class="toolbar__tools">
       <button type="button" class="float-toggle"
               [class.is-current]="showFloat()"
               (click)="toggleFloat()">Float</button>
@@ -39,9 +62,13 @@
       </div>
 
       @if (todayIndex() !== null) {
-        <button type="button" class="today-jump" (click)="scrollToToday()">
-          Today
-        </button>
+        <button type="button" class="today-jump" (click)="scrollToToday()">Today</button>
+      }
+
+      <!-- Hidden for viewers. The server refuses the write either way; hiding
+           the button is a courtesy, not the control. -->
+      @if (projects.canEdit()) {
+        <button type="button" class="action toolbar__new" (click)="openCreate()">New task</button>
       }
     </div>
   </header>
@@ -53,8 +80,72 @@
     </div>
   }
 
+  <!--
+    Always present, once a project is open. This was gated on the number of
+    tasks, on the theory that a filter bar over a short list is furniture. The
+    theory cost more than it saved: it made the controls appear and disappear
+    with the data, so the feature was undiscoverable on exactly the small
+    projects people start with.
+  -->
+  @if (projects.currentId() !== null) {
+    <div class="filters" role="group" aria-label="Filter and sort">
+      <label class="filters__field">
+        <span class="filters__label">Status</span>
+        <!-- Selected on the option, not bound on the select: a value bound to
+             the select is applied before @for has made the options. -->
+        <select (change)="onStatusFilter($event)">
+          <option [value]="any" [selected]="filter().status === any">Any</option>
+          @for (status of statuses; track status) {
+            <option [value]="status" [selected]="filter().status === status">{{ status }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filters__field">
+        <span class="filters__label">Priority</span>
+        <select (change)="onPriorityFilter($event)">
+          <option [value]="any" [selected]="filter().priority === any">Any</option>
+          @for (priority of priorities; track priority) {
+            <option [value]="priority"
+                    [selected]="filter().priority === priority">{{ priority }}</option>
+          }
+        </select>
+      </label>
+
+      <!-- Overlap, not containment: a task running across the window is the
+           most relevant thing in it. -->
+      <label class="filters__field">
+        <span class="filters__label">Active from</span>
+        <input type="date" [value]="filter().from" (change)="onFrom($event)">
+      </label>
+
+      <label class="filters__field">
+        <span class="filters__label">to</span>
+        <input type="date" [value]="filter().to" (change)="onTo($event)">
+      </label>
+
+      <label class="filters__field filters__field--sort">
+        <span class="filters__label">Sort by</span>
+        <select [value]="sortKey()" (change)="onSort($event)">
+          <option value="start">Start date</option>
+          <option value="end">End date</option>
+          <option value="priority">Priority</option>
+          <option value="status">Status</option>
+          <option value="title">Title</option>
+        </select>
+      </label>
+
+      @if (filtering()) {
+        <button type="button" class="link" (click)="clearFilter()">Clear filters</button>
+        <!-- Says what is not on screen. A filtered view that does not admit to
+             hiding things is how somebody concludes a task was deleted. -->
+        <span class="filters__hidden">{{ hiddenCount() }} hidden</span>
+      }
+    </div>
+  }
+
   @if (taskService.loading()) {
-    <p class="visually-hidden" role="status">Drawing chart…</p>
+    <p class="visually-hidden" role="status">Drawing plan…</p>
 
     <!-- Bars of varying length and offset rather than a block of equal
          rectangles: a chart is irregular, and a placeholder that is not
@@ -72,45 +163,125 @@
   } @else if (projects.currentId() === null) {
     <div class="state">
       <p class="state__line">No project yet.</p>
-      <p class="state__hint">Create one from the picker at the top of the screen.</p>
+      <p class="state__hint">Create one from the picker in the rail.</p>
     </div>
   } @else if (taskService.isEmpty()) {
     <div class="state">
-      <p class="state__line">Nothing to plot yet.</p>
+      <p class="state__line">Nothing planned yet.</p>
       @if (projects.canEdit()) {
-        <a class="action" routerLink="/tasks">Add a task</a>
+        <button type="button" class="action" (click)="openCreate()">Add the first task</button>
       }
+    </div>
+  } @else if (visible().length === 0) {
+    <!-- Tasks exist, none of them match. Distinct from an empty project: the
+         way out is to widen the filter, not to write anything. -->
+    <div class="state">
+      <p class="state__line">Nothing matches those filters.</p>
+      <p class="state__hint">{{ taskService.tasks().length }} tasks are hidden.</p>
+      <button type="button" class="ghost" (click)="clearFilter()">Clear filters</button>
     </div>
   } @else {
 
+    <!--
+      One scrolling region with two frozen edges.
+
+      Both axes belong to the same element, which is what lets the day header
+      hold still on the vertical and the table hold still on the horizontal.
+      Four cells: the corner holds on both, the header on the vertical, the
+      table on the horizontal, the bars on neither.
+    -->
     <div class="chart"
          [style.--day-width]="dayWidth() + 'px'"
-         [style.--row-h]="rowHeight + 'px'">
-
-      <!-- Fixed column. Stays put while the timeline scrolls sideways, so a
-           bar is never separated from the name of its task. -->
-      <div class="chart__names">
-        <div class="chart__names-head">Task</div>
-
-        @for (row of rows(); track row.task.id; let i = $index) {
-          <div class="name"
-               [class.name--blocked]="row.task.blockedBy.length"
-               [class.name--critical]="isCritical(row.task.id)">
-            <span class="name__chip mono"
-                  [style.background]="row.task.color"
-                  [style.color]="barText(row.task.color)">{{ rowNumber(i) }}</span>
-            <span class="name__title">{{ row.task.title }}</span>
-            <!-- How far this bar can move from where it is drawn, not the raw
-                 total float: the reader is looking at the bar. -->
-            @if (slipOf(row) > 0) {
-              <span class="name__float mono">+{{ slipOf(row) }}</span>
-            }
-          </div>
-        }
-      </div>
+         [style.--row-h]="rowHeight + 'px'"
+         [style.--day-count]="days().length"
+         [style.--table-w]="tableWidth() + 'px'"
+         [style.--row-cols]="columns()">
 
       <div class="chart__scroll" #scroller>
-        <div class="tl" [style.--day-count]="days().length">
+
+        <!-- The head names the same columns the rows fill, from the same
+             template, so the two cannot disagree about where a column is. -->
+        <div class="chart__corner">
+          <span></span>
+          <span></span>
+          <span>Task</span>
+          @if (tier() !== 'narrow') {
+            <span>Status</span>
+            <span>Priority</span>
+            @if (tier() === 'wide') {
+              <span>Assignee</span>
+              <span>Dates</span>
+              <span class="chart__corner-right">Days</span>
+            }
+            <span></span>
+          }
+        </div>
+
+        <div class="tl__head">
+          <div class="tl__months">
+            @for (month of months(); track month.label) {
+              <div class="tl__month" [style.grid-column]="'span ' + month.span">
+                {{ month.label }}
+              </div>
+            }
+          </div>
+
+          @if (showsDayNumbers()) {
+            <div class="tl__days">
+              @for (day of days(); track day.iso) {
+                <div class="tl__day mono"
+                     [class.tl__day--weekend]="day.isWeekend"
+                     [class.tl__day--today]="day.isToday">
+                  @if (labelsEveryDay() || day.isWeekStart) {
+                    {{ day.dayOfMonth }}
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="chart__table" #names>
+          <!--
+            The same row component the schedule used, minus the miniature
+            track it used to carry: the real timeline is now eighteen pixels
+            to the right, and two drawings of one task's dates on one line is
+            one drawing too many.
+          -->
+          @for (row of rows(); track row.task.id; let i = $index) {
+            <app-task-row
+              [task]="row.task"
+              [index]="i"
+              [tier]="tier()"
+              [critical]="isCritical(row.task.id)"
+              [slip]="slipOf(row)"
+              [readonly]="!projects.canEdit()"
+              (edit)="openEdit($event)"
+              (remove)="onDelete($event)"
+              (statusChange)="onStatusChange($event)" />
+          }
+
+          <!--
+            The handle between the panes. A separator role rather than a
+            button: it has a value along an axis, and a screen reader should
+            say so rather than announce a press.
+          -->
+          <div class="divider"
+               role="separator"
+               tabindex="0"
+               aria-orientation="vertical"
+               aria-label="Width of the task table"
+               [attr.aria-valuenow]="tableWidth()"
+               aria-valuemin="168"
+               aria-valuemax="960"
+               (pointerdown)="onDividerDown($event)"
+               (pointermove)="onDividerMove($event)"
+               (pointerup)="onDividerUp($event)"
+               (pointercancel)="onDividerUp($event)"
+               (keydown)="onDividerKey($event)"></div>
+        </div>
+
+        <div class="tl__body" [style.height.px]="bodyHeight()">
 
           <!-- Backdrop: one element per day for the whole chart, not per row.
                It carries the ruling, the weekend shading and the today line,
@@ -127,111 +298,86 @@
             }
           </div>
 
-          <div class="tl__head">
-            <div class="tl__months">
-              @for (month of months(); track month.label) {
-                <div class="tl__month" [style.grid-column]="'span ' + month.span">
-                  {{ month.label }}
-                </div>
-              }
-            </div>
+          <!-- One overlay for every connector, not one per row: the lines
+               cross row boundaries, so they cannot live inside a lane. A
+               dependency on a task the filter has hidden simply draws
+               nothing — connectorPoints needs both ends. -->
+          <svg class="links" [attr.height]="bodyHeight()" aria-hidden="true">
+            <defs>
+              <marker id="link-arrow" viewBox="0 0 6 6"
+                      refX="5" refY="3" markerWidth="6" markerHeight="6"
+                      orient="auto-start-reverse">
+                <path d="M 0 0 L 6 3 L 0 6 z" />
+              </marker>
+            </defs>
 
-            @if (showsDayNumbers()) {
-              <div class="tl__days">
-                @for (day of days(); track day.iso) {
-                  <div class="tl__day mono"
-                       [class.tl__day--weekend]="day.isWeekend"
-                       [class.tl__day--today]="day.isToday">
-                    @if (labelsEveryDay() || day.isWeekStart) {
-                      {{ day.dayOfMonth }}
-                    }
-                  </div>
-                }
-              </div>
+            @for (path of connectors(); track path) {
+              <path [attr.d]="path" marker-end="url(#link-arrow)" />
             }
-          </div>
+          </svg>
 
-          <div class="tl__body" [style.height.px]="bodyHeight()">
-
-            <!-- One overlay for every connector, not one per row: the lines
-                 cross row boundaries, so they cannot live inside a lane. -->
-            <svg class="links" [attr.height]="bodyHeight()" aria-hidden="true">
-              <defs>
-                <marker id="link-arrow" viewBox="0 0 6 6"
-                        refX="5" refY="3" markerWidth="6" markerHeight="6"
-                        orient="auto-start-reverse">
-                  <path d="M 0 0 L 6 3 L 0 6 z" />
-                </marker>
-              </defs>
-
-              @for (path of connectors(); track path) {
-                <path [attr.d]="path" marker-end="url(#link-arrow)" />
+          @for (row of rows(); track row.task.id) {
+            <div class="lane">
+              <!--
+                The float tail sits in its own grid cell immediately after the
+                bar: hatched, unfilled, showing how far the task could slide
+                before the project's end date moves. Critical tasks have none,
+                which is precisely what makes them critical.
+              -->
+              @if (floatColumns(row) > 0) {
+                <div class="tail"
+                     [style.grid-column-start]="tailStart(row)"
+                     [style.grid-column-end]="'span ' + floatColumns(row)"
+                     [style.--task-color]="row.task.color"
+                     aria-hidden="true"></div>
               }
-            </svg>
 
-            @for (row of rows(); track row.task.id) {
-              <div class="lane">
-                <!--
-                  The float tail sits in its own grid cell immediately after the
-                  bar: hatched, unfilled, showing how far the task could slide
-                  before the project's end date moves. Critical tasks have none,
-                  which is precisely what makes them critical.
-                -->
-                @if (floatColumns(row) > 0) {
-                  <div class="tail"
-                       [style.grid-column-start]="tailStart(row)"
-                       [style.grid-column-end]="'span ' + floatColumns(row)"
-                       [style.--task-color]="row.task.color"
-                       aria-hidden="true"></div>
-                }
+              <!--
+                No (click) binding. A click fires after every pointerup, so
+                the form would open at the end of each drag; pointerup
+                decides for itself whether the press ever became one.
+              -->
+              <button type="button"
+                      class="bar"
+                      [style.grid-column-start]="barStart(row)"
+                      [style.grid-column-end]="'span ' + row.length"
+                      [style.background]="row.task.color"
+                      [style.color]="barText(row.task.color)"
+                      [class.bar--done]="row.task.status === 'DONE'"
+                      [class.bar--critical]="isCritical(row.task.id)"
+                      [class.bar--static]="!projects.canEdit()"
+                      [class.bar--dragging]="isDragging(row.task.id)"
+                      [title]="isDragging(row.task.id) ? (dragLabel() ?? '') : barTitle(row)"
+                      (pointerdown)="onBarPointerDown(row, 'move', $event)"
+                      (pointermove)="onBarPointerMove($event)"
+                      (pointerup)="onBarPointerUp(row, $event)"
+                      (pointercancel)="onBarCancel()"
+                      (keydown)="onBarKeyDown($event)">
 
-                <!--
-                  No (click) binding. A click fires after every pointerup, so
-                  the form would open at the end of each drag; pointerup
-                  decides for itself whether the press ever became one.
-                -->
-                <button type="button"
-                        class="bar"
-                        [style.grid-column-start]="barStart(row)"
-                        [style.grid-column-end]="'span ' + row.length"
-                        [style.background]="row.task.color"
-                        [style.color]="barText(row.task.color)"
-                        [class.bar--done]="row.task.status === 'DONE'"
-                        [class.bar--critical]="isCritical(row.task.id)"
-                        [class.bar--static]="!projects.canEdit()"
-                        [class.bar--dragging]="isDragging(row.task.id)"
-                        [title]="isDragging(row.task.id) ? (dragLabel() ?? '') : barTitle(row)"
-                        (pointerdown)="onBarPointerDown(row, 'move', $event)"
+                <!-- Two grips, so the ends move independently of the whole.
+                     Hidden from assistive technology: the form is the
+                     accessible way to change a date, and a keyboard has no
+                     use for a drag handle. -->
+                @if (projects.canEdit()) {
+                  <span class="bar__grip bar__grip--start"
+                        aria-hidden="true"
+                        (pointerdown)="onBarPointerDown(row, 'start', $event)"
                         (pointermove)="onBarPointerMove($event)"
-                        (pointerup)="onBarPointerUp(row, $event)"
-                        (pointercancel)="onBarCancel()"
-                        (keydown)="onBarKeyDown($event)">
+                        (pointerup)="onBarPointerUp(row, $event)"></span>
+                }
 
-                  <!-- Two grips, so the ends move independently of the whole.
-                       Hidden from assistive technology: the form is the
-                       accessible way to change a date, and a keyboard has no
-                       use for a drag handle. -->
-                  @if (projects.canEdit()) {
-                    <span class="bar__grip bar__grip--start"
-                          aria-hidden="true"
-                          (pointerdown)="onBarPointerDown(row, 'start', $event)"
-                          (pointermove)="onBarPointerMove($event)"
-                          (pointerup)="onBarPointerUp(row, $event)"></span>
-                  }
+                <span class="bar__label">{{ row.task.title }}</span>
 
-                  <span class="bar__label">{{ row.task.title }}</span>
-
-                  @if (projects.canEdit()) {
-                    <span class="bar__grip bar__grip--end"
-                          aria-hidden="true"
-                          (pointerdown)="onBarPointerDown(row, 'end', $event)"
-                          (pointermove)="onBarPointerMove($event)"
-                          (pointerup)="onBarPointerUp(row, $event)"></span>
-                  }
-                </button>
-              </div>
-            }
-          </div>
+                @if (projects.canEdit()) {
+                  <span class="bar__grip bar__grip--end"
+                        aria-hidden="true"
+                        (pointerdown)="onBarPointerDown(row, 'end', $event)"
+                        (pointermove)="onBarPointerMove($event)"
+                        (pointerup)="onBarPointerUp(row, $event)"></span>
+                }
+              </button>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -242,9 +388,9 @@
     </p>
   }
 
-  @if (editing(); as task) {
+  @if (formOpen()) {
     <app-task-form
-      [task]="task"
+      [task]="editing()"
       [allTasks]="taskService.tasks()"
       [submitting]="submitting()"
       (save)="onSave($event)"

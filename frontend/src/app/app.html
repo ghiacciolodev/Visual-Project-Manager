@@ -1,120 +1,143 @@
 <!--
-  A thin rail rather than a sidebar: with two views, a sidebar would spend a
-  fifth of the screen restating what a pair of words already says.
--->
-<nav class="rail">
-  <!-- Inline rather than an <img>: the mark is three rectangles, and a request
-       for it would cost more than the markup does. -->
-  <span class="rail__mark">
-    <svg class="rail__logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <rect width="32" height="32" rx="8" fill="currentColor"/>
-      <rect x="7"  y="9"  width="16" height="4.5" rx="2.25" fill="#fff"/>
-      <rect x="11" y="15" width="14" height="4.5" rx="2.25" fill="#fff" opacity="0.72"/>
-      <rect x="7"  y="21" width="9"  height="4.5" rx="2.25" fill="#fff" opacity="0.45"/>
-    </svg>
-    <span class="rail__wordmark">VPM</span>
-  </span>
-
-  @if (session.authenticated()) {
-    <a class="rail__tab" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
-    <a class="rail__tab" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
-
-    <!-- A button, not a tab: it opens a panel over whatever you are reading
-         rather than taking you somewhere. Only owners may change who is in a
-         project, so only owners are shown the way in — the server refuses the
-         endpoints regardless. -->
-    @if (projects.canAdminister()) {
-      <button type="button"
-              class="rail__tab"
-              [class.is-current]="membersOpen()"
-              (click)="openMembers()">
-        Members
-      </button>
-    }
-
-    <!-- Any member, not just owners. The log answers "who moved this?", which
-         is a question anybody working from the plan has. -->
-    @if (projects.currentId() !== null) {
-      <button type="button"
-              class="rail__tab"
-              [class.is-current]="historyOpen()"
-              (click)="openHistory()">
-        History
-      </button>
-    }
-
-    <!--
-      Shown from the first project rather than the second. The old rule was
-      that a picker with one option is a label pretending to be a control, and
-      it was right — but the control now carries the actions too, and hiding it
-      put creating a project out of reach of exactly the people who have only
-      ever had one.
-    -->
-    @if (projects.projects().length) {
-      <!-- [selected] on the option rather than [value] on the select: the
-           value is assigned before @for has made any options, so the picker
-           named whichever project happened to be listed first while the rest
-           of the screen showed a different one. -->
-      <select class="rail__project"
-              (change)="onProjectChange($event)"
-              aria-label="Project">
-        @for (project of projects.projects(); track project.id) {
-          <option [value]="project.id"
-                  [selected]="project.id === projects.currentId()">{{ project.name }}</option>
-        }
-
-        <optgroup label="Manage">
-          @if (projects.canAdminister()) {
-            <option value="edit">Rename or delete…</option>
-          }
-          <option value="new">New project…</option>
-          <!-- Offered to owners as well. An owner who has handed over may
-               leave; the last one may not, and the server says so. -->
-          <option value="leave">Leave this project…</option>
-        </optgroup>
-      </select>
-    } @else {
-      <!-- Deleting your last project leaves nothing to pick from, and the
-           way back has to be somewhere. -->
-      <button type="button" class="rail__tab" (click)="openNewProject()">
-        New project
-      </button>
-    }
-
-    <div class="rail__account">
-      @if (session.profile(); as profile) {
-        <span class="who">
-          <span class="who__initials">{{ session.initials() }}</span>
-          <span class="who__name">{{ profile.displayName }}</span>
-        </span>
-      }
-      <button type="button" class="rail__tab" (click)="session.signOut()">
-        Sign out
-      </button>
-    </div>
-  }
-</nav>
-
-<!--
   Nothing renders until checkAuth has settled. Routing first would flash the
   schedule for a frame before the guard redirects, which reads as a glitch.
 -->
 @if (session.ready()) {
   @if (session.authenticated()) {
-    <!-- Leaving is triggered from the rail, so there is no panel to put its
-         refusal in. The commonest one is the last owner being told to hand
-         over first, which is an instruction rather than an error. -->
-    @if (leaveError(); as message) {
-      <div class="notice notice--floating" role="alert">
-        <span>{{ message }}</span>
-        <button type="button" class="link" (click)="leaveError.set(null)">Dismiss</button>
-      </div>
-    }
-
-    <router-outlet />
 
     <!--
-      Outside the outlet, so the schedule or the chart stays behind the scrim
+      A frame, where this was a document.
+
+      The old shell was a top bar over a page that scrolled: every view opened
+      with a masthead announcing its own name, and reaching row forty meant
+      scrolling the navigation off the screen. That is how a website behaves.
+      A tool holds still — the chrome stays put, and only the work moves.
+
+      Two fixed regions and one that scrolls. The rail carries everything that
+      is true of the whole session (which project, which view, who you are),
+      so no view has to restate it in a heading.
+    -->
+    <div class="shell">
+
+      <nav class="rail">
+        <!-- Inline rather than an <img>: the mark is three rectangles, and a
+             request for it would cost more than the markup does. -->
+        <span class="rail__mark">
+          <svg class="rail__logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <rect width="32" height="32" rx="8" fill="currentColor"/>
+            <rect x="7"  y="9"  width="16" height="4.5" rx="2.25" fill="#fff"/>
+            <rect x="11" y="15" width="14" height="4.5" rx="2.25" fill="#fff" opacity="0.72"/>
+            <rect x="7"  y="21" width="9"  height="4.5" rx="2.25" fill="#fff" opacity="0.45"/>
+          </svg>
+          <span class="rail__wordmark">VPM</span>
+        </span>
+
+        <!--
+          The project comes first, above the views rather than after them: it
+          is the subject, and Schedule and Chart are two ways of looking at it.
+
+          Shown from the first project rather than the second. The old rule was
+          that a picker with one option is a label pretending to be a control,
+          and it was right — but the control now carries the actions too, and
+          hiding it put creating a project out of reach of exactly the people
+          who have only ever had one.
+        -->
+        @if (projects.projects().length) {
+          <!-- [selected] on the option rather than [value] on the select: the
+               value is assigned before @for has made any options, so the picker
+               named whichever project happened to be listed first while the rest
+               of the screen showed a different one. -->
+          <select class="rail__project"
+                  (change)="onProjectChange($event)"
+                  aria-label="Project">
+            @for (project of projects.projects(); track project.id) {
+              <option [value]="project.id"
+                      [selected]="project.id === projects.currentId()">{{ project.name }}</option>
+            }
+
+            <optgroup label="Manage">
+              @if (projects.canAdminister()) {
+                <option value="edit">Rename or delete…</option>
+              }
+              <option value="new">New project…</option>
+              <!-- Offered to owners as well. An owner who has handed over may
+                   leave; the last one may not, and the server says so. -->
+              <option value="leave">Leave this project…</option>
+            </optgroup>
+          </select>
+        } @else {
+          <!-- Deleting your last project leaves nothing to pick from, and the
+               way back has to be somewhere. -->
+          <button type="button" class="rail__tab" (click)="openNewProject()">
+            New project
+          </button>
+        }
+
+        <div class="rail__group">
+          <a class="rail__tab" routerLink="/tasks" routerLinkActive="is-current">Schedule</a>
+          <a class="rail__tab" routerLink="/gantt" routerLinkActive="is-current">Chart</a>
+        </div>
+
+        <!--
+          Kept apart from the two above by a rule. These open a panel over
+          whatever you are reading rather than taking you somewhere, and a
+          reader who cannot tell the two kinds apart learns it by losing their
+          place once.
+        -->
+        <div class="rail__group">
+          <!-- Only owners may change who is in a project, so only owners are
+               shown the way in — the server refuses the endpoints regardless. -->
+          @if (projects.canAdminister()) {
+            <button type="button"
+                    class="rail__tab"
+                    [class.is-current]="membersOpen()"
+                    (click)="openMembers()">
+              Members
+            </button>
+          }
+
+          <!-- Any member, not just owners. The log answers "who moved this?",
+               which is a question anybody working from the plan has. -->
+          @if (projects.currentId() !== null) {
+            <button type="button"
+                    class="rail__tab"
+                    [class.is-current]="historyOpen()"
+                    (click)="openHistory()">
+              History
+            </button>
+          }
+        </div>
+
+        <div class="rail__account">
+          @if (session.profile(); as profile) {
+            <span class="who">
+              <span class="who__initials">{{ session.initials() }}</span>
+              <span class="who__name">{{ profile.displayName }}</span>
+            </span>
+          }
+          <button type="button" class="rail__tab" (click)="session.signOut()">
+            Sign out
+          </button>
+        </div>
+      </nav>
+
+      <main class="main">
+        <!-- Leaving is triggered from the rail, so there is no panel to put its
+             refusal in. The commonest one is the last owner being told to hand
+             over first, which is an instruction rather than an error. -->
+        @if (leaveError(); as message) {
+          <div class="notice notice--floating" role="alert">
+            <span>{{ message }}</span>
+            <button type="button" class="link" (click)="leaveError.set(null)">Dismiss</button>
+          </div>
+        }
+
+        <router-outlet />
+      </main>
+    </div>
+
+    <!--
+      Outside the frame, so the schedule or the chart stays behind the scrim
       instead of being swapped out for a blank sheet.
 
       @defer keeps it out of the initial bundle the way the routed views are

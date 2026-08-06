@@ -1,97 +1,106 @@
 <!--
-  A card with a coloured spine, where this used to be a ruled line on a
-  continuous sheet. Separating the rows gives each task room and frees the
-  status to carry a colour of its own without fighting the ruling.
+  A row in the table pane, beside the timeline that draws the same task.
+
+  It carries no miniature track any more. It had one when the schedule was a
+  screen of its own and the chart was somewhere else; now the bar is a few
+  pixels to the right, at a scale you can actually read, and drawing the dates
+  twice on one line only competed with itself.
+
+  Which columns appear is the pane's decision, not the row's: [tier] comes from
+  where the divider is standing. The columns are dropped from the markup and
+  not hidden with CSS — a hidden cell still occupies its grid track and still
+  holds the row to a width the pane has not got.
 -->
-<div class="row" [style.--task-color]="task().color">
+<div class="row"
+     [class.row--compact]="tier() === 'narrow'"
+     [class.row--critical]="critical()"
+     [style.--task-color]="task().color">
 
   <div class="row__spine" aria-hidden="true"></div>
 
+  <span class="row__number mono">{{ rowNumber() }}</span>
+
   <div class="row__identity">
-    <div class="row__headline">
-      <span class="row__number mono">{{ rowNumber() }}</span>
-      <h2 class="row__title">{{ task().title }}</h2>
-    </div>
+    <!-- The description moves to the title's tooltip. On one line it was
+         competing with the fields that have a column of their own, and it is
+         the only thing here with no fixed length. -->
+    <h2 class="row__title" [title]="task().description || task().title">{{ task().title }}</h2>
 
-    <div class="row__meta">
-      <!-- Colour is the fast path and the word is the reliable one, so the
-           badge carries both. Read without colour it still says what it is,
-           which the old fill-level square could not. -->
-      <span class="badge" [attr.data-status]="task().status">{{ statusLabel() }}</span>
+    <!-- Blocking is stated in words, not left to an icon. "Waits for Build the
+         API" tells you what to do next; a padlock only tells you that you
+         cannot. Dropped when the pane is narrow: the arrows in the timeline
+         are saying the same thing, and there the line has room. -->
+    @if (tier() === 'wide' && task().blockedBy.length) {
+      <span class="blocked">Waits for {{ blockerNames() }}</span>
+    }
 
-      <!-- Only HIGH is emphasised. Marking all three priorities equally is
-           the same as marking none. -->
-      <span class="priority" [attr.data-priority]="task().priority">{{ priorityLabel() }}</span>
-
-      <!-- Only when somebody is named. An "Unassigned" chip on every row would
-           spend the reader's attention on the absence of information. -->
-      @if (task().assignee; as assignee) {
-        <span class="assignee" [title]="'Assigned to ' + assignee.displayName">
-          <span class="assignee__initials" aria-hidden="true">{{ initialsOf(assignee.displayName) }}</span>
-          <span class="assignee__name">{{ assignee.displayName }}</span>
-        </span>
-      }
-
-      <!-- Blocking is stated in words, not left to an icon. "Waits for
-           Build the API" tells you what to do next; a padlock only tells you
-           that you cannot. -->
-      @if (task().blockedBy.length) {
-        <span class="blocked">Waits for {{ blockerNames() }}</span>
-      } @else if (task().description) {
-        <span class="row__note">{{ task().description }}</span>
-      }
-    </div>
+    <!-- How far this bar can move from where it is drawn. Only in the narrow
+         pane, where the columns that would otherwise carry the reader's eye to
+         the timeline are gone. -->
+    @if (tier() === 'narrow' && slip() > 0) {
+      <span class="row__slip mono">+{{ slip() }}</span>
+    }
   </div>
 
-  <!-- The same day grid the Gantt uses, one row tall. Overlaps between tasks
-       are visible without leaving the page. -->
-  <div class="row__schedule">
-    @if (bar(); as geometry) {
-      <div class="track" role="img"
-           [attr.aria-label]="'Runs ' + startLabel() + ' to ' + endLabel() + ', ' + duration() + ' days'">
-        <div class="track__bar"
-             [style.left.%]="geometry.left"
-             [style.width.%]="geometry.width"></div>
+  @if (tier() !== 'narrow') {
+    <!-- Colour is the fast path and the word is the reliable one, so the badge
+         carries both. Read without colour it still says what it is. -->
+    <span class="badge" [attr.data-status]="task().status">{{ statusLabel() }}</span>
 
-        @if (todayMark(); as position) {
-          <div class="track__now" [style.left.%]="position"></div>
+    <!-- Only HIGH is emphasised. Marking all three priorities equally is the
+         same as marking none. -->
+    <span class="priority" [attr.data-priority]="task().priority">{{ priorityLabel() }}</span>
+
+    <!-- The dates go first when room runs short: the bar beside them is drawn
+         from those two numbers, so of everything here they are the columns the
+         timeline can most nearly replace. -->
+    @if (tier() === 'wide') {
+      <div class="row__who">
+        <!-- Only when somebody is named. An "Unassigned" chip on every row
+             would spend the reader's attention on the absence of information. -->
+        @if (task().assignee; as assignee) {
+          <span class="assignee" [title]="'Assigned to ' + assignee.displayName">
+            <span class="assignee__initials" aria-hidden="true">{{ initialsOf(assignee.displayName) }}</span>
+            <span class="assignee__name">{{ assignee.displayName }}</span>
+          </span>
         }
       </div>
+
+      <div class="dates mono">
+        <span>{{ startLabel() }}</span>
+        <span class="dates__arrow" aria-hidden="true">→</span>
+        <span>{{ endLabel() }}</span>
+      </div>
+
+      <span class="row__days mono">{{ duration() }}d</span>
     }
 
-    <div class="dates mono">
-      <span>{{ startLabel() }}</span>
-      <span class="dates__arrow" aria-hidden="true">→</span>
-      <span>{{ endLabel() }}</span>
-      <span class="dates__duration">{{ duration() }}d</span>
-    </div>
-  </div>
-
-  <div class="row__actions">
-    <!--
-      A viewer sees the same information and none of the controls. Saying "view
-      only" rather than showing disabled buttons: a greyed-out row of controls
-      invites the question of how to enable them, when the answer is a
-      conversation with the project's owner.
-    -->
-    @if (readonly()) {
-      <span class="row__viewing">View only</span>
-    } @else {
+    <div class="row__actions">
       <!--
-        A native select for the status: keyboard accessible and working on
-        mobile with no extra code, which a custom dropdown would not be.
+        A viewer sees the same information and none of the controls. Saying
+        "view only" rather than showing disabled buttons: a greyed-out row of
+        controls invites the question of how to enable them, when the answer is
+        a conversation with the project's owner.
       -->
-      <select class="select"
-              [value]="task().status"
-              (change)="onStatusChange($event)"
-              [attr.aria-label]="'Status of ' + task().title">
-        <option value="TODO">To do</option>
-        <option value="DOING">Doing</option>
-        <option value="DONE">Done</option>
-      </select>
+      @if (readonly()) {
+        <span class="row__viewing">View only</span>
+      } @else {
+        <!--
+          A native select for the status: keyboard accessible and working on
+          mobile with no extra code, which a custom dropdown would not be.
+        -->
+        <select class="select"
+                [value]="task().status"
+                (change)="onStatusChange($event)"
+                [attr.aria-label]="'Status of ' + task().title">
+          <option value="TODO">To do</option>
+          <option value="DOING">Doing</option>
+          <option value="DONE">Done</option>
+        </select>
 
-      <button type="button" class="link" (click)="edit.emit(task())">Edit</button>
-      <button type="button" class="link link--danger" (click)="remove.emit(task())">Delete</button>
-    }
-  </div>
+        <button type="button" class="link" (click)="edit.emit(task())">Edit</button>
+        <button type="button" class="link link--danger" (click)="remove.emit(task())">Delete</button>
+      }
+    </div>
+  }
 </div>

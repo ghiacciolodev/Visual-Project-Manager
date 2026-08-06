@@ -1,13 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 import { Task, TaskPriority, TaskStatus } from '../../../models/task.model';
-import {
-  Span,
-  durationDays,
-  formatDay,
-  positionInSpan,
-  todayIso,
-} from '../../../core/schedule';
+import { durationDays, formatDay } from '../../../core/schedule';
 
 const STATUS_WORDS: Record<TaskStatus, string> = {
   TODO: 'To do',
@@ -34,8 +28,21 @@ export class TaskCard {
   /** Row number, shown in the colour gutter. Position in the sheet, not an id. */
   readonly index = input.required<number>();
 
-  /** Shared project window. Every row measures against the same scale. */
-  readonly span = input.required<Span | null>();
+  /**
+   * How many columns the pane has room for.
+   *
+   * The row does not decide this — the pane it sits in does, from where the
+   * divider is standing — so it arrives as an input rather than a media query.
+   * A media query would ask the window how wide it is, and the window is not
+   * what changed.
+   */
+  readonly tier = input<'narrow' | 'mid' | 'wide'>('wide');
+
+  /** On the critical path, per the schedule analysis the chart already holds. */
+  readonly critical = input(false);
+
+  /** Days this task could slip before the plan's end date moves. */
+  readonly slip = input(0);
 
   /** True for viewers: the row shows everything and offers no controls. */
   readonly readonly = input(false);
@@ -57,33 +64,6 @@ export class TaskCard {
     const names = this.task().blockedBy.map(ref => ref.title);
     if (names.length <= 1) return names[0] ?? '';
     return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-  });
-
-  /**
-   * Geometry of the inline bar, as percentages of the project span.
-   *
-   * Percentages rather than pixels so the preview reflows with the column and
-   * stays honest at any width — the same approach the full chart takes.
-   */
-  readonly bar = computed(() => {
-    const span = this.span();
-    if (!span) return null;
-
-    const left = positionInSpan(span, this.task().startDate);
-    const width = (this.duration() / span.days) * 100;
-
-    return { left, width };
-  });
-
-  /** Position of the today cursor, or null when today falls outside the span. */
-  readonly todayMark = computed(() => {
-    const span = this.span();
-    if (!span) return null;
-
-    const today = todayIso();
-    if (today < span.start || today > span.end) return null;
-
-    return positionInSpan(span, today);
   });
 
   /**

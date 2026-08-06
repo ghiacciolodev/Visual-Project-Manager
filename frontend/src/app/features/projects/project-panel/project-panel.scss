@@ -29,7 +29,7 @@
     margin-top: calc(var(--u) * 4);
     padding: calc(var(--u) * 4);
     background: var(--danger-soft);
-    border: 1px solid #f6cfcf;
+    border: 1px solid var(--danger-line);
     border-radius: var(--radius);
   }
 
