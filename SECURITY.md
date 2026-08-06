@@ -361,21 +361,41 @@ These are real and unfixed. Several are the consequence of decisions taken
 deliberately; all of them would need addressing before this held data that
 mattered.
 
-**1. Tokens live in `sessionStorage`, so they are reachable by injected
-script.** This is the significant one. They are cleared when the tab
-closes and are not shared between tabs, the access token's fifteen minutes
-bounds the damage, and the content security policy above makes an
-injection considerably harder to land. None of that is a fix: an XSS that
-does land reads both tokens, and a policy is depth rather than a boundary.
-The structural fix is a backend-for-frontend holding the refresh token in
-an `httpOnly` cookie, which would also bring CSRF protection back into
-scope. Out of scope here, and named as such in `auth.config.ts`.
+**1. Tokens live in `sessionStorage`, so script running on this origin can
+read them.** They are cleared when the tab closes and are not shared
+between tabs, which is why `sessionStorage` and not `localStorage`.
 
-The refresh token is bound to the Keycloak session rather than being an
-offline token, which is why the OIDC library warns about the missing
-`offline_access` scope at startup. Adding the scope would silence the
-warning by issuing a token that outlives sign-out, which is the wrong
-direction; the warning stays.
+The mitigation usually named for this, an `httpOnly` cookie, does not
+change the outcome. Script on the origin does not need to read a cookie,
+because the browser attaches it to the requests that script makes. Under
+either arrangement, script on the origin has the signed-in caller's
+authority.
+
+What the storage does decide is portability. A token in `sessionStorage`
+is a string that can be copied elsewhere and replayed from anywhere; a
+token in an `httpOnly` cookie can only be used from the browser holding
+it. That is a real difference and a smaller one than it is usually given
+credit for.
+
+Three settings bound how long a copied token stays useful:
+
+- the access token expires after 900 seconds;
+- the refresh token is bound to the Keycloak session rather than being an
+  offline token, so it ends when the session does. This is why the OIDC
+  library warns at startup about the missing `offline_access` scope;
+  adding that scope would issue a token which outlives sign-out, so the
+  warning stays;
+- `ssoSessionIdleTimeout` is 1800 seconds, so a refresh token stops
+  working half an hour after the session goes quiet.
+
+Two things are not in place. `revokeRefreshToken` is unset, so Keycloak's
+default applies and refresh tokens are not rotated: one stays valid for
+the life of the session rather than being invalidated at its first use.
+And the structural alternative, a backend-for-frontend holding the refresh
+token in an `httpOnly` cookie, is not here either; it would also bring
+CSRF protection back into scope. Both are decisions rather than
+oversights, and `auth.config.ts` says so at the point where the storage is
+configured.
 
 **2. The optimistic-concurrency check is opt-in.** `expectedUpdatedAt` is
 optional on `TaskRequest`. A client that omits it gets last-write-wins

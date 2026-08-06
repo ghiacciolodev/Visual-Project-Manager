@@ -677,9 +677,12 @@ by id *and* project; validation both in the DTO and as CHECK constraints
 in the schema; a content security policy with a strict `script-src`, and
 the rest of the response headers with it.
 
-And the one that matters most, which no header closes: tokens live in
-`sessionStorage`, which any successful XSS can read. The policy above is
-depth, not a fix. The fix is a backend-for-frontend, and it is not here.
+And the one no header closes: tokens live in `sessionStorage`, so script
+running on this origin can read them. An `httpOnly` cookie would not
+change that outcome, since script on the origin can use a cookie without
+reading it; what it would change is whether the token can be copied
+elsewhere. [SECURITY.md](SECURITY.md) sets out the three settings that
+bound it and the two that are not in place.
 
 ---
 
