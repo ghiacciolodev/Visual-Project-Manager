@@ -54,6 +54,12 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      # --watch=false because the builder watches by default, and a watching
+      # test run on a CI runner is a job that never finishes.
+      - name: Unit tests
+        run: npm test -- --watch=false
+        working-directory: frontend
+
       - name: Production build
         run: npm run build
         working-directory: frontend

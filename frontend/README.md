@@ -1,59 +1,42 @@
 # Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.19.
+Angular 21: standalone components, zoneless change detection, signals.
 
-## Development server
-
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+The project's own documentation is one level up — [what it is and how to
+run it](../README.md), and [how it handles identity and
+input](../SECURITY.md). What follows is only the commands.
 
 ```bash
-ng generate component component-name
+npm install
+npm start                  # http://localhost:4200
+npm test -- --watch=false  # Vitest, through Angular's test builder
+npm run build              # into dist/
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Port 4200 is not a preference. It is the only redirect URI the Keycloak
+client accepts and the only origin the backend allows through CORS, so the
+dev server on any other port gets as far as the sign-in screen and no
+further.
+
+`npm start` needs the backend and Keycloak running:
 
 ```bash
-ng generate --help
+docker compose up -d db keycloak keycloak-db mailpit
+cd ../backend && ./mvnw spring-boot:run
 ```
 
-## Building
+## Where things are
 
-To build the project run:
-
-```bash
-ng build
+```
+src/app/
+  core/       services (state as signals), the pure geometry and filter
+              functions, the auth guard and interceptor
+  features/   gantt · tasks · members · projects · history
+  models/     the shapes the API returns
+  styles.scss design tokens and the handful of shared primitives
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Logic that can live outside a component does — `core/schedule.ts` and
+`core/task-filter.ts` are pure functions for exactly that reason. A
+function is tested by calling it; an event handler is tested by mounting a
+component and pretending to be a mouse.
