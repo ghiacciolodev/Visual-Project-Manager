@@ -220,3 +220,25 @@
     font-size: var(--fs-sm);
   }
 }
+
+@media print {
+  // A row split by a page break is two half rows, neither of which reads.
+  .row {
+    break-inside: avoid;
+  }
+
+  /**
+   * The controls: a status picker, Edit, Delete.
+   *
+   * Hidden here rather than in the global print block because `display: flex`
+   * is set above and Angular scopes it — a plain `.row__actions` in
+   * styles.scss would lose the cascade and need !important to be heard.
+   *
+   * Nothing is lost by dropping the whole group. The status is already stated
+   * in the badge a few columns to the left, and the chart drops the track
+   * these sat in when it is printing, so the space goes back to the title.
+   */
+  .row__actions {
+    display: none;
+  }
+}

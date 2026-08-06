@@ -1,5 +1,6 @@
 import {
   AfterViewInit,
+  ApplicationRef,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -50,6 +51,7 @@ import {
   todayIso,
 } from '../../../core/schedule';
 import { TaskForm, TaskFormResult } from '../../tasks/task-form/task-form';
+import { csvFilename, downloadText, toCsv } from '../../../core/export';
 
 type Zoom = 'days' | 'weeks' | 'months';
 
@@ -59,6 +61,16 @@ const DAY_WIDTH: Record<Zoom, number> = {
   weeks: 15,
   months: 6,
 };
+
+/**
+ * Usable width of a landscape A4 at 96dpi, less the margins @page sets.
+ *
+ * Approximate by nature — the paper size is the operating system's decision
+ * and Letter is 17mm narrower — which is why it is only ever used to shrink a
+ * day column and never to widen one. Overshooting by a few millimetres costs a
+ * hairline of the last day; undershooting costs nothing at all.
+ */
+const PRINT_WIDTH_PX = 1040;
 
 /**
  * Row height in pixels. Declared here and pushed into CSS as a custom property
@@ -118,9 +130,47 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
 
   readonly projects = inject(ProjectService);
 
+  // Only for the synchronous flush that printing needs. Nothing else in this
+  // component reaches for the application reference, and nothing else should.
+  private readonly appRef = inject(ApplicationRef);
+
   readonly zoom = signal<Zoom>('days');
-  readonly dayWidth = computed(() => DAY_WIDTH[this.zoom()]);
   readonly rowHeight = ROW_HEIGHT;
+
+  /**
+   * True only for the moment the browser spends laying the page out for paper.
+   *
+   * Set from the beforeprint event rather than from the button, so it is also
+   * true when somebody prints with Ctrl+P or from the browser's own menu —
+   * which is how most people who want a PDF will do it.
+   */
+  readonly printing = signal(false);
+
+  /**
+   * How wide a day is, in pixels.
+   *
+   * On screen this is only the zoom. On paper it is whatever makes the whole
+   * plan fit the width of one sheet, which is a different question with a
+   * different answer: a chart is a horizontally scrolling thing, and paper
+   * does not scroll. Printed at day zoom, a three-month plan runs to about
+   * four pages, and the frozen task column is only on the first of them —
+   * pages two to four are bars with nothing to say which row they belong to.
+   *
+   * Only ever narrower, never wider. Stretching six-pixel columns to fill a
+   * page would put a two-week plan across a metre of paper.
+   */
+  readonly dayWidth = computed(() => {
+    const onScreen = DAY_WIDTH[this.zoom()];
+    if (!this.printing()) return onScreen;
+
+    const days = this.days().length;
+    if (!days) return onScreen;
+
+    const fitted = Math.floor((PRINT_WIDTH_PX - this.tableWidth()) / days);
+    // Two pixels is where a bar stops being a bar, and below it the reader is
+    // better served by the table beside it than by a fitted smear.
+    return Math.min(onScreen, Math.max(fitted, 2));
+  });
 
   /** Float tails are informative on a busy chart and noise on a simple one. */
   readonly showFloat = signal(true);
@@ -213,11 +263,21 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
    * seventy pixels out over the timeline. A title that ellipsises is the
    * cheaper failure.
    */
-  readonly columns = computed(() => ({
-    narrow: '3px 28px minmax(0, 1fr)',
-    mid: '3px 28px minmax(0, 1fr) 80px 64px 160px',
-    wide: '3px 28px minmax(0, 1fr) 80px 64px minmax(0, 120px) 112px 36px 160px',
-  }[this.tier()]));
+  readonly columns = computed(() => {
+    const tier = this.tier();
+
+    const base = {
+      narrow: '3px 28px minmax(0, 1fr)',
+      mid: '3px 28px minmax(0, 1fr) 80px 64px',
+      wide: '3px 28px minmax(0, 1fr) 80px 64px minmax(0, 120px) 112px 36px',
+    }[tier];
+
+    // The last track holds the controls — a status picker, Edit, Delete. The
+    // narrow pane has never had them, and paper has no use for them, so on
+    // both the track goes rather than standing empty: 160px of a printed page
+    // is a sixth of its width.
+    return tier === 'narrow' || this.printing() ? base : `${base} 160px`;
+  });
 
   private readonly resizing = signal(false);
 
@@ -485,6 +545,9 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     // divider decides, and listening would be answering a question nobody
     // asked.
     if (!this.showTimeline) window.addEventListener('resize', this.onResize);
+
+    window.addEventListener('beforeprint', this.onBeforePrint);
+    window.addEventListener('afterprint', this.onAfterPrint);
   }
 
   ngOnDestroy(): void {
@@ -493,6 +556,8 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     // the rest of the session.
     this.taskService.resumePolling();
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('beforeprint', this.onBeforePrint);
+    window.removeEventListener('afterprint', this.onAfterPrint);
   }
 
   ngAfterViewInit(): void {
@@ -570,6 +635,89 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
   clearFilter(): void {
     this.filter.set(NO_FILTER);
   }
+
+  /* --- taking it away --------------------------------------------------- */
+
+  /**
+   * The active filters, in words.
+   *
+   * Only ever read on paper, and that is the whole reason it exists. On screen
+   * the filter controls show their own state and the strip says how many rows
+   * are hidden. A printed sheet shows six tasks out of fifteen with nothing to
+   * say the other nine were left out, which is not a shorter document — it is
+   * a wrong one.
+   */
+  readonly filterSummary = computed(() => {
+    const filter = this.filter();
+    const parts: string[] = [];
+
+    if (filter.status !== ANY) parts.push(`status ${filter.status}`);
+    if (filter.priority !== ANY) parts.push(`priority ${filter.priority}`);
+    if (filter.from) parts.push(`active from ${formatDay(filter.from)}`);
+    if (filter.to) parts.push(`active to ${formatDay(filter.to)}`);
+
+    return parts.join(' · ');
+  });
+
+  /** Stamped when the print begins, so the sheet says when it was true. */
+  readonly printedOn = signal('');
+
+  /**
+   * The plan as a spreadsheet, in the order and the selection on screen.
+   *
+   * Built from rows() rather than from the whole task list, which is the point:
+   * what somebody means by "export" is nearly always "give me what I am looking
+   * at". A dragged bar is drawn from the drag rather than from the task, but no
+   * drag can be in progress while this button is being pressed.
+   */
+  exportCsv(): void {
+    const csv = toCsv(this.rows().map(row => ({
+      task: row.task,
+      critical: this.isCritical(row.task.id),
+      slip: this.slipOf(row),
+    })));
+
+    downloadText(
+      csvFilename(this.projects.current()?.name ?? 'plan', todayIso()),
+      csv,
+      // The charset matters as much as the byte-order mark: between them, a
+      // browser preview and a spreadsheet both read it as UTF-8.
+      'text/csv;charset=utf-8'
+    );
+  }
+
+  /**
+   * Hands the view to the browser's print dialog, where "Save as PDF" lives.
+   *
+   * Not a PDF library. Producing one would mean drawing the chart a second
+   * time in a different set of primitives — the same duplication that merging
+   * the schedule and the chart into one component was meant to end — and
+   * paying about 300 kB of bundle for the privilege. The browser already has a
+   * renderer that agrees with the one on screen, and what it emits has
+   * selectable text and real pagination rather than a picture of a plan.
+   *
+   * What the print stylesheet does with it is the actual work; this is one
+   * line because it should be.
+   */
+  print(): void {
+    window.print();
+  }
+
+  private readonly onBeforePrint = (): void => {
+    this.printedOn.set(new Date().toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    }));
+    this.printing.set(true);
+
+    // Zoneless change detection is scheduled, and the browser lays the page
+    // out for paper the instant this handler returns. Without a synchronous
+    // flush the fitted day width would reach the DOM after the snapshot was
+    // taken, and the chart would print at its screen zoom — the exact defect
+    // this is here to prevent.
+    this.appRef.tick();
+  };
+
+  private readonly onAfterPrint = (): void => this.printing.set(false);
 
   /* --- the divider ------------------------------------------------------ */
 

@@ -181,6 +181,79 @@ describe('GanttChart', () => {
     });
   });
 
+  describe('printing', () => {
+
+    it('gives the controls column back to the plan', () => {
+      const { view } = setup();
+      view.tableWidth.set(900);
+
+      expect(view.columns().endsWith(' 160px')).toBe(true);
+
+      view.printing.set(true);
+
+      // The track held a status picker, Edit and Delete, none of which a sheet
+      // of paper can be asked. The columns that carry information stay.
+      expect(view.columns().endsWith(' 160px')).toBe(false);
+      expect(view.columns()).toContain('112px');
+    });
+
+    it('fits the whole plan across the page instead of slicing it', () => {
+      // Seven months at 38px a day is about four pages of chart, and the
+      // frozen task column is only on the first of them.
+      const { view } = setup({
+        tasks: [
+          task({ id: 1, startDate: '2026-03-02', endDate: '2026-03-20' }),
+          task({ id: 2, startDate: '2026-09-01', endDate: '2026-09-30' }),
+        ],
+      });
+
+      const onScreen = view.dayWidth();
+      view.printing.set(true);
+
+      expect(view.dayWidth()).toBeLessThan(onScreen);
+      expect(view.days().length * view.dayWidth())
+        .toBeLessThanOrEqual(1040 - view.tableWidth());
+    });
+
+    it('never stretches a short plan to fill the paper', () => {
+      // Only ever narrower. A fortnight spread across a metre of page would be
+      // the same defect in the other direction.
+      const { view } = setup({
+        tasks: [task({ id: 1, startDate: '2026-03-02', endDate: '2026-03-06' })],
+      });
+
+      const onScreen = view.dayWidth();
+      view.printing.set(true);
+
+      expect(view.dayWidth()).toBe(onScreen);
+    });
+
+    it('stops narrowing where a bar stops being a bar', () => {
+      const { view } = setup({
+        tasks: [
+          task({ id: 1, startDate: '2026-01-01', endDate: '2026-01-05' }),
+          task({ id: 2, startDate: '2029-12-01', endDate: '2029-12-31' }),
+        ],
+      });
+
+      view.printing.set(true);
+
+      expect(view.dayWidth()).toBe(2);
+    });
+
+    it('says which filters were applied, since paper cannot be asked', () => {
+      // A sheet showing six tasks out of fifteen with nothing to say the rest
+      // were filtered out is not a shorter document, it is a wrong one.
+      const { view } = setup();
+
+      expect(view.filterSummary()).toBe('');
+
+      view.filter.update(f => ({ ...f, status: 'DONE', priority: 'HIGH' }));
+
+      expect(view.filterSummary()).toBe('status DONE · priority HIGH');
+    });
+  });
+
   describe('the two routes', () => {
 
     it('opens the chart with the table cut back to a name', () => {

@@ -629,3 +629,79 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ===================================================================
+   Paper.
+
+   There is no PDF library in this project and there is not going to be
+   one. A library would mean drawing the chart a second time in a
+   different set of primitives — the duplication that merging the
+   schedule and the chart into one component was meant to end — and
+   about 300 kB of bundle to do it. The browser already has a renderer
+   that agrees with the one on screen, and it emits selectable text and
+   real pagination rather than a picture of a plan.
+
+   So the work is here. What follows removes the parts of an application
+   that a sheet of paper has no use for; the chart's own stylesheet
+   handles the layout it leaves behind.
+
+   What lives here is what belongs to no component: the page itself, the
+   colour handling, and the two shared classes every panel is built
+   from. Everything else is in the stylesheet of the thing it describes,
+   which is not only tidier — Angular scopes a component's selectors by
+   adding an attribute to them, so a global rule trying to overturn a
+   scoped one loses on specificity and has to shout !important to be
+   heard. Rules written in the right file do not have to.
+   =================================================================== */
+@media print {
+
+  /**
+   * Landscape, because both views are wider than they are tall: a chart
+   * is a horizontal thing by construction, and the schedule carries
+   * nine columns.
+   */
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    /* The application holds the window and does not scroll. Paper is
+       the opposite: it is as tall as it needs to be, and a viewport
+       height here would clip everything after the first screen. */
+    height: auto;
+    background: #fff;
+  }
+
+  /**
+   * Keeps the ink.
+   *
+   * Browsers drop background colours when printing, which is a sensible
+   * default for a web page and ruinous here: every Gantt bar is a
+   * background colour, and without this the chart prints as a row of
+   * white rectangles with white text on them. The status badges and the
+   * weekend shading go the same way.
+   */
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* A panel is open over the plan, or it is not; either way the scrim is
+     a sheet of grey over the whole page, and the panel on top of it is a
+     dialogue nobody is having with a piece of paper. */
+  .scrim,
+  /* Something that failed, on a screen where it could be dismissed. */
+  .notice,
+  .notice--floating {
+    display: none;
+  }
+
+  /* Underlining every link is right on the web and noise on paper, where
+     nothing can be followed. */
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}

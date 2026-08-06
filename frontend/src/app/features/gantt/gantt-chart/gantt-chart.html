@@ -15,6 +15,37 @@
 -->
 <div class="sheet">
 
+  <!--
+    Never seen on a screen. The toolbar above carries all of this already, in
+    controls; on paper the controls are gone and what is left has to say what
+    it is, what it covers and when it was true.
+
+    The filter line is the one that matters. A sheet showing six tasks out of
+    fifteen with nothing to say the other nine were filtered out is not a
+    shorter document, it is a wrong one — and unlike the screen, paper cannot
+    be asked.
+  -->
+  <div class="printed">
+    <h1 class="printed__name">{{ projects.current()?.name ?? 'Plan' }}</h1>
+
+    <p class="printed__meta">
+      {{ viewTitle }}
+      @if (spanLabel(); as summary) { · {{ summary }} }
+      · {{ taskService.counts().done }}/{{ taskService.counts().total }} complete
+      @if (schedule.analysis(); as analysis) {
+        @if (analysis.criticalDuration) { · {{ analysis.criticalDuration }}d critical path }
+      }
+    </p>
+
+    @if (filterSummary(); as summary) {
+      <p class="printed__filters">
+        Showing {{ visible().length }} of {{ taskService.tasks().length }} tasks · {{ summary }}
+      </p>
+    }
+
+    <p class="printed__stamp mono">Printed {{ printedOn() }}</p>
+  </div>
+
   <header class="toolbar">
     <h1 class="toolbar__title">{{ viewTitle }}</h1>
 
@@ -69,6 +100,27 @@
         @if (todayIndex() !== null) {
           <button type="button" class="today-jump" (click)="scrollToToday()">Today</button>
         }
+      }
+
+      <!--
+        Offered on both routes and to everybody, viewers included: reading the
+        plan somewhere else is still reading it, and there is no write here to
+        refuse.
+
+        Hidden when nothing would come out. A CSV with a header and no rows,
+        and a printed sheet of an empty filter, are both worse than a button
+        that was not there.
+      -->
+      @if (visible().length) {
+        <div class="export" role="group" aria-label="Export">
+          <button type="button" class="export__step" (click)="exportCsv()">CSV</button>
+          <!-- Labelled for what it produces rather than for what it opens, and
+               the tooltip closes the gap. -->
+          <button type="button" class="export__step" (click)="print()"
+                  title="Opens the browser's print dialog — choose Save as PDF as the destination">
+            PDF
+          </button>
+        </div>
       }
 
       <!-- Hidden for viewers. The server refuses the write either way; hiding

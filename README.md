@@ -90,6 +90,20 @@ from the 3rd to the 21st* instead of that a task was updated.
 
 ![The history panel, grouped by day](docs/screenshots/history.png)
 
+### Taking it away
+
+**CSV** writes what is on screen — this filter, this order — with the dates as
+ISO, the duration inclusive, the predecessors named, and the two columns only
+this application can fill: whether a task is on the critical path and how many
+days it can slip. Built in the browser, because the filters are computed there
+too; an endpoint could only ever export the whole project in the server's
+order, which is the wrong answer to the question the button is asking.
+
+**PDF** goes through the browser's print dialog, where "Save as PDF" is the
+destination. There is no PDF library here and there is not going to be one —
+see [below](#a-pdf-without-a-pdf-library) for why, and what the print
+stylesheet does instead.
+
 ### Signing in
 
 Keycloak, with a login theme that matches the application rather than
@@ -247,7 +261,7 @@ than observables in the view layer. Services hold state as signals;
 components read them and compute.
 
 The three panels — members, project, history — are `@defer`red, so most
-people never download them. A production build's initial bundle is 413 kB
+people never download them. A production build's initial bundle is 414 kB
 raw, 105 kB over the wire.
 
 Geometry is a set of pure functions in `core/schedule.ts` — where a bar
@@ -333,6 +347,36 @@ latest end across the whole plan and the filters are computed over the same
 list; hand either of them one page and the chart draws the wrong scale
 while the filters silently narrow one fiftieth of the data.
 
+### A PDF without a PDF library
+
+jsPDF and pdfmake both work, and both were the wrong answer here. Neither can
+draw this chart: it is HTML and SVG laid out by a browser, and putting it in a
+PDF means re-implementing bars, connectors, float tails and the day grid in a
+second set of primitives — the same duplication that merging the schedule and
+the chart into one component had just finished removing, reintroduced with
+about 300 kB of bundle attached to it.
+
+The browser already has a renderer that agrees with the one on screen. So the
+button calls `window.print()`, and the work is a print stylesheet. What comes
+out has selectable text and real pagination rather than a picture of a plan,
+and both features together cost **150 bytes over the wire**.
+
+The stylesheet is where the actual thinking is. It strips the navigation and
+every control, turns off the scrollport so the chart lays out in full instead
+of printing as four horizontal slices, unpins the sticky header and frozen
+column that were holding still against a scroll that no longer exists, and
+turns `print-color-adjust` back on — without which every Gantt bar prints as a
+white rectangle with white text on it.
+
+Two things happen in TypeScript because CSS cannot know them. A `beforeprint`
+listener refits the day column so the whole span crosses one page, narrowing
+only and never widening, with a synchronous `ApplicationRef.tick()` because
+zoneless change detection is scheduled and the browser snapshots the layout the
+moment the handler returns. And the sheet prints a line naming the active
+filters: a page showing six tasks of fifteen with nothing to say the other nine
+were filtered out is not a shorter document, it is a wrong one — and unlike the
+screen, paper cannot be asked.
+
 ### Tasks are soft-deleted
 
 `deleted_at` is set and the row stays. It keeps dependency references
@@ -374,7 +418,7 @@ explains the asymmetry.
 
 ```bash
 cd backend  && ./mvnw verify      # 51 tests
-cd frontend && npm test           # 84 tests, 9 files
+cd frontend && npm test           # 109 tests, 10 files
 ```
 
 **Backend.** Unit tests for the parts with logic worth testing on their
@@ -395,6 +439,11 @@ Some of them exist because something was wrong. `select-binding.spec.ts`
 pins the reason a member added as `EDITOR` displayed as `OWNER`: `[value]`
 on a `<select>` is assigned before `@for` has created any options, so the
 browser falls back to the first one.
+
+Others pin something that would be silent if it broke. `export.spec.ts`
+checks that a task titled `=HYPERLINK(...)` leaves the application unable to
+execute in a spreadsheet, and that a description with a line break in it stays
+one record instead of shifting every column after it by one.
 
 CI runs both on every push and pull request.
 
@@ -417,7 +466,7 @@ backend/          Spring Boot 4.1, Java 21
 
 frontend/         Angular 21, standalone, zoneless
   src/app/
-    core/         services, pure geometry, guards, interceptor
+    core/         services, pure geometry, CSV, guards, interceptor
     features/     gantt · tasks · members · projects · history
     models/
 
@@ -450,7 +499,11 @@ in the schema. And the one that matters most: tokens live in
 There is no live collaboration — no cursors, no presence, no operational
 transform. Two people editing the same task get a conflict, not a merge.
 
-There is no export. No PDF, no CSV, no iCal, no Microsoft Project file.
+Export stops at CSV and print-to-PDF. No iCal, and no Microsoft Project file —
+`.mpp` is a compound binary format, and the interchange formats around it
+(`.xml`, `.mpx`) describe calendars, resource costs and work contours that this
+application has no concept of. It would be a large piece of work producing a
+file that mostly says "unknown".
 
 There is no capacity model. A person can be assigned three tasks that
 overlap completely and nothing objects, because the schedule knows dates

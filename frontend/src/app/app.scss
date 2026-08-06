@@ -228,6 +228,38 @@
   }
 }
 
+/**
+ * The frame, unframed.
+ *
+ * These three rules have to live here and not in the global print block, and
+ * the reason is specificity rather than tidiness: Angular scopes a component's
+ * styles by adding an attribute to every selector, so `.main` here is really
+ * `.main[_ngcontent-x]` and outranks a plain `.main` in styles.scss. A global
+ * rule would need !important to reach it, which is a fight not worth having
+ * with a stylesheet that is right about everything except paper.
+ */
+@media print {
+  :host {
+    height: auto;
+    overflow: visible;
+  }
+
+  // Navigation is a thing you click, and it is 208px of every page.
+  .rail {
+    display: none;
+  }
+
+  .shell {
+    display: block;
+  }
+
+  .main {
+    display: block;
+    overflow: visible;
+    background: #fff;
+  }
+}
+
 @media (max-width: 900px) {
   // Back across the top on a narrow screen. A 208px rail beside a phone-width
   // schedule leaves the schedule with nothing, and the vertical dimension the

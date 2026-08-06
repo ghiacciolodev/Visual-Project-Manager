@@ -571,7 +571,8 @@
  * in Plex at 13px. Sharing the rule is what the comment was describing.
  */
 .zoom__step,
-.float-toggle {
+.float-toggle,
+.export__step {
   font-family: inherit;
   font-size: var(--fs-sm);
   color: var(--text-2);
@@ -592,20 +593,26 @@
   }
 }
 
-.zoom {
+// Two segmented groups now, sharing one outline: zoom, which changes how the
+// plan is drawn, and export, which takes it somewhere else. Neither segment is
+// ever lit — export has no state to show — but the shape is the same, and two
+// groups that look alike in a toolbar are read as one kind of thing.
+.zoom,
+.export {
   display: flex;
   border: 1px solid var(--border-2);
   border-radius: var(--radius-sm);
   // So the lit segment's fill stops at the group's corner instead of squaring
   // it off.
   overflow: hidden;
+}
 
-  &__step {
-    border-right: 1px solid var(--border-2);
+.zoom__step,
+.export__step {
+  border-right: 1px solid var(--border-2);
 
-    &:last-child {
-      border-right: 0;
-    }
+  &:last-child {
+    border-right: 0;
   }
 }
 
@@ -660,6 +667,113 @@
     margin: 0 0 calc(var(--u) * 5);
     font-size: var(--fs-base);
     color: var(--text-2);
+  }
+}
+
+/* --- paper -------------------------------------------------------------- */
+
+/**
+ * The heading a printed sheet needs and a screen does not.
+ *
+ * Absent from the screen entirely rather than merely invisible: the toolbar is
+ * already saying all of it, in controls, three pixels above.
+ */
+.printed {
+  display: none;
+}
+
+@media print {
+
+  .printed {
+    display: block;
+    margin-bottom: calc(var(--u) * 4);
+    padding-bottom: calc(var(--u) * 3);
+    border-bottom: 1px solid var(--text-3);
+
+    &__name {
+      margin: 0;
+      font-size: var(--fs-lg);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    &__meta,
+    &__filters,
+    &__stamp {
+      margin: calc(var(--u)) 0 0;
+      font-size: var(--fs-xs);
+      color: var(--text-2);
+    }
+
+    // Stated in the body colour, not the grey the other two use: it changes
+    // what the sheet is a record of.
+    &__filters {
+      font-weight: 600;
+      color: var(--text);
+    }
+  }
+
+  // Everything that exists to be operated. The readouts in the toolbar are
+  // restated in .printed, so the whole band goes rather than half of it.
+  .toolbar,
+  .filters,
+  .divider,
+  .chart-skeleton {
+    display: none;
+  }
+
+  // The frame is a frame because the window does not scroll. Paper does not
+  // have that problem, and every one of these becomes a way to clip the plan
+  // at the height of one screen.
+  :host,
+  .sheet {
+    display: block;
+    min-height: 0;
+  }
+
+  .chart {
+    display: block;
+    border-top: 0;
+
+    &__scroll {
+      // Laid out in full, not through a scrollport. This is the line that
+      // turns four pages of horizontal slices into one page of plan.
+      overflow: visible;
+    }
+
+    // Sticky resolves against a scrollport, and there is no longer one to
+    // resolve against. Left as-is, the header and the frozen column pin
+    // themselves to the top of the first page and the rows print underneath
+    // them.
+    &__corner,
+    &__table {
+      position: static;
+    }
+  }
+
+  .tl__head {
+    position: static;
+  }
+
+  // A bar split across a page break is two half bars, neither of which lines
+  // up with a date. Cheaper to leave the bottom of a page short.
+  .lane {
+    break-inside: avoid;
+  }
+
+  // A tail is a hatch of the task's own colour at 55% — legible on a screen,
+  // and close to nothing through a printer's dot pattern.
+  .tail {
+    opacity: 0.8;
+  }
+
+  // The one thing on the sheet that is neither the plan nor a heading, and the
+  // only place a reader can find out what the marks mean.
+  .legend {
+    break-inside: avoid;
+    margin-top: calc(var(--u) * 3);
+    padding: calc(var(--u) * 2) 0 0;
+    border-top: 1px solid var(--border-2);
   }
 }
 
