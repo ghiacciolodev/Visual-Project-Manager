@@ -51,7 +51,14 @@ import {
   todayIso,
 } from '../../../core/schedule';
 import { TaskForm, TaskFormResult } from '../../tasks/task-form/task-form';
-import { csvFilename, downloadText, toCsv } from '../../../core/export';
+import {
+  ExportRow,
+  downloadText,
+  exportFilename,
+  icsStamp,
+  toCsv,
+  toIcs,
+} from '../../../core/export';
 
 type Zoom = 'days' | 'weeks' | 'months';
 
@@ -663,26 +670,51 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
   readonly printedOn = signal('');
 
   /**
-   * The plan as a spreadsheet, in the order and the selection on screen.
+   * What every export is written from: the rows on screen, with the two
+   * figures the schedule analysis holds rather than the task.
    *
-   * Built from rows() rather than from the whole task list, which is the point:
-   * what somebody means by "export" is nearly always "give me what I am looking
-   * at". A dragged bar is drawn from the drag rather than from the task, but no
-   * drag can be in progress while this button is being pressed.
+   * rows() rather than the whole task list, which is the point. What somebody
+   * means by "export" is nearly always "give me what I am looking at", so the
+   * filter and the sort travel with it. A dragged bar is drawn from the drag
+   * rather than from the task, but no drag can be in progress while a toolbar
+   * button is being pressed.
    */
-  exportCsv(): void {
-    const csv = toCsv(this.rows().map(row => ({
+  private exportRows(): ExportRow[] {
+    return this.rows().map(row => ({
       task: row.task,
       critical: this.isCritical(row.task.id),
       slip: this.slipOf(row),
-    })));
+    }));
+  }
 
+  private get projectName(): string {
+    return this.projects.current()?.name ?? 'plan';
+  }
+
+  /** The plan as a spreadsheet. */
+  exportCsv(): void {
     downloadText(
-      csvFilename(this.projects.current()?.name ?? 'plan', todayIso()),
-      csv,
+      exportFilename(this.projectName, todayIso(), 'csv'),
+      toCsv(this.exportRows()),
       // The charset matters as much as the byte-order mark: between them, a
       // browser preview and a spreadsheet both read it as UTF-8.
       'text/csv;charset=utf-8'
+    );
+  }
+
+  /**
+   * The plan as calendar events.
+   *
+   * Downloaded rather than subscribed to. A subscription needs a URL a
+   * calendar can fetch unauthenticated, which for a private plan means minting
+   * a secret token per person and revoking it when they leave the project.
+   * That is a feature with its own security surface, and it is not this one.
+   */
+  exportIcs(): void {
+    downloadText(
+      exportFilename(this.projectName, todayIso(), 'ics'),
+      toIcs(this.exportRows(), this.projectName, icsStamp(new Date())),
+      'text/calendar;charset=utf-8'
     );
   }
 

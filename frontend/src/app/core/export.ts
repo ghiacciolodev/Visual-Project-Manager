@@ -1,5 +1,5 @@
 import { Task } from '../models/task.model';
-import { durationDays } from './schedule';
+import { addDays, durationDays } from './schedule';
 
 /**
  * The plan as a spreadsheet.
@@ -121,20 +121,179 @@ export function toCsv(rows: ExportRow[]): string {
   return '\uFEFF' + lines.join('\r\n') + '\r\n';
 }
 
+/* --- the calendar ------------------------------------------------------- */
+
+/**
+ * The plan as calendar events, per RFC 5545.
+ *
+ * Worth having for the reason a spreadsheet is not: a schedule that lives only
+ * in this application is a schedule people have to remember to come and look
+ * at. Subscribed to a calendar, the work turns up beside everything else that
+ * is happening that week.
+ *
+ * Every task is an all-day event rather than a timed one, because that is what
+ * the data actually says. A task has a start date and an end date and no hours
+ * at all, and inventing 09:00 would be inventing.
+ */
+
+/** Escapes a TEXT value: backslash first, or it would escape its own escapes. */
+function icsText(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+/** `2026-07-06` to `20260706`, which is what a DATE value looks like. */
+function icsDate(iso: string): string {
+  return iso.replace(/-/g, '');
+}
+
+/**
+ * Folds a content line to 75 octets, per RFC 5545 section 3.1.
+ *
+ * Octets and not characters, which is the part that is easy to get wrong: a
+ * name with an accent in it is two bytes in UTF-8, and folding by character
+ * count produces lines that are legal to look at and too long to parse. Worse,
+ * splitting between the two bytes of one character corrupts it, so the loop
+ * measures as it goes rather than slicing at a fixed index.
+ *
+ * A continuation is a CRLF followed by one space, and the space is not part of
+ * the value.
+ */
+function fold(line: string): string {
+  const encoder = new TextEncoder();
+  if (encoder.encode(line).length <= 75) return line;
+
+  const out: string[] = [];
+  let current = '';
+  let octets = 0;
+  // The first line may use 75; every continuation spends one on its leading
+  // space.
+  let budget = 75;
+
+  // Iterating the string rather than its code units keeps surrogate pairs
+  // whole: an emoji in a task title is one character and four octets.
+  for (const character of line) {
+    const size = encoder.encode(character).length;
+
+    if (octets + size > budget) {
+      out.push(current);
+      current = '';
+      octets = 0;
+      budget = 74;
+    }
+
+    current += character;
+    octets += size;
+  }
+
+  out.push(current);
+  return out.join('\r\n ');
+}
+
+/** Nine levels in the specification, three here. */
+const ICS_PRIORITY = { HIGH: 1, MEDIUM: 5, LOW: 9 } as const;
+
+function event(row: ExportRow, stamp: string): string[] {
+  const task = row.task;
+
+  const notes = [
+    task.description?.trim(),
+    task.assignee ? `Assigned to ${task.assignee.displayName}` : null,
+    task.dependsOn.length
+      ? `Waits for ${task.dependsOn.map(d => d.title).join('; ')}`
+      : null,
+    row.critical
+      ? 'On the critical path: any slip here moves the finish date'
+      : `Can slip ${row.slip} day${row.slip === 1 ? '' : 's'}`,
+  ].filter(Boolean).join('\n');
+
+  return [
+    'BEGIN:VEVENT',
+
+    // Stable, and derived from the task id so that re-importing a plan updates
+    // the fifteen events already there instead of adding fifteen more. Task
+    // ids are unique across every project in one database, so the project need
+    // not appear here. Two separate deployments could collide, which matters
+    // only to somebody subscribing to both; a real product would use the
+    // instance's own hostname.
+    `UID:vpm-task-${task.id}@visual-project-manager`,
+
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${icsDate(task.startDate)}`,
+
+    // Exclusive, and this is the single most misread line in the format. A
+    // task ending on the 17th is drawn through the 17th, so the event ends on
+    // the 18th. Writing the end date here is the classic bug that makes every
+    // task in the calendar a day shorter than the plan says.
+    `DTEND;VALUE=DATE:${icsDate(addDays(task.endDate, 1))}`,
+
+    `SUMMARY:${icsText(task.title)}`,
+    notes ? `DESCRIPTION:${icsText(notes)}` : null,
+    `CATEGORIES:${task.status},${task.priority}`,
+    `PRIORITY:${ICS_PRIORITY[task.priority]}`,
+
+    // Free, not busy. A three-week task is three weeks of work in progress,
+    // not three weeks of being unavailable, and without this a calendar shows
+    // the whole project as a solid wall and refuses every meeting invitation
+    // sent during it.
+    'TRANSP:TRANSPARENT',
+
+    'END:VEVENT',
+  ].filter((line): line is string => line !== null);
+}
+
+/**
+ * @param stamp DTSTAMP, as UTC in basic format: `20260806T124500Z`. Passed in
+ *              rather than read from the clock so this stays a pure function
+ *              of its arguments and can be tested for what it writes.
+ */
+export function toIcs(rows: ExportRow[], projectName: string, stamp: string): string {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    // The identifier of whatever produced the file, which the specification
+    // requires and which is the first thing anybody debugging an import looks
+    // at.
+    'PRODID:-//Visual Project Manager//EN',
+    'CALSCALE:GREGORIAN',
+    // Published for reading, not an invitation anybody is expected to answer.
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${icsText(projectName)}`,
+    ...rows.flatMap(row => event(row, stamp)),
+    'END:VCALENDAR',
+  ];
+
+  return lines.map(fold).join('\r\n') + '\r\n';
+}
+
+/** DTSTAMP for a given moment: UTC, basic format, no punctuation. */
+export function icsStamp(at: Date): string {
+  return at.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+/* --- naming the file ---------------------------------------------------- */
+
 /**
  * A filename somebody can find again a week later.
  *
- * The date is in the name because the export is a snapshot of a plan that
- * moves, and two downloads a fortnight apart should not be
+ * The date is in the name because every one of these is a snapshot of a plan
+ * that moves, and two downloads a fortnight apart should not be
  * `storefront-relaunch(1).csv`.
  */
-export function csvFilename(projectName: string, today: string): string {
+export function exportFilename(
+  projectName: string,
+  today: string,
+  extension: 'csv' | 'ics'
+): string {
   const slug = projectName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-  return `${slug || 'plan'}-${today}.csv`;
+  return `${slug || 'plan'}-${today}.${extension}`;
 }
 
 /**
@@ -151,7 +310,14 @@ export function downloadText(filename: string, text: string, mimeType: string): 
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+
+  // In the document, clicked, and taken out again. A detached anchor works in
+  // Chromium and has a long history of doing nothing at all in Firefox, which
+  // is the kind of defect that never shows up in the browser it was written
+  // in. Two lines to not have to care.
+  document.body.appendChild(link);
   link.click();
+  link.remove();
 
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }

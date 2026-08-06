@@ -741,6 +741,20 @@
       overflow: visible;
     }
 
+    /**
+     * The schedule route, which sets overflow-x: hidden on the same element
+     * and does it from a two-class selector that outranks the rule above.
+     *
+     * Restated here rather than left alone, because the two do not simply
+     * coexist: a box with `visible` on one axis and `hidden` on the other
+     * computes the visible one to `auto`. So the schedule would print inside a
+     * scroll container, clipped to its own height, and a plan of any length
+     * would come out as its first screenful and nothing else.
+     */
+    &--table-only &__scroll {
+      overflow: visible;
+    }
+
     // Sticky resolves against a scrollport, and there is no longer one to
     // resolve against. Left as-is, the header and the frozen column pin
     // themselves to the top of the first page and the rows print underneath

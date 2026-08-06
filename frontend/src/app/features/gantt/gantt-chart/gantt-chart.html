@@ -113,11 +113,16 @@
       -->
       @if (visible().length) {
         <div class="export" role="group" aria-label="Export">
-          <button type="button" class="export__step" (click)="exportCsv()">CSV</button>
+          <button type="button" class="export__step" (click)="exportCsv()"
+                  title="The rows on screen, as a spreadsheet">CSV</button>
+
+          <button type="button" class="export__step" (click)="exportIcs()"
+                  title="The rows on screen, as all-day calendar events">iCal</button>
+
           <!-- Labelled for what it produces rather than for what it opens, and
                the tooltip closes the gap. -->
           <button type="button" class="export__step" (click)="print()"
-                  title="Opens the browser's print dialog — choose Save as PDF as the destination">
+                  title="Opens the browser's print dialog, where the destination can be Save as PDF">
             PDF
           </button>
         </div>
