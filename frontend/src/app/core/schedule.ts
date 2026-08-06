@@ -224,11 +224,6 @@ export function padSpan(span: Span, before: number, after: number): Span {
   return { start, end, days: daysBetween(start, end) + 1 };
 }
 
-/** Position of a date inside the span, as a 0–100 percentage. */
-export function positionInSpan(span: Span, iso: string): number {
-  return (daysBetween(span.start, iso) / span.days) * 100;
-}
-
 export function formatDay(iso: string): string {
   return parseDay(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }

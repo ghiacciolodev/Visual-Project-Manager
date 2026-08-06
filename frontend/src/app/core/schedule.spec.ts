@@ -8,7 +8,6 @@ import {
   monthBands,
   padSpan,
   parseDay,
-  positionInSpan,
   projectSpan,
   roundedPath,
   toIso,
@@ -87,12 +86,6 @@ describe('schedule', () => {
       expect(base.start).toBe('2026-03-10');
     });
 
-    it('places a date as a percentage of the window', () => {
-      const span = projectSpan([task('2026-03-01', '2026-03-10')])!;
-
-      expect(positionInSpan(span, '2026-03-01')).toBe(0);
-      expect(positionInSpan(span, '2026-03-06')).toBeCloseTo(50, 5);
-    });
   });
 
   describe('columns', () => {

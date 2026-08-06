@@ -293,8 +293,12 @@
                    [class.tl__col--month]="day.isMonthStart"></div>
             }
 
-            @if (todayIndex(); as index) {
-              <div class="tl__now" [style.--index]="index"></div>
+            <!-- Compared against null, not tested for truth: column zero is a
+                 real column and a falsy one, so `@if (todayIndex(); as i)`
+                 dropped the marker on the one day it was most obviously
+                 wanted — the day the window opens on. -->
+            @if (todayIndex() !== null) {
+              <div class="tl__now" [style.--index]="todayIndex()"></div>
             }
           </div>
 
