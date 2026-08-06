@@ -17,12 +17,14 @@ PostgreSQL underneath, and one `docker compose up` to run all of it.
 - [What it does](#what-it-does)
 - [Running it](#running-it)
 - [Architecture](#architecture)
+- [Where this came from](#where-this-came-from)
 - [Decisions worth explaining](#decisions-worth-explaining)
 - [The API](#the-api)
 - [Tests](#tests)
 - [Repository layout](#repository-layout)
 - [Security](#security)
 - [What it does not do](#what-it-does-not-do)
+- [Licence](#licence)
 
 ---
 
@@ -280,6 +282,88 @@ starts, how wide it is, where a connector's elbow goes, what dates a drag
 of *n* pixels means. Deliberately separated from the components, because a
 function can be tested by calling it and an event handler can only be
 tested by mounting a component and pretending to be a mouse.
+
+---
+
+## Where this came from
+
+This began as a brief I set for a class, back when I was teaching. The
+brief is [in this repository](docs/assignment.pdf), in Italian, so none of
+what follows has to be taken on trust.
+
+The product is the same one: tasks carrying a title, a status, two dates
+and a colour; a dashboard of cards; a Gantt chart drawn from the same
+data; and dependencies between tasks arriving at the end.
+
+The stack it prescribed was not this one.
+
+| The brief | Here |
+|---|---|
+| Python Flask | Spring Boot 4.1 on Java 21 |
+| MySQL, hosted on Aiven | PostgreSQL 16, with Flyway owning the schema |
+| **No ORM.** A `DatabaseWrapper` over `pymysql`, every query written by hand | JPA and Hibernate, with hand-written SQL kept for one thing |
+| Angular | Angular |
+| Eight commits, messages prescribed, graded by walking the history | However many it took |
+
+The one constraint the brief puts in bold is the no-ORM rule: write the
+`CREATE TABLE` and the `JOIN` by hand, so that Hibernate stops being magic
+afterwards.
+
+This repository answers the same brief on a different stack, and the
+interesting part is where the two disagree.
+
+**The ORM rule, inverted rather than dropped.** JPA does the CRUD, and
+hand-written SQL survives in exactly one place: `DependencyGraphRepository`,
+where a recursive CTE answers "can this task already reach that one?" in a
+single round trip. An ORM cannot express that query, and the alternative is
+loading every edge into memory to do in Java what the database does better.
+Both rules point at the same thing from opposite sides: know what the ORM
+is doing for you, and know what it will not do at all.
+
+**PostgreSQL, and what actually depends on it.** Less than it looks.
+MySQL 8 runs `WITH RECURSIVE` and has enforced `CHECK` constraints since
+8.0.16, so the reachability query and the constraints mirroring each enum
+would both work there. Two things would not move: the partial index
+covering only the rows that are not soft-deleted, which MySQL has no
+equivalent for, and `TIMESTAMPTZ`, whose semantics MySQL's two timestamp
+types each get half of.
+
+**Spring Boot, for what came after the brief.** Everything the assignment
+asks for would be comfortable in Flask. The work that is here and not
+there is per-project authorisation on every service method, declarative
+transactions, and an optimistic-concurrency check. Flask can do all three
+with extensions; `@PreAuthorize` and `@Transactional` made them a line
+each.
+
+**The eight commits are a good device, and this history does not follow
+them.** Grading by walking the commit log makes the process visible
+instead of only the result, and a student who cannot work in increments
+finds that out early. This history is longer, messier, and includes
+commits that undo earlier ones, which is what the work looks like when
+nobody has written the steps down in advance. The nearest thing to it here
+is the audit log, which asks of a plan what a commit log asks of a
+project.
+
+The brief stops at dependencies, and that turns out to be where the
+interesting problem starts. It asks for a warning when a task is blocked,
+which is a fact about a single edge and can be read off one row. It does
+not ask what the edges *cost*, and that question needs the whole graph:
+of the fifteen tasks in the demo plan, seven decide the finish date and
+the other eight have slack, and a day lost on any of the seven is a day
+lost on the project.
+
+The demo plan makes that argument better than it was designed to. Read it
+by eye and the backend chain looks like the one that decides the date: it
+is the run of work with the obvious hard edges, agreeing the checkout
+contract, migrating the catalogue, integrating payments, load-testing the
+result. Every one of those carries nine days of float. What actually sets
+the finish date is the design and interface chain, through the design
+system, the page templates and the accessibility pass. The obvious reading
+of the plan and the arithmetic disagree, and that is the entire reason for
+computing it rather than pointing at the chart and deciding.
+
+That is the Critical Path Method, and it is the first thing in the section
+below.
 
 ---
 
@@ -625,3 +709,22 @@ before deciding rather than assumed: from fifty rows to a thousand, the
 cost of editing one of them stays flat at about 4 ms, because signals
 update the row that changed and not the list. That is why the dependency
 is not there.
+
+---
+
+## Licence
+
+[MIT](LICENSE). Take it, read it, use it, ship it.
+
+Nothing in the dependency tree argues otherwise, which was checked rather
+than assumed: every published `pom` was read rather than recalled.
+Hibernate is the one worth naming, because a lot of people still remember
+it as LGPL and `hibernate-core` 7.4.1 declares Apache 2.0. So do Flyway,
+Nimbus and `bucket4j-core` 8.10.1; the PostgreSQL driver is BSD-2-Clause
+and Lombok is MIT. On the frontend, all 471 packages in the tree resolve
+to MIT, ISC, Apache 2.0, BSD, BlueOak, CC0 or 0BSD, with no copyleft at
+any depth.
+
+IBM Plex is under the SIL Open Font Licence and is fetched from Google
+Fonts at runtime rather than redistributed here, so it carries its own
+terms and none of this repository's.

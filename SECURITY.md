@@ -5,10 +5,11 @@ authorisation and untrusted input, and at the end what it does not handle.
 The second list matters more than the first. A security document that only
 lists strengths is a marketing page.
 
-**Status:** this is a portfolio project. It runs against a local
-development stack and has never held anybody's real data. Several
-decisions below are correct for that setting and would need revisiting
-before it held anybody else's; each one says so where it applies.
+**Status:** this began as a classroom brief and was rebuilt on a different
+stack. It runs against a local development stack and has never held
+anybody's real data. Several decisions below are correct for that setting
+and would need revisiting before it held anybody else's; each one says so
+where it applies.
 
 ---
 
