@@ -26,4 +26,18 @@ public interface ProjectMemberRepository
 
     /** Guards the "a project always has an owner" rule. */
     long countByProjectIdAndRole(Long projectId, ProjectRole role);
+
+    /* --- ceilings ------------------------------------------------------- */
+
+    /** How many people are in one project. */
+    long countByProjectId(Long projectId);
+
+    /**
+     * How many projects one person is in.
+     *
+     * Membership rather than ownership, deliberately: a ceiling counted on
+     * projects created would be walked straight around by an account that
+     * makes one project, hands ownership over and makes another.
+     */
+    long countByUserId(Long userId);
 }

@@ -5,6 +5,7 @@ import it.ghiacciolodev.vpm.audit.AuditEntity;
 import it.ghiacciolodev.vpm.audit.AuditService;
 import it.ghiacciolodev.vpm.common.exception.ConflictException;
 import it.ghiacciolodev.vpm.common.exception.NotFoundException;
+import it.ghiacciolodev.vpm.common.limits.LimitProperties;
 import it.ghiacciolodev.vpm.project.dto.*;
 import it.ghiacciolodev.vpm.security.CurrentUser;
 import it.ghiacciolodev.vpm.user.User;
@@ -28,19 +29,22 @@ public class ProjectService {
     private final CurrentUser currentUser;
     private final ProjectAccess access;
     private final AuditService audit;
+    private final LimitProperties limits;
 
     public ProjectService(ProjectRepository projects,
                           ProjectMemberRepository members,
                           UserRepository users,
                           CurrentUser currentUser,
                           ProjectAccess access,
-                          AuditService audit) {
+                          AuditService audit,
+                          LimitProperties limits) {
         this.projects = projects;
         this.members = members;
         this.users = users;
         this.currentUser = currentUser;
         this.access = access;
         this.audit = audit;
+        this.limits = limits;
     }
 
     /* --- projects ------------------------------------------------------- */
@@ -79,6 +83,12 @@ public class ProjectService {
     @Transactional
     public ProjectResponse create(CreateProjectRequest request) {
         User me = currentUser.require();
+
+        if (members.countByUserId(me.getId()) >= limits.projectsPerUser()) {
+            throw new ConflictException(
+                "You are in %d projects, which is the limit. Leave one, or delete one."
+                    .formatted(limits.projectsPerUser()));
+        }
 
         Project project = new Project();
         project.setName(request.name());
@@ -183,6 +193,15 @@ public class ProjectService {
     @PreAuthorize("@access.canAdminister(#projectId)")
     public MemberResponse invite(Long projectId, InviteRequest request) {
         String email = request.email().trim().toLowerCase();
+
+        // Before the lookup, not after. Checking further down would create the
+        // placeholder account for an address that is then refused, which turns
+        // a refused invitation into a way of writing rows into the users table.
+        if (members.countByProjectId(projectId) >= limits.membersPerProject()) {
+            throw new ConflictException(
+                "This project has reached its limit of %d members."
+                    .formatted(limits.membersPerProject()));
+        }
 
         User user = users.findByEmail(email).orElseGet(() -> {
             User placeholder = new User();

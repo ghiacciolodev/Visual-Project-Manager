@@ -69,6 +69,17 @@ app:
     capacity: ${RATE_LIMIT_CAPACITY:120}
     period: ${RATE_LIMIT_PERIOD:1m}
 
+  # How fast is only half the question. At 120 writes a minute one account can
+  # add something like a hundred and seventy thousand rows a day and keep
+  # going, and registration is open, so that account costs an email address.
+  # These are the ceilings, set far above anything honest: a two-thousand-task
+  # plan is already past the point where this application's rendering is the
+  # thing to fix.
+  limits:
+    tasks-per-project: ${LIMIT_TASKS_PER_PROJECT:2000}
+    members-per-project: ${LIMIT_MEMBERS_PER_PROJECT:100}
+    projects-per-user: ${LIMIT_PROJECTS_PER_USER:100}
+
   # Keycloak is addressed by two different URLs, and the split is deliberate.
   #
   # The browser reaches it at localhost:8081, so that is the issuer written

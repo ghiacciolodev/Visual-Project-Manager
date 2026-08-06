@@ -18,4 +18,9 @@ FROM nginx:alpine
 COPY --from=build /build/dist/frontend/browser /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Deliberately not in conf.d/. That directory is globbed into the http block,
+# so a headers file there would be applied once implicitly and twice more by
+# the includes below it, and nginx would send every header three times.
+COPY security-headers.conf /etc/nginx/vpm-security-headers.conf
+
 EXPOSE 80

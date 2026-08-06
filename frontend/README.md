@@ -2,7 +2,7 @@
 
 Angular 21: standalone components, zoneless change detection, signals.
 
-The project's own documentation is one level up — [what it is and how to
+The project's own documentation is one level up: [what it is and how to
 run it](../README.md), and [how it handles identity and
 input](../SECURITY.md). What follows is only the commands.
 
@@ -29,14 +29,15 @@ cd ../backend && ./mvnw spring-boot:run
 
 ```
 src/app/
-  core/       services (state as signals), the pure geometry and filter
-              functions, the auth guard and interceptor
+  core/       services (state as signals), the pure geometry, filter and
+              export functions, the auth guard and interceptor
   features/   gantt · tasks · members · projects · history
   models/     the shapes the API returns
-  styles.scss design tokens and the handful of shared primitives
+  styles.scss design tokens, the shared primitives, and the print rules
+              that belong to no single component
 ```
 
-Logic that can live outside a component does — `core/schedule.ts` and
-`core/task-filter.ts` are pure functions for exactly that reason. A
-function is tested by calling it; an event handler is tested by mounting a
-component and pretending to be a mouse.
+Logic that can live outside a component does. `core/schedule.ts`,
+`core/task-filter.ts` and `core/export.ts` are pure functions for exactly
+that reason: a function is tested by calling it, and an event handler is
+tested by mounting a component and pretending to be a mouse.

@@ -5,6 +5,7 @@ import it.ghiacciolodev.vpm.audit.AuditEntity;
 import it.ghiacciolodev.vpm.audit.AuditService;
 import it.ghiacciolodev.vpm.common.exception.ConflictException;
 import it.ghiacciolodev.vpm.common.exception.NotFoundException;
+import it.ghiacciolodev.vpm.common.limits.LimitProperties;
 import it.ghiacciolodev.vpm.project.ProjectMemberRepository;
 import it.ghiacciolodev.vpm.task.dto.AssigneeRef;
 import it.ghiacciolodev.vpm.task.dto.TaskRef;
@@ -43,17 +44,20 @@ public class TaskService {
     private final UserRepository users;
     private final ProjectMemberRepository members;
     private final AuditService audit;
+    private final LimitProperties limits;
 
     public TaskService(TaskRepository repository,
                        DependencyGraphRepository graph,
                        UserRepository users,
                        ProjectMemberRepository members,
-                       AuditService audit) {
+                       AuditService audit,
+                       LimitProperties limits) {
         this.repository = repository;
         this.graph = graph;
         this.users = users;
         this.members = members;
         this.audit = audit;
+        this.limits = limits;
     }
 
     /* --- reads ---------------------------------------------------------- */
@@ -95,6 +99,15 @@ public class TaskService {
     @Transactional
     @PreAuthorize("@access.canEdit(#projectId)")
     public TaskResponse create(Long projectId, TaskRequest request) {
+        // Checked on create only. An update cannot grow the plan, and refusing
+        // one because the project is already at its ceiling would trap somebody
+        // at exactly the moment they are trying to tidy up.
+        if (repository.countByProjectIdAndDeletedAtIsNull(projectId) >= limits.tasksPerProject()) {
+            throw new ConflictException(
+                "This project has reached its limit of %d tasks. Delete something, or split the plan."
+                    .formatted(limits.tasksPerProject()));
+        }
+
         Task task = new Task();
         task.setProjectId(projectId);
         apply(request, task);

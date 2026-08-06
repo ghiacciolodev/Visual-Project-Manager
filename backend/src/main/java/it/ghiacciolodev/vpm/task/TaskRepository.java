@@ -23,4 +23,14 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectIdAndDeletedAtIsNullOrderByStartDateAsc(Long projectId);
 
     Optional<Task> findByIdAndProjectIdAndDeletedAtIsNull(Long id, Long projectId);
+
+    /**
+     * How many live tasks a project holds, for the ceiling in TaskService.
+     *
+     * Counts what the API can see, so soft-deleted rows do not hold a quota
+     * against a project forever: a plan at the limit is one somebody can get
+     * back under by deleting a task, which is the only remedy the interface
+     * offers and therefore the one it has to honour.
+     */
+    long countByProjectIdAndDeletedAtIsNull(Long projectId);
 }
