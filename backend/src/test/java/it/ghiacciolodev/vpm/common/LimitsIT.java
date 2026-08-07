@@ -39,6 +39,12 @@ class LimitsIT extends AbstractIT {
         {"title":"%s","status":"TODO","priority":"LOW",
          "startDate":"2026-09-01","endDate":"2026-09-02","color":"#3B82F6"}""";
 
+    /** The same, with the version an update has to quote. */
+    private static final String EDIT = """
+        {"title":"%s","status":"TODO","priority":"LOW",
+         "startDate":"2026-09-01","endDate":"2026-09-02","color":"#3B82F6",
+         "expectedVersion":%s}""";
+
     /* --- tasks ----------------------------------------------------------- */
 
     @Test
@@ -74,7 +80,7 @@ class LimitsIT extends AbstractIT {
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", project, first)
                 .with(as("lim-bert"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(TASK.formatted("One, renamed")))
+                .content(EDIT.formatted("One, renamed", versionOf("lim-bert", project, first))))
             .andExpect(status().isOk());
     }
 

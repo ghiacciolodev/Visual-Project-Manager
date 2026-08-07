@@ -4,6 +4,9 @@ import it.ghiacciolodev.vpm.task.dto.DependencyRequest;
 import it.ghiacciolodev.vpm.task.dto.TaskRequest;
 import it.ghiacciolodev.vpm.task.dto.TaskResponse;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -66,23 +69,25 @@ public class TaskController {
         @RequestParam(required = false) Integer page,
         @RequestParam(required = false) Integer size) {
 
-        List<TaskResponse> all = service.findAll(projectId);
-
         if (page == null && size == null) {
-            return ResponseEntity.ok(all);
+            return ResponseEntity.ok(service.findAll(projectId));
         }
 
         int pageNumber = Math.max(0, page == null ? 0 : page);
         int pageSize = Math.clamp(size == null ? DEFAULT_PAGE_SIZE : size, 1, MAX_PAGE_SIZE);
 
-        int from = Math.min(pageNumber * pageSize, all.size());
-        int to = Math.min(from + pageSize, all.size());
+        // Paged in the query rather than in memory. This used to read the
+        // whole project and call subList, which produced correct headers over
+        // work that had not been reduced at all: asking for ten rows out of
+        // two thousand was served two thousand and shown ten.
+        Page<TaskResponse> result = service.findPage(projectId,
+            PageRequest.of(pageNumber, pageSize, Sort.by("startDate").and(Sort.by("id"))));
 
         return ResponseEntity.ok()
-            .header("X-Total-Count", String.valueOf(all.size()))
+            .header("X-Total-Count", String.valueOf(result.getTotalElements()))
             .header("X-Page", String.valueOf(pageNumber))
             .header("X-Page-Size", String.valueOf(pageSize))
-            .body(all.subList(from, to));
+            .body(result.getContent());
     }
 
     @GetMapping("/{id}")

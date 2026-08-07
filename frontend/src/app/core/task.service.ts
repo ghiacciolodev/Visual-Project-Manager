@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { ProjectService } from './project.service';
 import { ProblemDetail, Task, TaskRef, TaskRequest, TaskStatus } from '../models/task.model';
 
@@ -69,7 +69,7 @@ export class TaskService {
     if (projectId === null) {
       throw new Error('No project selected');
     }
-    return `${API_BASE_URL}/projects/${projectId}/tasks`;
+    return `${apiBaseUrl()}/projects/${projectId}/tasks`;
   }
 
   async load(): Promise<void> {
@@ -377,9 +377,8 @@ export class TaskService {
       color: task.color,
       assigneeId: task.assignee?.id ?? null,
       // The version this payload was built from. Every write from here is
-      // conditional; the server accepts unconditional ones, and taking that
-      // offer would put back the silent overwrite it exists to prevent.
-      expectedUpdatedAt: task.updatedAt,
+      // conditional, and the server now refuses one that is not.
+      expectedVersion: task.version,
     };
   }
 

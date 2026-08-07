@@ -5,6 +5,7 @@
   "sslRequired": "none",
   "loginTheme": "vpm",
   "registrationAllowed": true,
+  "verifyEmail": true,
   "resetPasswordAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,

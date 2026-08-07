@@ -17,6 +17,7 @@ function task(over: Partial<Task> & { id: number }): Task {
     blockedBy: [],
     assignee: null,
     updatedAt: '2026-01-01T00:00:00Z',
+    version: 0,
     ...over,
   };
 }

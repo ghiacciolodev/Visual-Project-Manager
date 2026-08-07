@@ -19,6 +19,7 @@ function task(startDate: string, endDate: string): Task {
     id: 1, title: 't', description: null, status: 'TODO', priority: 'MEDIUM',
     startDate, endDate, color: '#3B82F6', dependsOn: [], blockedBy: [], assignee: null,
     updatedAt: '2026-01-01T00:00:00Z',
+    version: 0,
   };
 }
 

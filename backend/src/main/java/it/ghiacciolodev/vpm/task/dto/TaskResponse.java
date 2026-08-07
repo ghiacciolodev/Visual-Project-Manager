@@ -39,14 +39,19 @@ public record TaskResponse(
     /** Who is doing this, or null when nobody has been named. */
     AssigneeRef assignee,
 
+    /** When this task last changed. Informational; nothing is decided by it. */
+    Instant updatedAt,
+
     /**
-     * When this task last changed.
+     * What the client must hand back on its next write.
      *
-     * Sent so the client can hand it back on the next write and have the
-     * server check nobody else got there first. Without it on the way out
-     * there is nothing to compare against on the way in.
+     * This used to be updatedAt, which was wrong in a way that only showed up
+     * as a spurious conflict: the timestamp is written during a flush, and the
+     * response was built before one was guaranteed, so it reported the value
+     * from before the write. A counter Hibernate maintains has no such
+     * ordering problem, and it is exact rather than merely precise.
      */
-    Instant updatedAt
+    Long version
 ) {
 
     public static TaskResponse from(Task task, List<TaskRef> predecessors) {
@@ -70,7 +75,8 @@ public record TaskResponse(
             predecessors,
             blockers,
             assignee,
-            task.getUpdatedAt()
+            task.getUpdatedAt(),
+            task.getVersion()
         );
     }
 }

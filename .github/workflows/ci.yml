@@ -60,6 +60,61 @@ jobs:
         run: npm test -- --watch=false
         working-directory: frontend
 
+      # Advisories are worth knowing about and are not worth failing a build
+      # over at every severity: every one currently in the tree arrives through
+      # @angular/build and @angular/cli, which are devDependencies and reach no
+      # shipped file. The threshold is set where a finding would actually mean
+      # something.
+      - name: Audit dependencies
+        run: npm audit --audit-level=critical
+        working-directory: frontend
+
       - name: Production build
         run: npm run build
         working-directory: frontend
+
+  images:
+    name: Images (docker compose)
+    runs-on: ubuntu-latest
+
+    # Neither job above builds an image, so a broken Dockerfile or a stale
+    # nginx configuration passed CI and failed on somebody's laptop. This
+    # builds both and starts the stack far enough to know the containers come
+    # up and answer.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the images
+        run: docker compose build
+
+      - name: Start the stack
+        run: |
+          cp .env.example .env
+          docker compose up -d
+
+      # The backend waits on Keycloak's health check, which waits on its
+      # database, so this is the whole chain in one assertion.
+      - name: Wait for the API to answer
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "API is up"; exit 0
+            fi
+            sleep 5
+          done
+          echo "API never came up"; docker compose logs --tail=80; exit 1
+
+      # The security headers exist because they were verified against the built
+      # image once. This is what keeps them verified.
+      - name: Check the frontend's response headers
+        run: |
+          headers=$(curl -fsSI http://localhost:4200/)
+          echo "$headers"
+          for header in "content-security-policy" "x-content-type-options" \
+                        "referrer-policy" "x-frame-options"; do
+            echo "$headers" | grep -iq "^$header:" || { echo "missing $header"; exit 1; }
+          done
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v

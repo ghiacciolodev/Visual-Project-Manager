@@ -30,6 +30,28 @@ import java.util.*;
  * Everything here is arithmetic on in-memory maps. The graph is small enough
  * that fetching it once and walking it in Java beats asking the database for
  * each step, which is the opposite of the trade-off made for cycle detection.
+ *
+ * What the model is, stated rather than left to be inferred:
+ *
+ *   Finish-to-start only. There is no start-to-start, no finish-to-finish and
+ *   no lag or lead. A dependency means "not before this one ends".
+ *
+ *   Calendar days, not working days. Weekends are shaded on the chart and
+ *   counted here, so a two-week task spans fourteen days rather than ten.
+ *
+ *   The network is anchored at day zero, and a task with no prerequisites
+ *   starts there. Planned start dates do not constrain the forward pass, so
+ *   "critical" means critical in an ideal as-soon-as-possible replan rather
+ *   than in the plan as somebody drew it. Where a plan has deliberate gaps the
+ *   two differ, and the chart compensates: slipOf in the frontend measures how
+ *   far a bar can move from where it is *drawn*, which is the number a reader
+ *   is asking for, while totalFloat here is the textbook figure. Both are
+ *   shown, and the tooltip gives both when they disagree.
+ *
+ *   Dates that contradict a dependency are reported and not prevented:
+ *   TaskSchedule.startsEarly marks a task drawn as starting before its
+ *   prerequisite ends. A plan is allowed to be wrong while somebody is in the
+ *   middle of fixing it.
  */
 @Service
 @Transactional(readOnly = true)

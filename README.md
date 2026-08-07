@@ -150,8 +150,16 @@ creates the schema, and both images are built. When it settles:
 | Keycloak | http://localhost:8081 |
 | Mailpit (the fake inbox) | http://localhost:8025 |
 
-Register an account from the sign-in screen and you get an empty schedule
-to fill.
+Register an account from the sign-in screen. The realm requires the
+address to be verified, so Keycloak sends a message and waits: open
+[Mailpit](http://localhost:8025), click the link, and sign in to an empty
+schedule.
+
+The verification is not ceremony. Provisioning claims an invited
+placeholder row by email, and the address has to be proven before it can
+inherit somebody's project; [SECURITY.md](SECURITY.md) sets out what that
+prevents. Mailpit exists so the whole loop closes on a laptop with no mail
+account anywhere.
 
 ### Or start from the demo project
 
@@ -201,6 +209,11 @@ cd frontend && npm install && npm start
 The frontend must be served on port 4200. That is the only redirect URI
 the Keycloak client accepts, and the only origin the backend's CORS
 configuration allows.
+
+`frontend/public/config.json` holds the addresses the browser calls, and
+its committed values are the ones above. In a container the entrypoint
+overwrites it from `API_BASE_URL` and `KEYCLOAK_AUTHORITY`, so the same
+image runs anywhere; see [below](#one-image-three-addresses-one-file).
 
 ---
 
@@ -377,6 +390,20 @@ earliest each task can start and backward for the latest it can start
 without moving the finish date. The difference is that task's total float,
 and the tasks with none of it are the critical path.
 
+The model it implements is a small one, and worth stating rather than
+leaving to be discovered. Finish-to-start only: no start-to-start, no lag,
+no lead. Calendar days rather than working days, so a fortnight is fourteen
+days and the shaded weekends are counted. And the network is anchored at
+day zero, so a task with no prerequisites starts there and the dates
+somebody typed do not constrain the forward pass. "Critical" therefore
+means critical in an ideal as-soon-as-possible replan, not in the plan as
+drawn, and where a plan has deliberate gaps the two differ.
+
+The chart compensates rather than hiding it. `slipOf` measures how far a
+bar can move from where it is actually drawn, which is the number a reader
+looking at that bar is asking for; total float is the textbook figure. When
+they disagree the tooltip gives both.
+
 It is arithmetic on in-memory maps rather than queries, because the graph
 is small enough that fetching it once and walking it in Java beats asking
 the database per step. That is the opposite of the trade-off made for
@@ -386,23 +413,35 @@ same question.
 
 ### Two people editing one task
 
-Send back the `updatedAt` the form was built from, and the server refuses
-the write if the task has moved on:
+Send back the version the form was built from, and the write is refused if
+the task has moved on. The check is required, so there is no unconditional
+write to fall back to and no way to get last-write-wins by omission.
 
-```java
-if (!request.expectedUpdatedAt().equals(task.getUpdatedAt())) {
-    throw new ConflictException("Somebody else changed this task while you were editing it…");
-}
-```
+This was a timestamp first, and the timestamp could not be reported
+honestly. Hibernate writes `@UpdateTimestamp` during a flush, and the
+response was assembled before one was guaranteed: `findPredecessors` goes
+through `JdbcTemplate`, which triggers no flush, and the audit insert
+writes only its own row. So a `PUT` answered with the value the row held
+*before* its own write, and a client that saved it and sent it on the next
+edit was told somebody else had got there first. One person, one task, two
+edits, and a conflict with nobody else involved.
 
-Compared by **equality**, not by "is older". A clock that steps backwards
-or two instances a few milliseconds apart would make an ordering test
-quietly accept a stale write. The question is not "is this newer" but "is
-this the same task I read".
+It was found by writing the round trip out as a test rather than by
+reading the code, which had been read twice. The first explanation was
+also wrong: the membership lookup inside `assignableOrThrow` does force a
+flush, so it looked as though assigned tasks escaped. They did not, because
+`apply()` sets the assignee *after* that lookup and dirties the row again.
+Both cases were stale.
 
-Not `If-Unmodified-Since`, which would be the obvious HTTP answer: that
-header carries whole seconds, and two edits inside the same second are
-exactly the case being defended against.
+`@Version` has no such ordering problem. Hibernate maintains the number,
+puts it in the `UPDATE`'s `WHERE` clause, and the write fails at the
+database whether or not the service remembers to check. The service checks
+anyway, because a checked refusal can say something a person can act on
+and an optimistic-lock exception cannot.
+
+Not `If-Match`, which would be the tidier HTTP answer and is the obvious
+next step: it needs an ETag on every read and a header on every write, and
+the value it would carry is exactly this number.
 
 ### Other people's changes arrive on their own
 
@@ -441,6 +480,13 @@ deliberately. The chart measures its window from the earliest start to the
 latest end across the whole plan and the filters are computed over the same
 list; hand either of them one page and the chart draws the wrong scale
 while the filters silently narrow one fiftieth of the data.
+
+The paging is done by the query. It was not at first: the endpoint read
+every task and called `subList`, which made `X-Total-Count` accurate and
+the cost of producing it a fiction, since a caller asking for ten rows out
+of two thousand was served two thousand. Paging that does not reduce the
+work is a header rather than a feature. The dependency edges are fetched
+for the page's ids too, and not for the project, for the same reason.
 
 ### A PDF without a PDF library
 
@@ -546,6 +592,41 @@ arrive once each, the assets carry both them and the cache header, and the
 application renders with its own typography and colours and no console
 violation.
 
+### One image, three addresses, one file
+
+The API's address, Keycloak's, and the `connect-src` of the content
+security policy are the three things a build cannot know. All three were
+compiled in, and all three said localhost, so the Docker image was correct
+on the machine that produced it and useless anywhere else. The README
+admitted it and left it, which is the worst of the available positions.
+
+They come from `config.json` now, fetched from the application's own
+origin before anything else runs. The container writes that file from
+environment variables in a script under `/docker-entrypoint.d`, which
+nginx's own entrypoint runs before starting the server, so it cannot be
+forgotten. The same two values produce the policy's `connect-src`, because
+a policy and an application that disagree about where the API is fail with
+every request blocked, nothing in the server log, and the explanation only
+in the browser console.
+
+Two details make it work rather than merely exist. The OIDC library takes
+a `StsConfigHttpLoader`, so it waits for the fetch itself rather than
+needing its settings at provider-construction time. And `runtimeConfig()`
+falls back to the development defaults instead of throwing, which is what
+lets a hundred and twenty-six unit tests keep asserting against real URLs
+without a network call any of them would have had to mock.
+
+Verified by running the built image twice with different environment:
+
+```
+[vpm] API https://api.example.org/api/v1
+[vpm] Keycloak https://id.example.org/realms/acme
+[vpm] connect-src 'self' https://api.example.org https://id.example.org
+```
+
+and the browser console then reporting the OIDC client as `0-acme-web`
+rather than `0-vpm-frontend`. Same image, no rebuild.
+
 ### Tasks are soft-deleted
 
 `deleted_at` is set and the row stays. It keeps dependency references
@@ -598,7 +679,7 @@ caller already has, which is why they can follow the filter on screen.
 ## Tests
 
 ```bash
-cd backend  && ./mvnw verify      # 57 tests
+cd backend  && ./mvnw verify      # 62 tests
 cd frontend && npm test           # 125 tests, 10 files
 ```
 
@@ -649,11 +730,14 @@ backend/          Spring Boot 4.1, Java 21
 
 frontend/         Angular 21, standalone, zoneless
   src/app/
-    core/         services, pure geometry, CSV and iCal, guards, interceptor
+    core/         services, pure geometry, CSV and iCal, guards, interceptor,
+                  and the runtime configuration everything else reads
     features/     gantt · tasks · members · projects · history
     models/
-  nginx.conf              how the built app is served
-  security-headers.conf   CSP and the rest, included from both locations
+  public/config.json               the development defaults
+  nginx.conf                       how the built app is served
+  security-headers.conf.template   CSP, with connect-src substituted at start
+  docker-entrypoint.d/             writes config.json and fills the template
 
 keycloak/
   realm-export.json     the whole identity setup, version controlled

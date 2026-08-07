@@ -4,13 +4,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { ProjectService } from './project.service';
 import { TaskService } from './task.service';
 import { Task } from '../models/task.model';
 
 const PROJECT = 7;
-const URL = `${API_BASE_URL}/projects/${PROJECT}/tasks`;
+const URL = `${apiBaseUrl()}/projects/${PROJECT}/tasks`;
 
 function task(overrides: Partial<Task> = {}): Task {
   return {
@@ -26,6 +26,7 @@ function task(overrides: Partial<Task> = {}): Task {
     blockedBy: [],
     assignee: null,
     updatedAt: '2026-01-01T00:00:00Z',
+    version: 0,
     ...overrides,
   };
 }
@@ -127,14 +128,16 @@ describe('TaskService', () => {
   });
 
   it('shows the other version after a stale write is refused', async () => {
-    const mine = task({ updatedAt: '2026-01-01T00:00:00Z' });
+    const mine = task({ version: 3 });
     await loadWith([mine]);
 
     void service.changeStatus(mine, 'DOING');
 
     // Every write from here is conditional on the version it was built from.
+    // The server requires it, so a payload without one is refused rather than
+    // quietly falling back to last-write-wins.
     const request = http.expectOne({ url: `${URL}/1`, method: 'PUT' });
-    expect(request.request.body.expectedUpdatedAt).toBe('2026-01-01T00:00:00Z');
+    expect(request.request.body.expectedVersion).toBe(3);
 
     request.flush(
       { detail: 'Somebody else changed this task while you were editing it.' },
@@ -143,7 +146,7 @@ describe('TaskService', () => {
     await settled();
 
     http.expectOne({ url: URL, method: 'GET' })
-      .flush([task({ title: 'Their title', updatedAt: '2026-01-01T00:05:00Z' })]);
+      .flush([task({ title: 'Their title', version: 4 })]);
     await settled();
 
     expect(service.error()).toContain('Somebody else changed');

@@ -28,7 +28,8 @@ class ConcurrentEditIT extends AbstractIT {
           "startDate": "2026-09-01",
           "endDate": "2026-09-05",
           "color": "#3B82F6",
-          "expectedUpdatedAt": %s
+          "assigneeId": %s,
+          "expectedVersion": %s
         }""";
 
     /** A project shared by two editors, and one task in it. */
@@ -49,28 +50,18 @@ class ConcurrentEditIT extends AbstractIT {
         return new Shared(project, task);
     }
 
-    private String updatedAtOf(String username, Long project, Long task) throws Exception {
-        String body = mockMvc.perform(get("/api/v1/projects/{p}/tasks/{t}", project, task)
-                .with(as(username)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.updatedAt").exists())
-            .andReturn().getResponse().getContentAsString();
-
-        return JsonPath.read(body, "$.updatedAt");
-    }
-
     @Test
     void refusesAWriteBuiltOnAVersionSomebodyHasReplaced() throws Exception {
         Shared it = shared("cc-ada", "cc-bea");
 
         // Both open the task and read the same version.
-        String asAdaSaw = updatedAtOf("cc-ada", it.project(), it.task());
-        String asBeaSaw = updatedAtOf("cc-bea", it.project(), it.task());
+        int asAdaSaw = versionOf("cc-ada", it.project(), it.task());
+        int asBeaSaw = versionOf("cc-bea", it.project(), it.task());
 
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", it.project(), it.task())
                 .with(as("cc-ada"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(EDIT.formatted("Ada's title", "\"" + asAdaSaw + "\"")))
+                .content(EDIT.formatted("Ada's title", "null", asAdaSaw)))
             .andExpect(status().isOk());
 
         // Bea saves a form she filled in before Ada's change existed. Without
@@ -79,7 +70,7 @@ class ConcurrentEditIT extends AbstractIT {
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", it.project(), it.task())
                 .with(as("cc-bea"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(EDIT.formatted("Bea's title", "\"" + asBeaSaw + "\"")))
+                .content(EDIT.formatted("Bea's title", "null", asBeaSaw)))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.detail").value(containsString("Somebody else changed")));
 
@@ -93,55 +84,117 @@ class ConcurrentEditIT extends AbstractIT {
     void acceptsTheSecondWriteOnceTheEditorHasCaughtUp() throws Exception {
         Shared it = shared("cc-cass", "cc-dev");
 
-        String first = updatedAtOf("cc-cass", it.project(), it.task());
+        int first = versionOf("cc-cass", it.project(), it.task());
 
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", it.project(), it.task())
                 .with(as("cc-cass"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(EDIT.formatted("First", "\"" + first + "\"")))
+                .content(EDIT.formatted("First", "null", first)))
             .andExpect(status().isOk());
 
         // Rereading is the whole remedy the message asks for, and it has to
         // actually work.
-        String afterReload = updatedAtOf("cc-dev", it.project(), it.task());
+        int afterReload = versionOf("cc-dev", it.project(), it.task());
 
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", it.project(), it.task())
                 .with(as("cc-dev"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(EDIT.formatted("Second", "\"" + afterReload + "\"")))
+                .content(EDIT.formatted("Second", "null", afterReload)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.title").value("Second"));
     }
 
+    /**
+     * The regression that the version column was added for.
+     *
+     * The check used to compare updatedAt, which the response could not report
+     * honestly: @UpdateTimestamp is written during a flush, and the response
+     * was assembled before one was guaranteed, so a PUT answered with the
+     * value from before its own write. One person editing one task twice was
+     * told somebody else had got there first.
+     *
+     * Both cases are here because the first fix that suggested itself was
+     * wrong: it looked as though a task with an assignee escaped, since the
+     * membership lookup forces a flush. It does, and then apply() sets the
+     * assignee afterwards and dirties the row again, so both were stale.
+     */
     @Test
-    void returnsATimestampThatSurvivesTheRoundTrip() throws Exception {
+    void thePutAnswersWithTheVersionItJustWrote() throws Exception {
         Shared it = shared("cc-eli", "cc-fay");
 
-        // The check is an equality test on a value that goes out as JSON and
-        // comes back parsed. If the serialisation loses precision — a
-        // microsecond in Postgres against a nanosecond in Java — every write
-        // would be refused as stale and the feature would be unusable.
-        String seen = updatedAtOf("cc-eli", it.project(), it.task());
+        int seen = versionOf("cc-eli", it.project(), it.task());
 
+        String response = mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}",
+                it.project(), it.task())
+                .with(as("cc-eli"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(EDIT.formatted("Once", "null", seen)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        int fromPut = JsonPath.read(response, "$.version");
+
+        // What the row holds now, asked for independently.
+        assertThatVersionIs(fromPut, "cc-eli", it.project(), it.task());
+
+        // And the point of all of it: a second edit that trusts the first
+        // response goes through, because one person editing one task twice is
+        // not a conflict.
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", it.project(), it.task())
                 .with(as("cc-eli"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(EDIT.formatted("Round trip", "\"" + seen + "\"")))
+                .content(EDIT.formatted("Twice", "null", fromPut)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.title").value("Twice"));
+    }
+
+    @Test
+    void thePutAnswersWithTheVersionItJustWroteWithAnAssigneeToo() throws Exception {
+        Shared it = shared("cc-gus", "cc-hana");
+
+        String me = mockMvc.perform(get("/api/v1/me").with(as("cc-gus")))
+            .andReturn().getResponse().getContentAsString();
+        long userId = ((Number) JsonPath.read(me, "$.id")).longValue();
+
+        int seen = versionOf("cc-gus", it.project(), it.task());
+
+        String response = mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}",
+                it.project(), it.task())
+                .with(as("cc-gus"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(EDIT.formatted("Assigned", String.valueOf(userId), seen)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        int fromPut = JsonPath.read(response, "$.version");
+        assertThatVersionIs(fromPut, "cc-gus", it.project(), it.task());
+
+        mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", it.project(), it.task())
+                .with(as("cc-gus"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(EDIT.formatted("Assigned twice", String.valueOf(userId), fromPut)))
             .andExpect(status().isOk());
     }
 
     @Test
-    void leavesAnUnconditionalWriteAlone() throws Exception {
-        Shared it = shared("cc-gus", "cc-hana");
+    void refusesAWriteThatNamesNoVersionAtAll() throws Exception {
+        Shared it = shared("cc-iris", "cc-jae");
 
-        // Omitting the field keeps the old behaviour. That is a real weakness
-        // rather than a convenience, and it is why the client always sends it
-        // — but a caller that has no version to quote must still be able to
-        // write.
+        // This used to be allowed, on the argument that requiring it would
+        // break existing callers. There are no external callers, so the
+        // argument was protecting nothing and the protection was optional.
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", it.project(), it.task())
-                .with(as("cc-gus"))
+                .with(as("cc-iris"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(EDIT.formatted("No expectation", "null")))
-            .andExpect(status().isOk());
+                .content(EDIT.formatted("No expectation", "null", "null")))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.detail").value(containsString("which version")));
+    }
+
+    private void assertThatVersionIs(int expected, String username,
+                                     Long project, Long task) throws Exception {
+        mockMvc.perform(get("/api/v1/projects/{p}/tasks/{t}", project, task)
+                .with(as(username)))
+            .andExpect(jsonPath("$.version").value(expected));
     }
 }

@@ -5,7 +5,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideRouter } from '@angular/router';
 
 import { App } from './app';
-import { API_BASE_URL } from './core/api.config';
+import { apiBaseUrl } from './core/api.config';
 import { ProjectService } from './core/project.service';
 import { Profile, SessionService } from './core/session.service';
 import { Project, ProjectRole } from './models/project.model';
@@ -142,7 +142,7 @@ describe('App', () => {
     // The token already carries a name and an email, so this call looks
     // redundant — it is the request that creates the row, the project and the
     // sample data on a first sign-in.
-    const request = http.expectOne(`${API_BASE_URL}/me`);
+    const request = http.expectOne(`${apiBaseUrl()}/me`);
     request.flush({ id: 7, email: 'ada@example.com', displayName: 'Ada Lovelace' });
 
     // flush() emits synchronously, but the component awaits firstValueFrom, so
@@ -154,11 +154,11 @@ describe('App', () => {
 
   it('offers the members panel to owners only', async () => {
     const asEditor = await render({ ready: true, authenticated: true, role: 'EDITOR' });
-    asEditor.http.expectOne(`${API_BASE_URL}/me`).flush(null);
+    asEditor.http.expectOne(`${apiBaseUrl()}/me`).flush(null);
     expect(railControl(asEditor.element, 'Members')).toBeUndefined();
 
     const asOwner = await render({ ready: true, authenticated: true, role: 'OWNER' });
-    asOwner.http.expectOne(`${API_BASE_URL}/me`).flush(null);
+    asOwner.http.expectOne(`${apiBaseUrl()}/me`).flush(null);
     expect(railControl(asOwner.element, 'Members')).toBeDefined();
   });
 
@@ -166,7 +166,7 @@ describe('App', () => {
     const { element, fixture, http } = await render({
       ready: true, authenticated: true, role: 'OWNER',
     });
-    http.expectOne(`${API_BASE_URL}/me`).flush(null);
+    http.expectOne(`${apiBaseUrl()}/me`).flush(null);
 
     railControl(element, 'Members')!.click();
     await fixture.whenStable();
@@ -178,7 +178,7 @@ describe('App', () => {
     expect(element.querySelector('router-outlet')).not.toBeNull();
 
     // The panel loads its roster on open.
-    http.expectOne(`${API_BASE_URL}/projects/1/members`).flush([]);
+    http.expectOne(`${apiBaseUrl()}/projects/1/members`).flush([]);
     await fixture.whenStable();
 
     // Dismissing puts it away again — @defer alone would leave it rendered.
@@ -193,7 +193,7 @@ describe('App', () => {
     const { element, fixture, http } = await render({
       ready: true, authenticated: true, role: 'OWNER',
     });
-    http.expectOne(`${API_BASE_URL}/me`).flush(null);
+    http.expectOne(`${apiBaseUrl()}/me`).flush(null);
 
     const picker = element.querySelector<HTMLSelectElement>('.rail__project')!;
     picker.value = 'new';
@@ -210,7 +210,7 @@ describe('App', () => {
   it('leaves the header unnamed when the profile call fails', async () => {
     const { session, fixture, element, http } = await render({ ready: true, authenticated: true });
 
-    http.expectOne(`${API_BASE_URL}/me`)
+    http.expectOne(`${apiBaseUrl()}/me`)
       .flush('nope', { status: 500, statusText: 'Server Error' });
 
     await fixture.whenStable();

@@ -6,7 +6,6 @@ import it.ghiacciolodev.vpm.task.TaskPriority;
 import it.ghiacciolodev.vpm.task.TaskStatus;
 import jakarta.validation.constraints.*;
 
-import java.time.Instant;
 import java.time.LocalDate;
 
 /**
@@ -61,24 +60,27 @@ public record TaskRequest(
     Long assigneeId,
 
     /**
-     * The updatedAt this caller last saw, for an optimistic concurrency check.
+     * The version this payload was built from.
      *
-     * Two people editing one task used to end in last-write-wins, silently:
-     * whoever pressed save second replaced the other's work with a form filled
-     * in before it existed, and nothing anywhere said so. Sending back the
-     * timestamp the form was built from lets the server notice.
+     * Required on update, and it was not always. It used to be an optional
+     * timestamp, which made the protection a convention: a client that left
+     * it out got last-write-wins with no warning, and the excuse was that
+     * requiring it would break existing callers. There are no external
+     * callers, so that excuse was doing no work.
      *
-     * Optional, and that is a real weakness rather than a convenience. A
-     * client that omits it gets the old behaviour with no warning. It is
-     * optional because requiring it would break every existing caller at once
-     * and because there are legitimate unconditional writes — but a client
-     * that means to be safe must send it, and this application always does.
+     * It is a version rather than a timestamp because the timestamp could not
+     * be reported honestly. @UpdateTimestamp is written during a flush, and
+     * the response was assembled before one was guaranteed, so a PUT handed
+     * back the value from before its own write; a client echoing that back was
+     * refused for a conflict that had not happened.
      *
-     * Not If-Unmodified-Since, which would be the obvious HTTP answer: that
-     * header carries an HTTP-date, whole seconds only, and two edits inside
-     * the same second are exactly the case being defended against.
+     * Not If-Match, which would be the tidier HTTP answer and is the obvious
+     * next step: it needs an ETag on every read and a header on every write,
+     * and the value it would carry is exactly this number.
+     *
+     * Null on create, where there is no previous version to have seen.
      */
-    Instant expectedUpdatedAt
+    Long expectedVersion
 
 ) implements DateRange {
 }

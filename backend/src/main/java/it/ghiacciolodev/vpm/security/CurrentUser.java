@@ -1,5 +1,6 @@
 package it.ghiacciolodev.vpm.security;
 
+import it.ghiacciolodev.vpm.common.exception.ConflictException;
 import it.ghiacciolodev.vpm.user.User;
 import it.ghiacciolodev.vpm.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -96,14 +97,52 @@ public class CurrentUser {
     }
 
     private User insert(Jwt jwt) {
-        String email = jwt.getClaimAsString("email");
+        String email = normalise(jwt.getClaimAsString("email"));
         String name = jwt.getClaimAsString("name");
         String sub = jwt.getSubject();
 
-        // An account may predate Keycloak — invited by email before the person
-        // ever signed in. Claiming it by email is what turns an invitation
-        // into a working login instead of a duplicate row.
-        User user = users.findByEmail(email).orElseGet(User::new);
+        /*
+         * An account may predate Keycloak: invited by email before the person
+         * ever signed in. Claiming that row by email is what turns an
+         * invitation into a working login instead of a duplicate.
+         *
+         * Only on a verified address, and that condition is the whole defence.
+         * Registration is open, so without it the sequence is: somebody is
+         * invited as an owner, anybody at all registers with their address,
+         * and on first sign-in inherits the row and every membership attached
+         * to it. The invitation would be the vulnerability rather than the
+         * feature.
+         *
+         * An unverified address falls through to a fresh row, which is the
+         * safe half of the same behaviour: the person gets an account, and
+         * somebody else's project is not part of it. The realm also sets
+         * verifyEmail, so in practice they cannot reach this point at all
+         * without having answered the message.
+         */
+        User user;
+
+        if (claimable(jwt, email)) {
+            user = users.findByEmail(email).orElseGet(User::new);
+        } else {
+            /*
+             * Not verified. The address may still be free, in which case this
+             * is an ordinary new account that simply inherits nothing.
+             *
+             * If it is taken, there is no safe answer available: claiming the
+             * row is the takeover, and inserting beside it violates the unique
+             * constraint and leaves a 500 in place of an explanation. So the
+             * sign-in is refused with the one instruction that resolves it.
+             * The realm requires verification, so reaching this at all means
+             * something upstream is configured differently from what this
+             * application expects.
+             */
+            if (users.findByEmail(email).isPresent()) {
+                throw new ConflictException(
+                    "This address is already waiting for somebody to verify it. "
+                        + "Confirm your email address, then sign in again.");
+            }
+            user = new User();
+        }
 
         user.setKeycloakSub(sub);
         user.setEmail(email);
@@ -125,6 +164,33 @@ public class CurrentUser {
 
     /* --- internals ------------------------------------------------------ */
 
+    /**
+     * Whether this token may take over a row that already holds this address.
+     *
+     * The claim is a boolean in the specification and arrives as one from
+     * Keycloak, but a claim is whatever the issuer put there: anything that is
+     * not explicitly true is treated as not verified, including absent.
+     */
+    private boolean claimable(Jwt jwt, String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        return Boolean.TRUE.equals(jwt.getClaim("email_verified"));
+    }
+
+    /**
+     * Lower-cased, because the invitation path already does it.
+     *
+     * ProjectService.invite stores the address it was given in lower case, and
+     * this is the lookup that has to match it. Keycloak happens to lower-case
+     * addresses itself, which meant the two agreed by coincidence rather than
+     * by anything written down: an identity provider that did not would break
+     * every invitation without a single error.
+     */
+    private String normalise(String email) {
+        return email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
     private Jwt jwt() {
         Authentication authentication =
             SecurityContextHolder.getContext().getAuthentication();
@@ -144,7 +210,7 @@ public class CurrentUser {
      * does not need a call to Keycloak per person.
      */
     private User syncProfile(User user, Jwt jwt) {
-        String email = jwt.getClaimAsString("email");
+        String email = normalise(jwt.getClaimAsString("email"));
         String name = jwt.getClaimAsString("name");
 
         boolean changed = false;

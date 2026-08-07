@@ -3,11 +3,11 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { ProjectService } from './project.service';
 import { Project, ProjectRole } from '../models/project.model';
 
-const URL = `${API_BASE_URL}/projects`;
+const URL = `${apiBaseUrl()}/projects`;
 
 function project(id: number, name: string, myRole: ProjectRole = 'OWNER'): Project {
   return { id, name, description: null, myRole };

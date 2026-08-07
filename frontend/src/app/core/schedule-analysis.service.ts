@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { ProjectService } from './project.service';
 import { CriticalPath, TaskSchedule } from '../models/schedule.model';
 
@@ -46,7 +46,7 @@ export class ScheduleAnalysisService {
       this._analysis.set(
         await firstValueFrom(
           this.http.get<CriticalPath>(
-            `${API_BASE_URL}/projects/${projectId}/schedule/critical-path`
+            `${apiBaseUrl()}/projects/${projectId}/schedule/critical-path`
           )
         )
       );

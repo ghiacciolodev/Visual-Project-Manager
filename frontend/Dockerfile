@@ -21,6 +21,15 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Deliberately not in conf.d/. That directory is globbed into the http block,
 # so a headers file there would be applied once implicitly and twice more by
 # the includes below it, and nginx would send every header three times.
-COPY security-headers.conf /etc/nginx/vpm-security-headers.conf
+#
+# A template, because connect-src has to name this deployment's API and
+# Keycloak. The entrypoint script below fills it in and writes config.json from
+# the same values, so the policy and the application agree by construction.
+COPY security-headers.conf.template /etc/nginx/vpm-security-headers.conf.template
+
+# nginx's own entrypoint runs everything in this directory before starting the
+# server, so there is no ENTRYPOINT to override and no way to skip it.
+COPY docker-entrypoint.d/40-vpm-runtime-config.sh /docker-entrypoint.d/40-vpm-runtime-config.sh
+RUN chmod +x /docker-entrypoint.d/40-vpm-runtime-config.sh
 
 EXPOSE 80

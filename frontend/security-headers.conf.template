@@ -38,10 +38,17 @@
 # the chart's `[style.background]` bindings need no exception either way —
 # Angular writes those through the CSSOM, which style-src does not govern.
 #
-# connect-src names the API and Keycloak by absolute URL because this build is
-# pinned to localhost, exactly as API_BASE_URL and the OIDC authority already
-# are. A real deployment templates all three from the same values.
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' http://localhost:8080 http://localhost:8081; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+# connect-src is substituted at container start from the same two environment
+# variables that produce config.json, so the policy and the application cannot
+# disagree about where the API is. They used to be written here by hand, next
+# to a bundle with the same addresses compiled into it, which meant three
+# copies of one fact and an image that only worked on the machine that built
+# it. See docker-entrypoint.d/40-vpm-runtime-config.sh.
+#
+# A mismatch here is the least helpful failure available: every request
+# blocked, nothing in the server log, and the reason only in the browser
+# console. Deriving both from one value is what removes the possibility.
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src ${CSP_CONNECT_SRC}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
 
 # Stops a browser second-guessing a Content-Type. Without it a file served as
 # text/plain that happens to contain markup can be sniffed into HTML.

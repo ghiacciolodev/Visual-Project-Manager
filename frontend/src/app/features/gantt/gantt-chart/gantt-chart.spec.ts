@@ -21,6 +21,7 @@ function task(over: Partial<Task> & { id: number }): Task {
     blockedBy: [],
     assignee: null,
     updatedAt: '2026-01-01T00:00:00Z',
+    version: 0,
     ...over,
   };
 }
@@ -166,7 +167,24 @@ describe('GanttChart', () => {
       expect(view.tableWidth()).toBe(168);
 
       view.onDividerMove({ clientX: 5000 } as PointerEvent);
-      expect(view.tableWidth()).toBe(960);
+      expect(view.tableWidth()).toBe(view.maxTableWidth());
+    });
+
+    it('measures its maximum against the window, not against a constant', () => {
+      // The mouse hides this: a pointer cannot leave the window, so dragging
+      // could never reach a width the window has no room for. The keyboard
+      // can, and a flat ceiling let enough presses push the table past the
+      // available space and leave the timeline with nothing.
+      const { view } = setup();
+
+      expect(view.maxTableWidth()).toBeLessThanOrEqual(window.innerWidth - 300);
+
+      for (let press = 0; press < 200; press++) {
+        view.onDividerKey({ key: 'ArrowRight', shiftKey: true,
+          preventDefault: () => {} } as unknown as KeyboardEvent);
+      }
+
+      expect(view.tableWidth()).toBe(view.maxTableWidth());
     });
 
     it('ignores a drag that never started', () => {

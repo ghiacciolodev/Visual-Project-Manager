@@ -74,6 +74,16 @@ NULL`, which matches every not-yet-linked row. A token without a subject
 would silently adopt somebody else's account, and the next one would adopt
 it in turn. `CurrentUser.require()` throws instead.
 
+**An invited account is claimed only on a verified address.** Somebody
+invited by email before they have ever signed in gets a placeholder row,
+and the first matching login adopts it: that is what turns an invitation
+into a working account instead of a duplicate. The matching has to be on
+`email_verified`, because registration is open. Without that condition the
+sequence is short and complete: learn that an address has been invited as
+an owner, register with it, sign in once, and the project is yours. The
+realm sets `verifyEmail` as well, so the two agree rather than one relying
+on the other.
+
 **Access tokens last fifteen minutes** and are renewed silently in the
 background from a refresh token. A rejected token sends the person back to
 Keycloak rather than showing them an error they cannot act on.
@@ -159,6 +169,21 @@ exist.
 
 **Angular escapes interpolated values by default,** and this application
 never uses `bypassSecurityTrustHtml` or `innerHTML`.
+
+**A write must name the version it was built from.** `expectedVersion` is
+required on update, so there is no unconditional write and no way to get
+last-write-wins by leaving a field out. It was optional once, which made
+the protection a convention. `@Version` puts the same number in the
+`UPDATE`'s `WHERE` clause, so the database refuses a stale write even if
+the service layer is changed to stop checking.
+
+**Adding a dependency takes the project's lock first.** The cycle check is
+check-then-act: ask whether an edge closes a loop, then insert it. Two
+requests adding opposite edges at the same moment both pass a check made
+against a graph neither has changed, and the result is a cycle that leaves
+the plan with no topological order and the critical path answering 409 on
+every read. A transaction-scoped advisory lock, keyed by project,
+serialises just that.
 
 ---
 
@@ -266,9 +291,16 @@ anything at all, and the strictness is spent where it buys the most. The
 chart's `[style.background]` bindings need no exception either way, since
 Angular writes those through the CSSOM, which `style-src` does not govern.
 
-`connect-src` names the API and Keycloak by absolute URL because this
-build is pinned to localhost, exactly as `API_BASE_URL` and the OIDC
-authority already are. A deployment templates all three from one place.
+`connect-src` names the API and Keycloak, and is substituted at container
+start from the same two environment variables that produce `config.json`.
+That is deliberate rather than convenient: a policy and an application
+that disagree about where the API lives fail in the least useful way
+available, with every request blocked, nothing in the server log, and the
+reason only in the browser console. Deriving both from one value removes
+the possibility rather than documenting it.
+
+All three used to be written by hand, and all three said localhost, so
+the image was correct on the machine that built it and nowhere else.
 
 One nginx detail, because it is the sort that fails silently: `add_header`
 inside a `location` **replaces** the inherited set rather than extending
@@ -397,30 +429,23 @@ CSRF protection back into scope. Both are decisions rather than
 oversights, and `auth.config.ts` says so at the point where the storage is
 configured.
 
-**2. The optimistic-concurrency check is opt-in.** `expectedUpdatedAt` is
-optional on `TaskRequest`. A client that omits it gets last-write-wins
-with no warning. It is optional because requiring it would break every
-existing caller at once and because unconditional writes are legitimate.
-But it means the protection is a convention rather than a guarantee. This
-application always sends it.
-
-**3. Rate-limit buckets are in memory, per instance.** Two instances
+**2. Rate-limit buckets are in memory, per instance.** Two instances
 behind a load balancer mean two allowances. A restart forgives everybody.
 Acceptable for a burst limit; it would not be for a quota. A shared store
 (Redis, or Bucket4j's JDBC backend) is the fix.
 
-**4. The Keycloak development stack is not hardened.** `start-dev`
+**3. The Keycloak development stack is not hardened.** `start-dev`
 disables HTTPS enforcement, the realm sets `sslRequired: none`, and the
 bootstrap administrator is `admin`/`admin` from `docker-compose.yml`.
 These are development settings; a deployment uses `start` with a
 certificate and an administrator that is not in a file.
 
-**5. Registration is open.** `registrationAllowed: true` on the realm, so
+**4. Registration is open.** `registrationAllowed: true` on the realm, so
 anybody who can reach the sign-in screen can create an account and create
 projects. Correct for a demo people are invited to try; a real deployment
 would restrict registration to an identity provider or an invitation.
 
-**6. Inviting somebody tells you whether their address has an account.**
+**5. Inviting somebody tells you whether their address has an account.**
 `POST /projects/{id}/members` answers with `signedUp` and, for an address
 that already exists, that person's real display name rather than the email
 that was submitted. So anybody who can create a project, which with open
@@ -437,23 +462,33 @@ patch. Slack, Notion and Linear all behave the way this does, which
 explains the choice without excusing it. The ceilings above bound how far
 the enumeration scales; they do not close it.
 
-**7. The demo seed writes directly to the database.** `scripts/demo/`
+What used to sit on the end of this was worse than disclosure, and is
+fixed. Provisioning claims a placeholder row by email, so an invitation
+was inheritable by whoever presented the address; with registration open,
+that meant reading who had been invited and then registering as them. It
+now claims a row only on a **verified** address, and the realm sets
+`verifyEmail`. An unverified token meeting a placeholder is refused rather
+than being given a second row, because the address is unique and the
+alternative was a 500 with no explanation. `PlaceholderClaimIT` pins all
+three paths.
+
+**6. The demo seed writes directly to the database.** `scripts/demo/`
 takes the Keycloak bootstrap admin and a database container name and
 bypasses the API entirely. That is the only way to seed a history with
 dates in the past, and also why it must never be pointed at anything real.
 
-**8. The audit log is append-only by convention, not by grant.** Nothing
+**7. The audit log is append-only by convention, not by grant.** Nothing
 in the application deletes or updates a row in `audit_log`, and no
 endpoint exposes a way to. But the application's database user is the
 owner of the table and could. A real tamper-evident log needs either a
 restricted grant or somewhere the application cannot write at all.
 
-**9. Soft-deleted tasks are kept forever.** `deleted_at` is set and the row
+**8. Soft-deleted tasks are kept forever.** `deleted_at` is set and the row
 stays, deliberately: it is what keeps dependency references and history
 readable. There is no retention policy, and under GDPR "we keep it
 indefinitely because it was convenient" is not one of the lawful bases.
 
-**10. Four advisories in the dependency tree**, two moderate and two high
+**9. Four advisories in the dependency tree**, two moderate and two high
 as of the last `npm audit`. All four (`undici`, `hono`, `fast-uri`) arrive
 through `@angular/build` and `@angular/cli`, which are `devDependencies`:
 they are part of the build toolchain and none of them reaches the shipped

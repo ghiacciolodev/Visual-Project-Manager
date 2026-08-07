@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { ProjectService } from './project.service';
 import { Member, ProjectRole } from '../models/project.model';
 import { ProblemDetail } from '../models/task.model';
@@ -44,7 +44,7 @@ export class MemberService {
     if (projectId === null) {
       throw new Error('No project selected');
     }
-    return `${API_BASE_URL}/projects/${projectId}/members`;
+    return `${apiBaseUrl()}/projects/${projectId}/members`;
   }
 
   async load(): Promise<void> {
@@ -138,7 +138,7 @@ export class MemberService {
   async leave(projectId: number, userId: number): Promise<void> {
     try {
       await firstValueFrom(
-        this.http.delete<void>(`${API_BASE_URL}/projects/${projectId}/members/${userId}`)
+        this.http.delete<void>(`${apiBaseUrl()}/projects/${projectId}/members/${userId}`)
       );
     } catch (err) {
       throw this.toError(err);

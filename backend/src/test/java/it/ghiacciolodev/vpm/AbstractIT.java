@@ -74,9 +74,24 @@ public abstract class AbstractIT {
      * makes just-in-time provisioning observable.
      */
     protected static JwtRequestPostProcessor as(String username) {
+        return as(username, true);
+    }
+
+    /**
+     * The same, with the verification state of the address spelled out.
+     *
+     * It matters because provisioning claims an invited placeholder row by
+     * email, and only does so for a verified address: registration is open, so
+     * an unverified claim would let anybody who registers somebody else's
+     * address inherit their memberships. Almost every test wants the verified
+     * token, because that is what Keycloak issues once the realm requires
+     * verification.
+     */
+    protected static JwtRequestPostProcessor as(String username, boolean emailVerified) {
         return jwt().jwt(token -> token
             .subject("sub-" + username)
             .claim("email", username + "@example.com")
+            .claim("email_verified", emailVerified)
             .claim("name", username));
     }
 
@@ -124,6 +139,24 @@ public abstract class AbstractIT {
             .andReturn().getResponse().getContentAsString();
 
         return ((Number) JsonPath.read(body, "$.id")).longValue();
+    }
+
+    /**
+     * The version a client would have read before writing.
+     *
+     * Every update has to quote one now, so nearly every suite needs this. It
+     * lives here rather than being copied per test because a helper that fakes
+     * the number would defeat the check it is quoting.
+     */
+    protected int versionOf(String username, Long projectId, Long taskId) throws Exception {
+        String body = mockMvc.perform(
+                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                    .get("/api/v1/projects/{p}/tasks/{t}", projectId, taskId)
+                    .with(as(username)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        return JsonPath.read(body, "$.version");
     }
 
     /** Makes predecessor a prerequisite of task. */

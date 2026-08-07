@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,32 @@ public class DependencyGraphRepository {
 
     public DependencyGraphRepository(NamedParameterJdbcTemplate jdbc) {
         this.jdbc = jdbc;
+    }
+
+    /**
+     * Takes the project's lock for the rest of the transaction.
+     *
+     * Adding an edge is check-then-act: ask whether it would close a cycle,
+     * then insert. Two requests adding opposite edges at the same moment both
+     * pass a check made against a graph that neither of them has changed yet,
+     * and the result is a cycle the check exists to prevent. The plan then has
+     * no topological order, so every read of the critical path answers 409 and
+     * the chart stops drawing until somebody deletes one of the two edges.
+     *
+     * An advisory lock rather than SELECT ... FOR UPDATE on the project row:
+     * nothing here is updating that row, and locking it to protect a different
+     * table reads as a mistake to whoever meets it next. Advisory locks say
+     * what they are. Transaction-scoped, so it is released at commit or
+     * rollback with nothing to remember.
+     *
+     * Serialised per project, which is the granularity that matters: two
+     * people editing two different plans never wait for each other.
+     */
+    public void lockProject(Long projectId) {
+        jdbc.queryForObject(
+            "SELECT pg_advisory_xact_lock(:key)",
+            new MapSqlParameterSource("key", projectId),
+            Object.class);
     }
 
     /**
@@ -94,6 +121,46 @@ public class DependencyGraphRepository {
         Map<Long, List<TaskRef>> bySuccessor = new HashMap<>();
 
         jdbc.query(sql, new MapSqlParameterSource("projectId", projectId), rs -> {
+            Long successorId = rs.getLong("successor_id");
+            TaskRef ref = new TaskRef(
+                rs.getLong("predecessor_id"),
+                rs.getString("predecessor_title"),
+                TaskStatus.valueOf(rs.getString("predecessor_status"))
+            );
+            bySuccessor.computeIfAbsent(successorId, key -> new ArrayList<>()).add(ref);
+        });
+
+        return bySuccessor;
+    }
+
+    /**
+     * Predecessors of a given set of tasks, in one query.
+     *
+     * The by-project version above is right when the whole plan is being read.
+     * A page is a different question: asking it project-wide would fetch the
+     * graph of two thousand tasks to decorate ten, which is the cost the
+     * paging exists to avoid.
+     */
+    public Map<Long, List<TaskRef>> findPredecessorsByTaskIds(Collection<Long> taskIds) {
+        if (taskIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String sql = """
+                SELECT d.successor_id AS successor_id,
+                       p.id           AS predecessor_id,
+                       p.title        AS predecessor_title,
+                       p.status       AS predecessor_status
+                FROM task_dependencies d
+                JOIN tasks p ON p.id = d.predecessor_id
+                WHERE d.successor_id IN (:taskIds)
+                  AND p.deleted_at IS NULL
+                ORDER BY p.start_date, p.id
+                """;
+
+        Map<Long, List<TaskRef>> bySuccessor = new HashMap<>();
+
+        jdbc.query(sql, new MapSqlParameterSource("taskIds", taskIds), rs -> {
             Long successorId = rs.getLong("successor_id");
             TaskRef ref = new TaskRef(
                 rs.getLong("predecessor_id"),

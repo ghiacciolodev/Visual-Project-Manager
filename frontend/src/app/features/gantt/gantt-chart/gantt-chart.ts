@@ -79,6 +79,9 @@ const DAY_WIDTH: Record<Zoom, number> = {
  */
 const PRINT_WIDTH_PX = 1040;
 
+/** Narrowest the table goes: still enough for a row number and a name. */
+const MIN_TABLE_WIDTH = 168;
+
 /**
  * Row height in pixels. Declared here and pushed into CSS as a custom property
  * rather than duplicated in the stylesheet: the connector geometry is computed
@@ -237,6 +240,21 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
       // The rail takes 208px of it, and gives them back below the width where
       // it lies down across the top.
       : Math.max(this.viewportWidth() - (this.viewportWidth() > 900 ? 208 : 0), 168)
+  );
+
+  /**
+   * The widest the table may be.
+   *
+   * A flat 960 for a long time, which the mouse hid: the pointer cannot leave
+   * the window, so dragging could never reach a width the window had no room
+   * for. The keyboard can. Enough presses of ArrowRight pushed the table past
+   * the available space on a narrow window and left the timeline with nothing.
+   *
+   * Measured against the window as the opening width already was, so the two
+   * agree instead of one being generous where the other was careful.
+   */
+  readonly maxTableWidth = computed(() =>
+    Math.max(Math.min(960, this.viewportWidth() - 300), MIN_TABLE_WIDTH)
   );
 
   /**
@@ -548,10 +566,12 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     void this.taskService.load();
     this.taskService.startPolling();
 
-    // Only where the window is what decides the columns. Beside a timeline the
-    // divider decides, and listening would be answering a question nobody
-    // asked.
-    if (!this.showTimeline) window.addEventListener('resize', this.onResize);
+    // On both routes now. It used to be only where the window decides the
+    // columns, on the argument that beside a timeline the divider decides and
+    // listening answered a question nobody asked. The question is asked: the
+    // divider's own maximum is measured against the window, and without this
+    // it would go on quoting the width the window had when the view opened.
+    window.addEventListener('resize', this.onResize);
 
     window.addEventListener('beforeprint', this.onBeforePrint);
     window.addEventListener('afterprint', this.onAfterPrint);
@@ -774,7 +794,9 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     const left = this.scroller()?.nativeElement.getBoundingClientRect().left ?? 0;
     // Floors at a width that still fits a number and a name, and stops well
     // short of the full pane so the timeline never disappears entirely.
-    const width = Math.min(Math.max(event.clientX - left, 168), 960);
+    const width = Math.min(
+      Math.max(event.clientX - left, MIN_TABLE_WIDTH),
+      this.maxTableWidth());
     this.tableWidth.set(Math.round(width));
   }
 
@@ -788,9 +810,9 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
   onDividerKey(event: KeyboardEvent): void {
     const step = event.shiftKey ? 96 : 24;
     if (event.key === 'ArrowLeft') {
-      this.tableWidth.update(w => Math.max(w - step, 168));
+      this.tableWidth.update(w => Math.max(w - step, MIN_TABLE_WIDTH));
     } else if (event.key === 'ArrowRight') {
-      this.tableWidth.update(w => Math.min(w + step, 960));
+      this.tableWidth.update(w => Math.min(w + step, this.maxTableWidth()));
     } else {
       return;
     }

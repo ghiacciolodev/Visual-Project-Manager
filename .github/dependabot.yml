@@ -1,0 +1,36 @@
+# Weekly rather than daily, and grouped rather than one pull request per
+# package. A dependency bot that opens fifteen separate pull requests every
+# morning is one whose notifications get muted, and a muted bot is worse than
+# none: it looks like the problem is covered.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      angular:
+        patterns: ['@angular/*', 'zone.js', 'typescript']
+      everything-else:
+        patterns: ['*']
+        exclude-patterns: ['@angular/*', 'zone.js', 'typescript']
+
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      spring:
+        patterns: ['org.springframework*']
+      everything-else:
+        patterns: ['*']
+        exclude-patterns: ['org.springframework*']
+
+  # The workflow's own actions go stale silently, and a pinned action that has
+  # been deprecated fails the day the runner image changes rather than the day
+  # it was deprecated.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

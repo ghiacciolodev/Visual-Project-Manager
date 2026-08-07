@@ -3,13 +3,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { MemberService, MembershipConflict } from './member.service';
 import { ProjectService } from './project.service';
 import { Member } from '../models/project.model';
 
 const PROJECT = 42;
-const URL = `${API_BASE_URL}/projects/${PROJECT}/members`;
+const URL = `${apiBaseUrl()}/projects/${PROJECT}/members`;
 
 function member(overrides: Partial<Member> = {}): Member {
   return {

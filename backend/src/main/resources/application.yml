@@ -97,13 +97,11 @@ app:
     # OIDC discovery can find the keys on its own.
     jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
 
-logging:
-  level:
-    it: DEBUG
-
 ---
 # ============================================================
-# dev profile: shows the generated SQL
+# dev profile: shows the generated SQL and this application's
+# own reasoning. The default when nothing says otherwise, which
+# is what a developer starting the app locally wants.
 # ============================================================
 spring:
   config:
@@ -115,4 +113,29 @@ spring:
 
 logging:
   level:
+    it: DEBUG
     org.hibernate.SQL: DEBUG
+
+---
+# ============================================================
+# prod profile: quiet.
+#
+# Added because the containers were running the dev one. Nothing in
+# docker-compose.yml set a profile, spring.profiles.default is dev, and
+# logging.level.it: DEBUG sat in the base section where every profile
+# inherited it — so a containerised backend logged every statement it
+# executed, complete with the parameters.
+# ============================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: INFO
+    it: INFO
+    org.hibernate.SQL: WARN

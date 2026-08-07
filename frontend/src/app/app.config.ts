@@ -8,10 +8,12 @@ import {
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { provideAuth } from 'angular-auth-oidc-client';
+import { firstValueFrom } from 'rxjs';
 
 import { routes } from './app.routes';
 import { authConfig } from './core/auth.config';
 import { authInterceptor } from './core/auth.interceptor';
+import { runtimeConfig$ } from './core/runtime-config';
 import { SessionService } from './core/session.service';
 
 export const appConfig: ApplicationConfig = {
@@ -36,6 +38,14 @@ export const appConfig: ApplicationConfig = {
     // in-flight callback is about to be validated against. The exchange then
     // fails on a state mismatch, silently, leaving an authorization code
     // sitting unused in the address bar.
-    provideAppInitializer(() => inject(SessionService).check()),
+    //
+    // config.json is awaited first. The OIDC library waits for its own loader
+    // without help, but everything else reads apiBaseUrl() synchronously, and
+    // a service constructed before the fetch resolves would hold the
+    // development default for the life of the page.
+    provideAppInitializer(() => {
+      const session = inject(SessionService);
+      return firstValueFrom(runtimeConfig$).then(() => session.check());
+    }),
   ],
 };

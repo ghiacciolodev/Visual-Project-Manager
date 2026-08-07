@@ -23,6 +23,9 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ProjectService {
 
+    private static final org.slf4j.Logger log =
+        org.slf4j.LoggerFactory.getLogger(ProjectService.class);
+
     private final ProjectRepository projects;
     private final ProjectMemberRepository members;
     private final UserRepository users;
@@ -144,11 +147,31 @@ public class ProjectService {
             access.roleIn(projectId));
     }
 
+    /**
+     * Deletes the project and everything hanging off it.
+     *
+     * No audit entry, and that is not an omission that can be fixed by adding
+     * one: audit_log is scoped by project and cascades with it, so a row
+     * written here would be deleted by the same statement that provoked it.
+     * The history of a deleted project is gone by construction, which is a
+     * consequence of hard-deleting projects rather than of forgetting to log.
+     *
+     * So it goes to the application log, where it survives, with enough to
+     * identify what went and who asked. Making it recoverable would mean soft
+     * deletion for projects, and that is a feature with a restore screen
+     * attached to it.
+     */
     @Transactional
     @PreAuthorize("@access.canAdminister(#projectId)")
     public void delete(Long projectId) {
-        // Tasks, dependencies and memberships go with it: every foreign key
-        // pointing at a project is ON DELETE CASCADE in V1.
+        Project project = projects.findById(projectId)
+            .orElseThrow(() -> new NotFoundException("Project " + projectId + " not found"));
+
+        log.info("Project {} (\"{}\") deleted by user {}, with its tasks, members and history",
+            projectId, project.getName(), currentUser.require().getId());
+
+        // Tasks, dependencies, memberships and the audit log go with it: every
+        // foreign key pointing at a project is ON DELETE CASCADE.
         projects.deleteById(projectId);
     }
 

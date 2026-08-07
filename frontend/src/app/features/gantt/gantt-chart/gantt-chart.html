@@ -344,7 +344,7 @@
                aria-label="Width of the task table"
                [attr.aria-valuenow]="tableWidth()"
                aria-valuemin="168"
-               aria-valuemax="960"
+               [attr.aria-valuemax]="maxTableWidth()"
                (pointerdown)="onDividerDown($event)"
                (pointermove)="onDividerMove($event)"
                (pointerup)="onDividerUp($event)"

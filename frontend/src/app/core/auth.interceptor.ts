@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
 import { catchError, switchMap, take, throwError } from 'rxjs';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 
 /**
  * Attaches the access token to API calls.
@@ -15,7 +15,7 @@ import { API_BASE_URL } from './api.config';
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
-  if (!req.url.startsWith(API_BASE_URL)) {
+  if (!req.url.startsWith(apiBaseUrl())) {
     return next(req);
   }
 

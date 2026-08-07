@@ -48,13 +48,18 @@ export interface Task {
    */
   assignee: Assignee | null;
 
-  /**
-   * When the server last changed this task.
-   *
-   * Handed back on the next write so the server can tell whether anybody got
-   * there first. Opaque to the client — it is compared, never interpreted.
-   */
+  /** When the server last changed this task. Shown, never used to decide. */
   updatedAt: string;
+
+  /**
+   * Handed back on the next write so the server can tell whether anybody got
+   * there first. Opaque to the client: it is compared, never interpreted.
+   *
+   * This was updatedAt until a PUT was found to answer with the timestamp
+   * from before its own write, so two edits in a row were refused as a
+   * conflict with nobody else involved.
+   */
+  version: number;
 }
 
 /** Matches TaskRequest. No id: the server assigns it. */
@@ -69,11 +74,13 @@ export interface TaskRequest {
   assigneeId: number | null;
 
   /**
-   * The updatedAt this payload was built from, or null for an unconditional
-   * write. Always sent from here: omitting it restores last-write-wins, and
-   * silently.
+   * The version this payload was built from. Null only on create, where
+   * there is no previous version to have read.
+   *
+   * The server requires it on update now, so leaving it out is refused
+   * rather than quietly restoring last-write-wins.
    */
-  expectedUpdatedAt: string | null;
+  expectedVersion: number | null;
 }
 
 /**

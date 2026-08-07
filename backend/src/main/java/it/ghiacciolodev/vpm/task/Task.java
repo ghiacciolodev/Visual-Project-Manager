@@ -73,6 +73,26 @@ public class Task {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /**
+     * The optimistic lock, and the reason updatedAt is no longer it.
+     *
+     * @UpdateTimestamp is written during a flush. A response assembled
+     * before the flush therefore carried the value the row held *before* the
+     * write, and a client that echoed it back on its next edit was told
+     * somebody else had got there first. Two consecutive edits of the same
+     * task produced a 409 with one person at the keyboard.
+     *
+     * @Version is handled by Hibernate rather than by a comparison this code
+     * has to remember to make: it goes into the UPDATE's WHERE clause, so a
+     * write built from a stale read fails at the database even if the service
+     * above forgets to check. The service still checks, because a checked
+     * refusal can say something useful and an ObjectOptimisticLockingFailure
+     * cannot.
+     */
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     // Soft delete marker. Rows are never physically removed: dependency rows
     // keep pointing at valid tasks, and a history view stays possible.
     @Column(name = "deleted_at")

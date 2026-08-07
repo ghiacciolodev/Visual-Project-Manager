@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { ProjectService } from './project.service';
 import { AuditEntry } from '../models/audit.model';
 import { ProblemDetail } from '../models/task.model';
@@ -34,7 +34,7 @@ export class AuditService {
     if (projectId === null) {
       throw new Error('No project selected');
     }
-    return `${API_BASE_URL}/projects/${projectId}/audit`;
+    return `${apiBaseUrl()}/projects/${projectId}/audit`;
   }
 
   /**

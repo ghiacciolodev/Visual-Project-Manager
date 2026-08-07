@@ -30,6 +30,19 @@ class AssigneeApiIT extends AbstractIT {
           "assigneeId": %s
         }""";
 
+    /** The same, with the version an update has to quote. */
+    private static final String EDIT = """
+        {
+          "title": "%s",
+          "status": "TODO",
+          "priority": "MEDIUM",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-05",
+          "color": "#3B82F6",
+          "assigneeId": %s,
+          "expectedVersion": %s
+        }""";
+
     /** The caller's own user id, read back from the member list. */
     private Long userIdOf(String username, Long project) throws Exception {
         String body = mockMvc.perform(get("/api/v1/projects/{p}/members", project)
@@ -137,7 +150,8 @@ class AssigneeApiIT extends AbstractIT {
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", project, task)
                 .with(as("owen"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(TASK.formatted("Mine for now", "null")))
+                .content(EDIT.formatted("Mine for now", "null",
+                    versionOf("owen", project, task))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.assignee").doesNotExist());
     }

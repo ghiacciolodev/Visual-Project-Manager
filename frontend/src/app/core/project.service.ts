@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { API_BASE_URL } from './api.config';
+import { apiBaseUrl } from './api.config';
 import { Project } from '../models/project.model';
 import { ProblemDetail } from '../models/task.model';
 
@@ -19,7 +19,7 @@ import { ProblemDetail } from '../models/task.model';
 export class ProjectService {
 
   private readonly http = inject(HttpClient);
-  private readonly url = `${API_BASE_URL}/projects`;
+  private readonly url = `${apiBaseUrl()}/projects`;
 
   private readonly _projects = signal<Project[]>([]);
   private readonly _currentId = signal<number | null>(null);

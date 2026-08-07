@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-import { API_BASE_URL } from './core/api.config';
+import { apiBaseUrl } from './core/api.config';
 import { Profile, SessionService } from './core/session.service';
 import { MemberService } from './core/member.service';
 import { ProjectService } from './core/project.service';
@@ -214,7 +214,7 @@ export class App {
   private async loadProfile(): Promise<void> {
     try {
       const profile = await firstValueFrom(
-        this.http.get<Profile>(`${API_BASE_URL}/me`)
+        this.http.get<Profile>(`${apiBaseUrl()}/me`)
       );
       this.session.setProfile(profile);
     } catch {

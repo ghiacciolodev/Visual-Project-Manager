@@ -41,9 +41,10 @@ class DependencyApiIT extends AbstractIT {
                   "priority": "MEDIUM",
                   "startDate": "2026-08-11",
                   "endDate": "2026-08-21",
-                  "color": "#15803D"
+                  "color": "#15803D",
+                  "expectedVersion": %s
                 }
-                """;
+                """.formatted(versionOf("rhea", project, ui));
 
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", project, ui)
                 .with(as("rhea"))

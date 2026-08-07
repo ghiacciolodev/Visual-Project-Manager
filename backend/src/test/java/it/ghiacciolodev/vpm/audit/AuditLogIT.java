@@ -29,6 +29,18 @@ class AuditLogIT extends AbstractIT {
           "color": "#3B82F6"
         }""";
 
+    /** The same payload with the version a caller must quote to update. */
+    private static final String EDIT = """
+        {
+          "title": "%s",
+          "status": "%s",
+          "priority": "%s",
+          "startDate": "%s",
+          "endDate": "%s",
+          "color": "#3B82F6",
+          "expectedVersion": %s
+        }""";
+
     private List<String> summariesFor(String username, Long project) throws Exception {
         String body = mockMvc.perform(get("/api/v1/projects/{p}/audit", project)
                 .with(as(username)))
@@ -60,8 +72,8 @@ class AuditLogIT extends AbstractIT {
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", project, task)
                 .with(as("au-bea"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(TASK.formatted("Draft the spec", "DOING", "HIGH",
-                    "2026-09-03", "2026-09-08")))
+                .content(EDIT.formatted("Draft the spec", "DOING", "HIGH",
+                    "2026-09-03", "2026-09-08", versionOf("au-bea", project, task))))
             .andExpect(status().isOk());
 
         // The point of writing history from the code that makes the change:
@@ -87,8 +99,8 @@ class AuditLogIT extends AbstractIT {
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", project, task)
                 .with(as("au-cass"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(TASK.formatted("Unchanged", "TODO", "MEDIUM",
-                    "2026-09-01", "2026-09-05")))
+                .content(EDIT.formatted("Unchanged", "TODO", "MEDIUM",
+                    "2026-09-01", "2026-09-05", versionOf("au-cass", project, task))))
             .andExpect(status().isOk());
 
         assert summariesFor("au-cass", project).size() == before;
@@ -106,8 +118,9 @@ class AuditLogIT extends AbstractIT {
         mockMvc.perform(put("/api/v1/projects/{p}/tasks/{t}", plan.project(), plan.ui())
                 .with(as("au-dev"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(TASK.formatted("Build the interface", "DONE", "MEDIUM",
-                    "2026-09-01", "2026-09-05")))
+                .content(EDIT.formatted("Build the interface", "DONE", "MEDIUM",
+                    "2026-09-01", "2026-09-05",
+                    versionOf("au-dev", plan.project(), plan.ui()))))
             .andExpect(status().isConflict());
 
         assert summariesFor("au-dev", plan.project()).size() == before;

@@ -1,4 +1,10 @@
-import { LogLevel, PassedInitialConfig } from 'angular-auth-oidc-client';
+import {
+  PassedInitialConfig,
+  StsConfigHttpLoader,
+  StsConfigLoader,
+} from 'angular-auth-oidc-client';
+
+import { oidcConfig$ } from './runtime-config';
 
 /**
  * OpenID Connect settings for the Keycloak realm.
@@ -7,34 +13,21 @@ import { LogLevel, PassedInitialConfig } from 'angular-auth-oidc-client';
  * a browser, where a secret in the bundle is readable by anyone who opens the
  * developer tools. PKCE replaces it with a per-request proof that only the
  * initiating tab can produce.
+ *
+ * Loaded rather than declared. The settings used to be a literal here with
+ * Keycloak's address written into it, which compiled localhost into the image
+ * and made the build correct on exactly one machine. StsConfigHttpLoader takes
+ * an observable and the library waits for it, so the values can come from
+ * config.json alongside the API's address, from one file the container writes
+ * at start-up.
+ *
+ * The shape of the configuration lives in runtime-config.ts, next to the fetch
+ * that feeds it, so there is one place to read to know what the application
+ * needs to be told about its surroundings.
  */
 export const authConfig: PassedInitialConfig = {
-  config: {
-    authority: 'http://localhost:8081/realms/vpm',
-    clientId: 'vpm-frontend',
-
-    // Keycloak redirects back here after sign-in; the library reads the code
-    // out of the URL and exchanges it for tokens.
-    redirectUrl: window.location.origin,
-    postLogoutRedirectUri: window.location.origin,
-
-    scope: 'openid profile email',
-    responseType: 'code',
-
-    // Refreshes the access token in the background, so a fifteen-minute
-    // lifetime never interrupts someone mid-edit.
-    silentRenew: true,
-    useRefreshToken: true,
-    renewTimeBeforeTokenExpiresInSeconds: 60,
-
-    // Tokens live in sessionStorage, which is the library's default and worth
-    // being explicit about: they are cleared when the tab closes, are not
-    // shared with other tabs, and remain reachable by injected script. The
-    // mitigations here are a short access-token lifetime and Angular's own
-    // escaping; the structural fix is a backend-for-frontend holding the
-    // refresh token in an httpOnly cookie, which is out of scope for this
-    // project and named in SECURITY.md as such.
-
-    logLevel: LogLevel.Warn,
+  loader: {
+    provide: StsConfigLoader,
+    useFactory: () => new StsConfigHttpLoader(oidcConfig$),
   },
 };

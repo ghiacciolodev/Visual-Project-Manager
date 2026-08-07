@@ -180,7 +180,7 @@ export class TaskForm implements OnInit {
         assigneeId: assigneeId ? Number(assigneeId) : null,
         // The version the form was filled in against. Null when creating,
         // where there is nothing yet to be stale against.
-        expectedUpdatedAt: this.task()?.updatedAt ?? null,
+        expectedVersion: this.task()?.version ?? null,
       },
       dependencies: this.picked().map(ref => ref.id),
     });

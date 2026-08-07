@@ -13,6 +13,8 @@ import it.ghiacciolodev.vpm.task.dto.TaskRequest;
 import it.ghiacciolodev.vpm.task.dto.TaskResponse;
 import it.ghiacciolodev.vpm.user.User;
 import it.ghiacciolodev.vpm.user.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,6 +90,30 @@ public class TaskService {
             .toList();
     }
 
+    /**
+     * One page of a project's tasks.
+     *
+     * Separate from findAll rather than a parameter on it, because the two
+     * genuinely differ in what they fetch: the whole plan wants the dependency
+     * graph in one query, and a page wants the edges of ten rows. Sharing a
+     * method would mean the page paying the project's cost, which is what the
+     * previous version did by reading everything and calling subList.
+     */
+    @PreAuthorize("@access.canView(#projectId)")
+    public Page<TaskResponse> findPage(Long projectId, Pageable pageable) {
+        Page<Task> page = repository.findByProjectIdAndDeletedAtIsNull(projectId, pageable);
+
+        Map<Long, List<TaskRef>> predecessors =
+            graph.findPredecessorsByTaskIds(page.map(Task::getId).toList());
+
+        Map<Long, AssigneeRef> assignees = assigneesOf(page.getContent());
+
+        return page.map(task -> TaskResponse.from(
+            task,
+            predecessors.getOrDefault(task.getId(), List.of()),
+            task.getAssigneeId() == null ? null : assignees.get(task.getAssigneeId())));
+    }
+
     @PreAuthorize("@access.canView(#projectId)")
     public TaskResponse findById(Long projectId, Long id) {
         Task task = loadOrThrow(projectId, id);
@@ -149,11 +175,35 @@ public class TaskService {
                 "\"%s\": %s".formatted(task.getTitle(), changed));
         }
 
-        // No explicit save(): the entity is managed inside the transaction and
-        // Hibernate flushes the changes on commit.
-        return TaskResponse.from(task, graph.findPredecessors(id), assigneeOf(task));
+        // saveAndFlush, and this is the line the whole version column exists
+        // for. Both updatedAt and version are written by Hibernate during a
+        // flush, so a response assembled before one reports the values from
+        // before this write. Nothing else here forces a flush reliably:
+        // findPredecessors goes through JdbcTemplate, and the audit insert
+        // writes only its own row.
+        Task saved = repository.saveAndFlush(task);
+
+        return TaskResponse.from(saved, graph.findPredecessors(id), assigneeOf(saved));
     }
 
+    /**
+     * Marks a task deleted, and cuts its edges for real.
+     *
+     * Worth being straight about, because the schema comment in V1 is not: it
+     * says soft deletion "keeps dependency references intact", and this method
+     * physically removes every one of them. Both halves are deliberate and
+     * they do not add up to a restore.
+     *
+     * The edges have to go. A soft-deleted row still exists, so ON DELETE
+     * CASCADE never fires for it, and an edge left behind goes on blocking a
+     * successor on behalf of a task nobody can see or finish.
+     *
+     * What the surviving row is actually for is reference, not recovery: the
+     * audit log names tasks, and a foreign key elsewhere still resolves. There
+     * is no restore endpoint and undeleting one would not bring its
+     * prerequisites back. SECURITY.md lists the retention question this
+     * leaves open.
+     */
     @Transactional
     @PreAuthorize("@access.canEdit(#projectId)")
     public void delete(Long projectId, Long id) {
@@ -170,6 +220,12 @@ public class TaskService {
     @Transactional
     @PreAuthorize("@access.canEdit(#projectId)")
     public TaskResponse addDependency(Long projectId, Long taskId, Long predecessorId) {
+        // First, and before anything is read. What follows is check-then-act:
+        // ask whether this edge closes a cycle, then insert it. Two requests
+        // adding opposite edges at once would both be told no cycle exists,
+        // because neither has written yet.
+        graph.lockProject(projectId);
+
         Task task = loadOrThrow(projectId, taskId);
         // Loaded through the same project filter, so an edge can never reach
         // across into somebody else's plan.
@@ -212,13 +268,22 @@ public class TaskService {
     public TaskResponse removeDependency(Long projectId, Long taskId, Long predecessorId) {
         Task task = loadOrThrow(projectId, taskId);
 
+        // Loaded for its title alone, and worth the query. The entry used to
+        // read "no longer waits for task 34", which is a sentence nobody can
+        // act on without going to look up 34 — in a log whose only job is to
+        // be readable later.
+        String predecessor = repository
+            .findByIdAndProjectIdAndDeletedAtIsNull(predecessorId, projectId)
+            .map(Task::getTitle)
+            .orElse("a task that has since been deleted");
+
         if (!graph.unlink(predecessorId, taskId)) {
             throw new NotFoundException(
                 "Task %d does not depend on task %d".formatted(taskId, predecessorId));
         }
 
         audit.record(projectId, AuditEntity.DEPENDENCY, taskId, AuditAction.DELETE,
-            "\"%s\" no longer waits for task %d".formatted(task.getTitle(), predecessorId));
+            "\"%s\" no longer waits for \"%s\"".formatted(task.getTitle(), predecessor));
 
         return TaskResponse.from(task, graph.findPredecessors(taskId), assigneeOf(task));
     }
@@ -231,18 +296,26 @@ public class TaskService {
      * Two people editing one task ended in last-write-wins, silently: whoever
      * saved second overwrote the other with a form filled in before their
      * change existed, and nothing said so. The person whose work disappeared
-     * had no way to find out — the schedule only ever shows the current state.
+     * had no way to find out, because the schedule only ever shows the current
+     * state.
      *
-     * Compared by equality rather than by "is older", deliberately. A clock
-     * that steps backwards, or two application instances a few milliseconds
-     * apart, would make an ordering test quietly accept a stale write. The
-     * question here is not "is this newer" but "is this the same task I read".
+     * Required rather than optional now. While it was optional the guarantee
+     * was a convention: any client could omit the field and get the old
+     * behaviour without being told.
+     *
+     * This check is not the only line of defence, and it is not the strongest
+     * one. @Version puts the same number in the UPDATE's WHERE clause, so a
+     * stale write fails at the database whatever this method does. What the
+     * check adds is a sentence the reader can act on, where Hibernate's own
+     * failure is a stack trace about an optimistic lock.
      */
     private void assertNobodyGotHereFirst(Task task, TaskRequest request) {
-        if (request.expectedUpdatedAt() == null) {
-            return;
+        if (request.expectedVersion() == null) {
+            throw new ConflictException(
+                "This save did not say which version of the task it was built from. "
+                    + "Reload the task and try again.");
         }
-        if (!request.expectedUpdatedAt().equals(task.getUpdatedAt())) {
+        if (!request.expectedVersion().equals(task.getVersion())) {
             throw new ConflictException(
                 "Somebody else changed this task while you were editing it. "
                     + "Reload to see their version before saving yours.");
@@ -312,6 +385,17 @@ public class TaskService {
 
         if (!task.getTitle().equals(request.title())) {
             changes.add("renamed to \"%s\"".formatted(request.title()));
+        }
+        // Not the text itself, which can be two thousand characters and would
+        // fill the panel with one entry. That somebody rewrote the notes is
+        // the part a reader needs; what they wrote is on the task.
+        if (!Objects.equals(task.getDescription(), request.description())) {
+            changes.add(request.description() == null || request.description().isBlank()
+                ? "notes cleared"
+                : "notes edited");
+        }
+        if (!task.getColor().equalsIgnoreCase(request.color())) {
+            changes.add("colour %s → %s".formatted(task.getColor(), request.color()));
         }
         if (task.getStatus() != request.status()) {
             changes.add("%s → %s".formatted(task.getStatus(), request.status()));
