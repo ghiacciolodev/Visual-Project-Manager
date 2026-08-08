@@ -2,6 +2,13 @@
 # package. A dependency bot that opens fifteen separate pull requests every
 # morning is one whose notifications get muted, and a muted bot is worse than
 # none: it looks like the problem is covered.
+#
+# Minor and patch only. The first run of this file opened five pull requests
+# and two were red, because grouping without restricting the update type let
+# Angular 21 to 22 and TypeScript 5.9 to 7.0 arrive as a single "bump the
+# angular group" and jsdom 28 to 30 as another. Neither is a bump. A major is
+# a migration, and a bot that files migrations as routine updates trains you
+# to ignore the red ones, which is the state this was meant to prevent.
 version: 2
 
 updates:
@@ -12,9 +19,20 @@ updates:
     groups:
       angular:
         patterns: ['@angular/*', 'zone.js', 'typescript']
+        update-types: [minor, patch]
       everything-else:
         patterns: ['*']
         exclude-patterns: ['@angular/*', 'zone.js', 'typescript']
+        update-types: [minor, patch]
+    ignore:
+      # An Angular major is `ng update`, which runs migration schematics that
+      # rewrite source. Dependabot edits package.json and cannot do that, so
+      # the pull request is red by construction. TypeScript rides along
+      # because the compiler version is pinned to the Angular one.
+      - dependency-name: '@angular/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: 'typescript'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: maven
     directory: /backend
@@ -23,13 +41,21 @@ updates:
     groups:
       spring:
         patterns: ['org.springframework*']
+        update-types: [minor, patch]
       everything-else:
         patterns: ['*']
         exclude-patterns: ['org.springframework*']
+        update-types: [minor, patch]
+    ignore:
+      # Same argument. A Spring Boot major moves half the ecosystem with it.
+      - dependency-name: 'org.springframework.boot:*'
+        update-types: [version-update:semver-major]
 
   # The workflow's own actions go stale silently, and a pinned action that has
   # been deprecated fails the day the runner image changes rather than the day
-  # it was deprecated.
+  # it was deprecated. Majors are left in here on purpose: an action major is
+  # usually a runtime bump on GitHub's side and is either green or obviously
+  # not, which the three that arrived green demonstrate.
   - package-ecosystem: github-actions
     directory: /
     schedule:
