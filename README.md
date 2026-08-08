@@ -32,19 +32,19 @@ PostgreSQL underneath, and one `docker compose up` to run all of it.
 
 ### The schedule
 
-Every task in the project, with its dates, its status, its priority, the
-person doing it and what it is waiting on. Filter by status, by priority
-or to a window of dates; sort by start, end, title, priority or status.
+Every task with its dates, status, priority, assignee and prerequisites.
+Filter by status, by priority or to a window of dates; sort by start, end,
+title, priority or status.
 
-Both happen in the browser, over the whole plan rather than over what is
-on screen. The list is already in memory and already the source both views
+Both happen in the browser over the whole plan rather than over what is on
+screen. The list is already in memory and already the source both views
 read from, so asking the server would add a round trip, a loading state
 and a second definition of what "matching" means.
 
 The date window selects tasks that **overlap** it rather than tasks
 contained by it. A task running from before the window to after it is the
-most relevant thing in that period, and a containment test is the one
-thing that would exclude it.
+most relevant thing in that period, and containment is the one test that
+would exclude it.
 
 ![The schedule: fifteen tasks with dates, assignees and dependencies](docs/screenshots/schedule.png)
 
@@ -53,17 +53,13 @@ thing that would exclude it.
 The same plan, drawn. Bars can be dragged to move a task and grabbed at
 either end to resize it, optimistically: the bar follows the pointer and
 rolls back if the server refuses. Arrows connect each task to what it
-waits for. Tasks with zero float are marked, and those are the ones that
-decide the launch date.
+waits for. Days, weeks and months are the three scales. The hatched tail
+on a bar is how far that task can slip before it moves something else, and
+the tasks with no tail are the critical path.
 
-The table beside the chart can be widened or narrowed with the divider,
-and sheds columns as it gets smaller. Dates go first, because the bar next
-to them is drawn from exactly those two numbers.
-
-The picture at the top of this page is that view, zoomed to single days.
-Days, weeks and months are the three scales; the hatched tail on a bar is
-how far that task can slip before it moves something else, and the tasks
-with no tail at all are the critical path.
+The table beside it can be widened or narrowed with the divider and sheds
+columns as it shrinks. Dates go first, because the bar next to them is
+drawn from exactly those two numbers.
 
 ### Editing a task
 
@@ -80,7 +76,7 @@ than saying no.
 Owners, editors and viewers, per project rather than globally, so the same
 person can own one plan and only read another. Invitations go by email and
 work for people who have never signed in: a placeholder is created and
-claimed the first time they do.
+claimed the first time they arrive with that address verified.
 
 ![The members panel: three roles and the invitation form](docs/screenshots/members.png)
 
@@ -94,35 +90,27 @@ from the 3rd to the 21st* instead of that a task was updated.
 
 ### Taking it away
 
-Three formats, all writing the rows on screen in the order they are shown,
-because that is what somebody means by "export".
+Three formats, all writing the rows on screen in the order shown, because
+that is what somebody means by "export".
 
 **CSV** carries the dates as ISO, the duration inclusive, the predecessors
 named, and the two columns only this application can fill: whether a task
-is on the critical path and how many days it can slip. Built in the
-browser, because the filters are computed there too. An endpoint could
-only ever export the whole project in the server's order, which is the
-wrong answer to the question the button is asking.
+is on the critical path and how many days it can slip.
 
-**iCal** turns each task into an all-day event, so the plan can sit in a
-calendar beside everything else happening that week. Free rather than
-busy, because three weeks of work in progress is not three weeks of being
-unavailable. The event ids are derived from the task ids, so importing a
-second time updates the events already there instead of adding a duplicate
-set.
+**iCal** turns each task into an all-day event, so the plan sits in a
+calendar beside everything else that week. Free rather than busy, because
+three weeks of work in progress is not three weeks of being unavailable.
 
-**PDF** goes through the browser's print dialog, where "Save as PDF" is
-the destination. There is no PDF library here and there is not going to be
-one; [below](#a-pdf-without-a-pdf-library) explains why, and what the
-print stylesheet does instead.
+**PDF** goes through the browser's print dialog. There is no PDF library
+here and [there is not going to be one](#exports-are-mostly-small-print).
 
 ### Signing in
 
 Keycloak, with a login theme that matches the application rather than
 announcing that a different product is handling the password. Registration
-and password reset are both live; reset messages land in Mailpit, a fake
-mail server in the compose file, so the whole flow can be followed through
-on a laptop with no mail account anywhere.
+and password reset are both live, and reset messages land in Mailpit, a
+fake mail server in the compose file, so the whole flow can be followed on
+a laptop with no mail account anywhere.
 
 ![The Keycloak sign-in screen in the VPM theme](docs/screenshots/sign-in.png)
 
@@ -130,8 +118,8 @@ on a laptop with no mail account anywhere.
 
 ## Running it
 
-You need Docker and about four gigabytes of RAM. Nothing else: Java, Node
-and Maven are only needed to develop, not to run.
+Docker and about four gigabytes of RAM. Nothing else: Java, Node and Maven
+are only needed to develop.
 
 ```bash
 git clone https://github.com/ghiacciolodev/Visual-Project-Manager.git
@@ -141,7 +129,7 @@ docker compose up -d
 ```
 
 First start takes a couple of minutes: Keycloak imports its realm, Flyway
-creates the schema, and both images are built. When it settles:
+creates the schema, and both images are built. Then:
 
 | | |
 |---|---|
@@ -150,28 +138,21 @@ creates the schema, and both images are built. When it settles:
 | Keycloak | http://localhost:8081 |
 | Mailpit (the fake inbox) | http://localhost:8025 |
 
-Register an account from the sign-in screen. The realm requires the
-address to be verified, so Keycloak sends a message and waits: open
-[Mailpit](http://localhost:8025), click the link, and sign in to an empty
-schedule.
-
-The verification is not ceremony. Provisioning claims an invited
-placeholder row by email, and the address has to be proven before it can
-inherit somebody's project; [SECURITY.md](SECURITY.md) sets out what that
-prevents. Mailpit exists so the whole loop closes on a laptop with no mail
-account anywhere.
+Register from the sign-in screen. The realm requires the address to be
+verified, so Keycloak sends a message and waits: open Mailpit, click the
+link, and sign in to an empty schedule. The verification is not ceremony,
+and [SECURITY.md](SECURITY.md) says what it prevents.
 
 ### Or start from the demo project
 
-The screenshots above are a real plan in a real database. To have it:
+The screenshots above are a real plan in a real database:
 
 ```bash
 pwsh scripts/demo/seed.ps1
 ```
 
-It creates four accounts in Keycloak and a thirteen-week storefront
-relaunch in the application database, linked to each other. Sign in as any
-of them, password `demo`:
+Four accounts in Keycloak and a thirteen-week storefront relaunch in the
+application database, linked to each other. Password `demo`:
 
 | | | |
 |---|---|---|
@@ -181,13 +162,13 @@ of them, password `demo`:
 | `tom` | Tom Iversen | viewer |
 
 They all see the same plan. What differs is what the interface lets them
-do with it. Sign in as Tom to see the read-only view, and as Harriet to
-see the members panel that Marcus and Priya are not offered.
+do with it: sign in as Tom for the read-only view, as Harriet for the
+members panel the editors are not offered.
 
 Run it twice and the second run replaces the first. It writes only its own
-project and its own four `@northwind.example` accounts, so a database you
-are already using keeps everything else. It is for local development only,
-and [SECURITY.md](SECURITY.md) says why.
+project and its own four `@northwind.example` accounts, so a database
+already in use keeps everything else. Local development only, and
+[SECURITY.md](SECURITY.md) says why.
 
 ### Developing
 
@@ -196,24 +177,16 @@ infrastructure inside them:
 
 ```bash
 docker compose up -d db keycloak keycloak-db mailpit
-```
-
-```bash
 cd backend && ./mvnw spring-boot:run
-```
-
-```bash
 cd frontend && npm install && npm start
 ```
 
-The frontend must be served on port 4200. That is the only redirect URI
-the Keycloak client accepts, and the only origin the backend's CORS
-configuration allows.
-
+Port 4200 is not a preference: it is the only redirect URI the Keycloak
+client accepts and the only origin the backend allows through CORS.
 `frontend/public/config.json` holds the addresses the browser calls, and
 its committed values are the ones above. In a container the entrypoint
-overwrites it from `API_BASE_URL` and `KEYCLOAK_AUTHORITY`, so the same
-image runs anywhere; see [below](#one-image-three-addresses-one-file).
+overwrites it, so [one image runs
+anywhere](#one-image-three-addresses-one-file).
 
 ---
 
@@ -242,17 +215,17 @@ flowchart LR
 ```
 
 **Two databases, not one.** An identity provider's schema is its own
-business: sharing one would mean a Flyway migration and a Keycloak upgrade
-can collide over the same tables.
+business: sharing one means a Flyway migration and a Keycloak upgrade can
+collide over the same tables.
 
-**Keycloak is addressed by two URLs and that is deliberate.** The browser
-reaches it at `localhost:8081`, so that is the issuer written into every
-token. The backend, inside the compose network, cannot resolve that
-address, because `localhost` is its own loopback, and it fetches signing
-keys at `keycloak:8080` instead. So the keys come over the internal
-address while the issuer claim is checked against the public one. Using
-the internal address for both would reject every real token; skipping the
-issuer check would accept tokens minted by any realm on that server.
+**Keycloak is addressed by two URLs, deliberately.** The browser reaches it
+at `localhost:8081`, so that is the issuer written into every token. The
+backend cannot resolve that address from inside the compose network, where
+`localhost` is its own loopback, and fetches signing keys at
+`keycloak:8080`. So the keys come over the internal address while the
+issuer claim is checked against the public one. Using the internal address
+for both would reject every real token; skipping the issuer check would
+accept tokens minted by any realm on that server.
 
 **Identity is federated; authorisation is local.** Keycloak knows who you
 are and has no idea which projects you belong to. Roles are rows in this
@@ -283,18 +256,17 @@ truth.
 
 Standalone components, `OnPush`, zoneless change detection, signals rather
 than observables in the view layer. Services hold state as signals;
-components read them and compute.
+components read and compute.
 
-The three panels (members, project, history) are `@defer`red, so most
-people never download them, and so is the chart itself. A production
-build's initial bundle is 414 kB raw, 105 kB over the wire; the chart
-arrives after it as a further 15 kB.
+The chart and the three panels are `@defer`red, so a production build's
+initial bundle is 414 kB raw and 104 kB over the wire, with the chart
+arriving after it as a further 15 kB.
 
-Geometry is a set of pure functions in `core/schedule.ts`: where a bar
-starts, how wide it is, where a connector's elbow goes, what dates a drag
-of *n* pixels means. Deliberately separated from the components, because a
-function can be tested by calling it and an event handler can only be
-tested by mounting a component and pretending to be a mouse.
+Logic that can live outside a component does. `core/schedule.ts` holds the
+geometry, `core/task-filter.ts` the filtering and sorting, `core/export.ts`
+the two file formats, all as pure functions. A function is tested by
+calling it; an event handler is tested by mounting a component and
+pretending to be a mouse.
 
 ---
 
@@ -304,17 +276,15 @@ This began as a brief I set for a class, back when I was teaching. The
 brief is [in this repository](docs/assignment.pdf), in Italian, so none of
 what follows has to be taken on trust.
 
-The product is the same one: tasks carrying a title, a status, two dates
-and a colour; a dashboard of cards; a Gantt chart drawn from the same
-data; and dependencies between tasks arriving at the end.
-
-The stack it prescribed was not this one.
+The product is the same: tasks with a title, a status, two dates and a
+colour; a dashboard of cards; a Gantt chart drawn from the same data; and
+dependencies arriving at the end. The stack it prescribed was not this one.
 
 | The brief | Here |
 |---|---|
 | Python Flask | Spring Boot 4.1 on Java 21 |
 | MySQL, hosted on Aiven | PostgreSQL 16, with Flyway owning the schema |
-| **No ORM.** A `DatabaseWrapper` over `pymysql`, every query written by hand | JPA and Hibernate, with hand-written SQL kept for one thing |
+| **No ORM.** A `DatabaseWrapper` over `pymysql`, every query by hand | JPA and Hibernate, with hand-written SQL kept for one thing |
 | Angular | Angular |
 | Eight commits, messages prescribed, graded by walking the history | However many it took |
 
@@ -353,30 +323,22 @@ them.** Grading by walking the commit log makes the process visible
 instead of only the result, and a student who cannot work in increments
 finds that out early. This history is longer, messier, and includes
 commits that undo earlier ones, which is what the work looks like when
-nobody has written the steps down in advance. The nearest thing to it here
-is the audit log, which asks of a plan what a commit log asks of a
-project.
+nobody has written the steps down in advance.
 
 The brief stops at dependencies, and that turns out to be where the
 interesting problem starts. It asks for a warning when a task is blocked,
 which is a fact about a single edge and can be read off one row. It does
-not ask what the edges *cost*, and that question needs the whole graph:
-of the fifteen tasks in the demo plan, seven decide the finish date and
-the other eight have slack, and a day lost on any of the seven is a day
-lost on the project.
+not ask what the edges *cost*, and that question needs the whole graph: of
+the fifteen tasks in the demo plan, seven decide the finish date and the
+other eight have slack.
 
 The demo plan makes that argument better than it was designed to. Read it
-by eye and the backend chain looks like the one that decides the date: it
-is the run of work with the obvious hard edges, agreeing the checkout
-contract, migrating the catalogue, integrating payments, load-testing the
-result. Every one of those carries nine days of float. What actually sets
-the finish date is the design and interface chain, through the design
-system, the page templates and the accessibility pass. The obvious reading
-of the plan and the arithmetic disagree, and that is the entire reason for
-computing it rather than pointing at the chart and deciding.
-
-That is the Critical Path Method, and it is the first thing in the section
-below.
+by eye and the backend chain looks like the one that decides the date: the
+checkout contract, the catalogue migration, the payments, the load test.
+Every one of those carries nine days of float. What actually sets the
+finish date is the design and interface chain, through the design system,
+the page templates and the accessibility pass. The obvious reading and the
+arithmetic disagree, and that is the whole reason for computing it.
 
 ---
 
@@ -390,32 +352,28 @@ earliest each task can start and backward for the latest it can start
 without moving the finish date. The difference is that task's total float,
 and the tasks with none of it are the critical path.
 
-The model it implements is a small one, and worth stating rather than
-leaving to be discovered. Finish-to-start only: no start-to-start, no lag,
-no lead. Calendar days rather than working days, so a fortnight is fourteen
-days and the shaded weekends are counted. And the network is anchored at
-day zero, so a task with no prerequisites starts there and the dates
-somebody typed do not constrain the forward pass. "Critical" therefore
-means critical in an ideal as-soon-as-possible replan, not in the plan as
-drawn, and where a plan has deliberate gaps the two differ.
+Arithmetic on in-memory maps rather than queries, because the graph is
+small enough that fetching it once and walking it in Java beats asking the
+database per step. That is the opposite of the trade-off made for cycle
+detection, where a recursive CTE answers "is this reachable from that?" in
+one round trip and Java would need the whole graph to answer the same
+question.
 
-The chart compensates rather than hiding it. `slipOf` measures how far a
-bar can move from where it is actually drawn, which is the number a reader
-looking at that bar is asking for; total float is the textbook figure. When
-they disagree the tooltip gives both.
-
-It is arithmetic on in-memory maps rather than queries, because the graph
-is small enough that fetching it once and walking it in Java beats asking
-the database per step. That is the opposite of the trade-off made for
-cycle detection, where a recursive CTE answers "is this reachable from
-that?" in one round trip and Java would need the whole graph to answer the
-same question.
+The model is a small one and worth stating rather than leaving to be
+discovered. Finish-to-start only: no start-to-start, no lag, no lead.
+Calendar days rather than working days, so a fortnight is fourteen days
+and the shaded weekends are counted. The network is anchored at day zero,
+so the dates somebody typed do not constrain the forward pass, and
+"critical" means critical in an ideal as-soon-as-possible replan rather
+than in the plan as drawn. The chart compensates rather than hiding it:
+`slipOf` measures how far a bar can move from where it is actually drawn,
+and when that disagrees with total float the tooltip gives both.
 
 ### Two people editing one task
 
 Send back the version the form was built from, and the write is refused if
 the task has moved on. The check is required, so there is no unconditional
-write to fall back to and no way to get last-write-wins by omission.
+write and no way to get last-write-wins by omission.
 
 This was a timestamp first, and the timestamp could not be reported
 honestly. Hibernate writes `@UpdateTimestamp` during a flush, and the
@@ -424,36 +382,32 @@ through `JdbcTemplate`, which triggers no flush, and the audit insert
 writes only its own row. So a `PUT` answered with the value the row held
 *before* its own write, and a client that saved it and sent it on the next
 edit was told somebody else had got there first. One person, one task, two
-edits, and a conflict with nobody else involved.
+edits.
 
 It was found by writing the round trip out as a test rather than by
 reading the code, which had been read twice. The first explanation was
-also wrong: the membership lookup inside `assignableOrThrow` does force a
-flush, so it looked as though assigned tasks escaped. They did not, because
-`apply()` sets the assignee *after* that lookup and dirties the row again.
-Both cases were stale.
+wrong too: the membership lookup inside `assignableOrThrow` does force a
+flush, so it looked as though assigned tasks escaped. They did not,
+because `apply()` sets the assignee *after* that lookup and dirties the
+row again. Both cases were stale.
 
-`@Version` has no such ordering problem. Hibernate maintains the number,
-puts it in the `UPDATE`'s `WHERE` clause, and the write fails at the
-database whether or not the service remembers to check. The service checks
-anyway, because a checked refusal can say something a person can act on
-and an optimistic-lock exception cannot.
-
-Not `If-Match`, which would be the tidier HTTP answer and is the obvious
-next step: it needs an ETag on every read and a header on every write, and
-the value it would carry is exactly this number.
+`@Version` has no such ordering problem. Hibernate maintains the number
+and puts it in the `UPDATE`'s `WHERE` clause, so a stale write fails at
+the database whether or not the service remembers to check. The service
+checks anyway, because a checked refusal can say something a person can
+act on and an optimistic-lock exception cannot.
 
 ### Other people's changes arrive on their own
 
 The task list is re-fetched every twenty seconds while a view is open, so
 somebody else's new task appears without a reload. Polling, not WebSockets
-or SSE, for an honest reason: this is a planning tool where a change lands
-every few minutes at most, a twenty-second delay is invisible at that
-tempo, and a push channel means a connection to hold open, a reconnection
-policy, and per-project fan-out for a payload that is a few kilobytes of
-JSON. The polling is reference-counted, pauses while the tab is hidden and
-while a bar is being dragged, and would be the thing to replace first if
-this ever became collaborative in the live-cursor sense.
+or SSE, for an honest reason: a change lands every few minutes at most, a
+twenty-second delay is invisible at that tempo, and a push channel means a
+connection to hold open, a reconnection policy and per-project fan-out for
+a payload that is a few kilobytes of JSON. The polling is
+reference-counted, pauses while the tab is hidden and while a bar is being
+dragged, and would be the first thing to replace if this ever became
+collaborative in the live-cursor sense.
 
 ### One component behind two routes
 
@@ -462,177 +416,117 @@ two different ways. They share one component now; what the two routes
 carry is whether the timeline is drawn beside the table.
 
 For a while both drew it, on the argument that one screen answering
-questions about dates and people at the same time beats two answering half
-each. On a wide monitor that held. On a laptop the table's own columns left
-the timeline about ten days wide, and a sliver of chart reads as a mistake
-rather than as a choice. So the schedule is a table and the chart is a
-chart, and the code they have in common is still in one place.
+questions about dates and people at once beats two answering half each. On
+a wide monitor that held. On a laptop the table's own columns left the
+timeline about ten days wide, and a sliver of chart reads as a mistake
+rather than a choice. So the schedule is a table and the chart is a chart,
+and the code they have in common is still in one place.
 
-### Pagination that the default caller never sees
+### Paging the default caller never sees
 
 `GET /tasks` returns everything unless asked otherwise. `?page=&size=`
-switches to pages, reported in `X-Total-Count` / `X-Page` /
-`X-Page-Size` headers rather than by wrapping the body.
-
-The response shape never changes, so a caller that does not ask for pages
-cannot be broken by their arrival, and this application is such a caller,
-deliberately. The chart measures its window from the earliest start to the
-latest end across the whole plan and the filters are computed over the same
-list; hand either of them one page and the chart draws the wrong scale
-while the filters silently narrow one fiftieth of the data.
+switches to pages, reported in `X-Total-Count` / `X-Page` / `X-Page-Size`
+headers rather than by wrapping the body, so the response shape never
+changes and a caller that does not ask for pages cannot be broken by their
+arrival. This application is such a caller, deliberately: the chart
+measures its window across the whole plan and the filters are computed
+over the same list, so one page would draw the wrong scale and silently
+narrow the filters to a fiftieth of the data.
 
 The paging is done by the query. It was not at first: the endpoint read
 every task and called `subList`, which made `X-Total-Count` accurate and
 the cost of producing it a fiction, since a caller asking for ten rows out
 of two thousand was served two thousand. Paging that does not reduce the
-work is a header rather than a feature. The dependency edges are fetched
-for the page's ids too, and not for the project, for the same reason.
+work is a header rather than a feature.
 
-### A PDF without a PDF library
+### Exports are mostly small print
 
-jsPDF and pdfmake both work, and both were the wrong answer here. Neither
-can draw this chart: it is HTML and SVG laid out by a browser, and putting
-it in a PDF means re-implementing bars, connectors, float tails and the
-day grid in a second set of primitives. That is the same duplication that
-merging the schedule and the chart into one component had just finished
-removing, and it arrives with a dependency attached.
+jsPDF and pdfmake both work, and both were the wrong answer. Neither can
+draw this chart: it is HTML and SVG laid out by a browser, and putting it
+in a PDF means re-implementing bars, connectors, float tails and the day
+grid in a second set of primitives. That is the duplication merging the
+two views had just removed, with a dependency attached. The browser
+already has a renderer that agrees with the one on screen, so the button
+calls `window.print()` and the work is a print stylesheet. Measured:
+everything shipped to write CSV and iCal is **1.4 kB gzipped**, and it
+rides in the chart's lazy chunk.
 
-The browser already has a renderer that agrees with the one on screen. So
-the button calls `window.print()`, and the work is a print stylesheet.
-What comes out has selectable text and real pagination rather than a
-picture of a plan.
-
-The measured comparison: everything this application ships to write CSV
-and iCal is **1.4 kB gzipped**, and it rides in the chart's lazy chunk
-rather than the initial bundle. A PDF library is two orders of magnitude
-more than that before it has drawn anything.
-
-The stylesheet is where the actual thinking is. It strips the navigation
-and every control, turns off the scrollport so the chart lays out in full
-instead of printing as four horizontal slices, unpins the sticky header
-and frozen column that were holding still against a scroll that no longer
-exists, and turns `print-color-adjust` back on, without which every Gantt
-bar prints as a white rectangle with white text on it.
-
-Two things happen in TypeScript because CSS cannot know them. A
-`beforeprint` listener refits the day column so the whole span crosses one
-page, narrowing only and never widening, with a synchronous
+The stylesheet strips the navigation and every control, turns off the
+scrollport so the chart lays out in full instead of printing as four
+horizontal slices, unpins the sticky header and frozen column that were
+holding still against a scroll that no longer exists, and turns
+`print-color-adjust` back on, without which every bar prints as a white
+rectangle with white text on it. Two things happen in TypeScript because
+CSS cannot know them: a `beforeprint` listener refits the day column so
+the whole span crosses one page, narrowing only, with a synchronous
 `ApplicationRef.tick()` because zoneless change detection is scheduled and
-the browser snapshots the layout the moment the handler returns. And the
-sheet prints a line naming the active filters: a page showing six tasks of
-fifteen with nothing to say the other nine were filtered out is not a
-shorter document, it is a wrong one. Unlike the screen, paper cannot be
-asked.
+the browser snapshots the layout the moment the handler returns; and the
+sheet prints a line naming the active filters, because a page showing six
+tasks of fifteen with nothing to say the other nine were filtered out is
+not a shorter document, it is a wrong one.
 
-### The formats are three sets of small print
-
-Both file exports are pure functions in `core/export.ts`, and most of what
-is in there is detail that only shows up as a bug days later.
-
-A CSV cell beginning with `=`, `+`, `-` or `@` is a formula to every
-spreadsheet application, so a task title is executable content the moment
-somebody opens the file; each one is prefixed with an apostrophe. RFC 4180
-quoting is applied separately and is not the defence, because a
-spreadsheet strips the quoting before it decides what the cell means. A
-byte-order mark goes in front so Excel on Windows reads UTF-8 instead of
-the system code page.
-
-In iCal, `DTEND` on an all-day event is **exclusive**, so a task drawn
-through the 17th is an event that ends on the 18th; writing the end date
-there is the classic bug that makes every task in the calendar a day
-shorter than the plan says. Content lines fold at 75 **octets** and not 75
-characters, so the folding measures encoded length as it goes rather than
-slicing at an index, which would cut a multi-byte character in half.
-
-### The content security policy, and what had to move for it
-
-Tokens live in `sessionStorage`, so the first line of
-[SECURITY.md](SECURITY.md)'s weakness list is that any successful XSS reads
-both of them. A strict `script-src 'self'` is the defence in depth for
-exactly that: an injected `<script>`, an inline handler and an eval'd
-string are all refused, so an injection has to find a same-origin file to
-abuse rather than simply writing its own.
-
-Adding the header was one line. Making it not break the application was
-the work, and the trap was somewhere nobody would look. Angular's critical
-CSS inliner ships the stylesheet like this:
-
-```html
-<link rel="stylesheet" href="styles.css" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="styles.css"></noscript>
-```
-
-The plain link is inside `<noscript>`, so in a browser with JavaScript on,
-that `onload` is the **only** path by which any CSS arrives.
-`script-src 'self'` blocks inline handlers, and the application renders
-completely unstyled for every real user. Setting
-`optimization.styles.inlineCritical` to false emits an ordinary `<link>`
-that needs no exception.
-
-`style-src` keeps `'unsafe-inline'`, which is a real weakening and is
-stated rather than hidden. Angular injects component styles as `<style>`
-elements at runtime, and a nonce would have to be minted per response and
-substituted into both the header and an `ngCspNonce` attribute, which a
-server handing out static files is the wrong shape for and which would
-mean `index.html` could never be cached. The strictness is spent where it
-buys most: CSS injection can leak a little through selectors, and script
-injection can do anything at all.
-
-There is one more trap in nginx itself. `add_header` inside a `location`
-**replaces** the inherited set rather than extending it, so the single
-`add_header Cache-Control` on hashed assets would have silently stripped
-every security header from exactly the scripts and stylesheets that most
-need `nosniff`. The headers live in their own file, included from both
-locations, and deliberately not in `conf.d/` because that directory is
-globbed into the `http` block and every header would have been sent three
-times.
-
-Verified against the built image rather than reasoned about: the headers
-arrive once each, the assets carry both them and the cache header, and the
-application renders with its own typography and colours and no console
-violation.
+The file formats are detail that only shows up as a bug days later. A CSV
+cell beginning with `=`, `+`, `-` or `@` is a formula to every spreadsheet,
+so a task title is executable content the moment somebody opens the file;
+each is prefixed with an apostrophe, and RFC 4180 quoting is applied
+separately because a spreadsheet strips the quoting before deciding what
+the cell means. A byte-order mark goes in front so Excel on Windows reads
+UTF-8 rather than the system code page. In iCal, `DTEND` on an all-day
+event is **exclusive**, so a task drawn through the 17th ends on the 18th;
+writing the end date there is the classic bug that makes every task a day
+short. Content lines fold at 75 **octets** and not 75 characters, so the
+folding measures encoded length as it goes rather than slicing at an index
+and cutting a multi-byte character in half.
 
 ### One image, three addresses, one file
 
 The API's address, Keycloak's, and the `connect-src` of the content
 security policy are the three things a build cannot know. All three were
-compiled in, and all three said localhost, so the Docker image was correct
-on the machine that produced it and useless anywhere else. The README
-admitted it and left it, which is the worst of the available positions.
+compiled in and all three said localhost, so the Docker image was correct
+on the machine that produced it and useless anywhere else.
 
 They come from `config.json` now, fetched from the application's own
-origin before anything else runs. The container writes that file from
-environment variables in a script under `/docker-entrypoint.d`, which
-nginx's own entrypoint runs before starting the server, so it cannot be
-forgotten. The same two values produce the policy's `connect-src`, because
-a policy and an application that disagree about where the API is fail with
-every request blocked, nothing in the server log, and the explanation only
-in the browser console.
+origin before anything else runs. The container writes it from environment
+variables in a script under `/docker-entrypoint.d`, which nginx's own
+entrypoint runs before starting the server, so it cannot be forgotten. The
+same two values produce `connect-src`, because a policy and an application
+that disagree about where the API is fail with every request blocked,
+nothing in the server log, and the explanation only in the browser
+console.
 
-Two details make it work rather than merely exist. The OIDC library takes
-a `StsConfigHttpLoader`, so it waits for the fetch itself rather than
-needing its settings at provider-construction time. And `runtimeConfig()`
-falls back to the development defaults instead of throwing, which is what
-lets a hundred and twenty-six unit tests keep asserting against real URLs
-without a network call any of them would have had to mock.
+Two details make it work rather than merely exist. The OIDC settings go
+through a `StsConfigHttpLoader`, so the library waits for the fetch itself
+rather than needing values at provider-construction time. And
+`runtimeConfig()` falls back to the development defaults instead of
+throwing, which is what lets a hundred and twenty-six unit tests keep
+asserting against real URLs without a network call any of them would have
+had to mock.
 
-Verified by running the built image twice with different environment:
+The policy itself took work for a different reason. A strict
+`script-src 'self'` is the defence in depth for tokens in
+`sessionStorage`, and Angular's critical-CSS inliner shipped the
+stylesheet as `<link media="print" onload="this.media='all'">` with the
+plain link only inside `<noscript>`, making an inline event handler the
+only path by which a scripted browser received any CSS. Turning
+`optimization.styles.inlineCritical` off is what makes the directive
+possible. And `add_header` inside an nginx `location` **replaces** the
+inherited set rather than extending it, so the one `add_header
+Cache-Control` on hashed assets would have stripped every security header
+from exactly the files that most need `nosniff`.
 
-```
-[vpm] API https://api.example.org/api/v1
-[vpm] Keycloak https://id.example.org/realms/acme
-[vpm] connect-src 'self' https://api.example.org https://id.example.org
-```
+Verified by running the built image with a different environment and
+watching `config.json`, the policy and the OIDC client id all follow.
 
-and the browser console then reporting the OIDC client as `0-acme-web`
-rather than `0-vpm-frontend`. Same image, no rebuild.
+### Tasks are soft-deleted, and their edges are not
 
-### Tasks are soft-deleted
-
-`deleted_at` is set and the row stays. It keeps dependency references
-intact and keeps the history readable after the thing it describes is
-gone. It is also a data-retention question with no answer yet, which
-[SECURITY.md](SECURITY.md) lists rather than hides.
+`deleted_at` is set and the row stays, but `unlinkAll` removes every
+dependency edge for real. Both halves are deliberate and they do not add
+up to a restore. The edges have to go, because a soft-deleted row still
+exists so `ON DELETE CASCADE` never fires for it, and an edge left behind
+goes on blocking a successor on behalf of a task nobody can see or finish.
+What the surviving row is for is reference rather than recovery: the audit
+log names tasks, and a foreign key elsewhere still resolves.
+[SECURITY.md](SECURITY.md) lists the retention question this leaves open.
 
 ---
 
@@ -658,18 +552,17 @@ gone. It is also a data-retention question with no answer yet, which
 | `GET` | `/projects/{id}/audit` | history, newest first |
 | `GET` | `/me` | the caller, provisioned on first sight |
 
-Writes are rate limited to 120 a minute per caller and answer `429` with
-`Retry-After`. Reads are not limited;
+An update must carry `expectedVersion`, and is refused with `409` without
+it. Writes are rate limited to 120 a minute per caller and answer `429`
+with `Retry-After`; reads are not limited, and
 [SECURITY.md](SECURITY.md#csrf-cors-rate-limiting) explains the asymmetry.
 
 There are ceilings as well as a rate, because the two answer different
-questions. 120 writes a minute is a limit on how fast, and on its own the
-answer to how much was "for ever": one account, at that rate, adds
-something like a hundred and seventy thousand rows a day, and registration
-is open. A project holds at most 2000 tasks and 100 members, and one
-person is in at most 100 projects. All three are configuration, set far
-above anything honest, and refuse with a `409` that says which limit was
-met.
+questions. 120 writes a minute limits how fast; on its own the answer to
+how much was "for ever", and one account at that rate adds around a
+hundred and seventy thousand rows a day with registration open. A project
+holds at most 2000 tasks and 100 members, and one person is in at most 100
+projects. All three are configuration, set far above anything honest.
 
 Exports are not endpoints. They are written in the browser from data the
 caller already has, which is why they can follow the filter on screen.
@@ -680,36 +573,35 @@ caller already has, which is why they can follow the filter on screen.
 
 ```bash
 cd backend  && ./mvnw verify      # 62 tests
-cd frontend && npm test           # 125 tests, 10 files
+cd frontend && npm test           # 126 tests, 10 files
 ```
 
-**Backend.** Unit tests for the parts with logic worth testing on their
-own (the critical path, cycle detection, validation), and integration
-tests that run the whole stack against a real PostgreSQL started by
-Testcontainers. One database per run, torn down with it, no second place
-where the version has to be kept in step. The integration tests are bound
-to `verify` through Failsafe; they are the ones that prove authorisation
+**Backend.** Unit tests for the parts with logic worth testing alone, and
+integration tests that run the whole stack against a real PostgreSQL
+started by Testcontainers: one database per run, torn down with it, no
+second place where the version has to be kept in step. They are bound to
+`verify` through Failsafe, and they are the ones that prove authorisation
 actually refuses, which a mocked repository cannot.
 
-**Frontend.** Vitest through Angular's own test builder. The pure geometry
+**Frontend.** Vitest through Angular's own test builder. The pure
 functions are tested by calling them; the services against
-`HttpTestingController`; polling against fake timers; and the component
-by constructing it and asking what it computed, rather than by rendering
-it and reading the DOM back.
+`HttpTestingController`; polling against fake timers; and the component by
+constructing it and asking what it computed rather than by rendering it
+and reading the DOM back.
 
-Some of them exist because something was wrong. `select-binding.spec.ts`
-pins the reason a member added as `EDITOR` displayed as `OWNER`: `[value]`
-on a `<select>` is assigned before `@for` has created any options, so the
-browser falls back to the first one.
+Several exist because something was wrong, and they are the useful ones.
+`select-binding.spec.ts` pins why a member added as `EDITOR` displayed as
+`OWNER`: `[value]` on a `<select>` is assigned before `@for` has created
+any options. `ConcurrentEditIT` pins that a `PUT` answers with the version
+it just wrote, in both the assigned and unassigned cases, because the
+first diagnosis said only one of them was broken. `PlaceholderClaimIT`
+pins that an unverified address cannot inherit an invitation.
+`export.spec.ts` checks that a task titled `=HYPERLINK(...)` cannot
+execute in a spreadsheet, that `DTEND` lands the day after the task, and
+that forty emoji fold without a character being cut in half.
 
-Others pin what would fail quietly. `export.spec.ts` checks that a task
-titled `=HYPERLINK(...)` cannot execute in a spreadsheet, that a
-description with a line break stays one CSV record instead of shifting
-every column after it by one, that `DTEND` lands the day after the task,
-and that a title of forty emoji folds without a single character being cut
-in half.
-
-CI runs both on every push and pull request.
+CI runs both on every push, plus a job that builds the images, starts the
+stack and checks the security headers are still being sent.
 
 ---
 
@@ -730,8 +622,7 @@ backend/          Spring Boot 4.1, Java 21
 
 frontend/         Angular 21, standalone, zoneless
   src/app/
-    core/         services, pure geometry, CSV and iCal, guards, interceptor,
-                  and the runtime configuration everything else reads
+    core/         services, pure geometry, filters, exports, runtime config
     features/     gantt · tasks · members · projects · history
     models/
   public/config.json               the development defaults
@@ -743,6 +634,7 @@ keycloak/
   realm-export.json     the whole identity setup, version controlled
   themes/vpm/           the login theme
 
+docs/             screenshots, and the brief this started as
 scripts/demo/     the plan in the screenshots
 docker-compose.yml
 ```
@@ -757,16 +649,16 @@ that are wrong with all three: **[SECURITY.md](SECURITY.md)**.
 The short version: Authorization Code with PKCE and no client secret;
 authorisation enforced on the service layer per project; `404` rather than
 `403` for non-members so ids cannot be enumerated; every task lookup keyed
-by id *and* project; validation both in the DTO and as CHECK constraints
-in the schema; a content security policy with a strict `script-src`, and
-the rest of the response headers with it.
+by id *and* project; an invitation claimable only on a verified address;
+validation in the DTO and as CHECK constraints in the schema; refresh
+tokens that rotate and revoke on reuse; and a content security policy with
+a strict `script-src`.
 
 And the one no header closes: tokens live in `sessionStorage`, so script
 running on this origin can read them. An `httpOnly` cookie would not
 change that outcome, since script on the origin can use a cookie without
 reading it; what it would change is whether the token can be copied
-elsewhere. [SECURITY.md](SECURITY.md) sets out the three settings that
-bound it and the two that are not in place.
+elsewhere.
 
 ---
 
@@ -776,11 +668,10 @@ There is no live collaboration: no cursors, no presence, no operational
 transform. Two people editing the same task get a conflict, not a merge.
 
 Export stops at CSV, iCal and print-to-PDF. There is no Microsoft Project
-file, and there is not going to be one. `.mpp` is a compound binary
-format, and the interchange formats around it (`.xml`, `.mpx`) describe
-calendars, resource costs and work contours that this application has no
-concept of. It would be a large piece of work producing a file that mostly
-says "unknown".
+file and there is not going to be one: `.mpp` is a compound binary format,
+and the interchange formats around it describe calendars, resource costs
+and work contours this application has no concept of. It would be a large
+piece of work producing a file that mostly says "unknown".
 
 There is no capacity model. A person can be assigned three tasks that
 overlap completely and nothing objects, because the schedule knows dates
@@ -794,8 +685,7 @@ Rows are not virtualised. The plan renders every task, which is fine into
 the hundreds and would need `cdk-virtual-scroll` beyond that. Measured
 before deciding rather than assumed: from fifty rows to a thousand, the
 cost of editing one of them stays flat at about 4 ms, because signals
-update the row that changed and not the list. That is why the dependency
-is not there.
+update the row that changed and not the list.
 
 ---
 

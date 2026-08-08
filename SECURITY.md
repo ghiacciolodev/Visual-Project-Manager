@@ -372,6 +372,11 @@ apart on exactly this point, and the file is the one anybody reads.
 Re-importing the realm is what makes them agree, and there is no
 mechanism here that keeps them agreeing.
 
+**Refresh tokens rotate.** `revokeRefreshToken` with
+`refreshTokenMaxReuse` at 0, so each refresh mints a new token and spends
+the old one, and presenting a spent one revokes the session. The weakness
+list below explains what that is worth and what it is not.
+
 ---
 
 ## Secrets
@@ -420,14 +425,30 @@ Three settings bound how long a copied token stays useful:
 - `ssoSessionIdleTimeout` is 1800 seconds, so a refresh token stops
   working half an hour after the session goes quiet.
 
-Two things are not in place. `revokeRefreshToken` is unset, so Keycloak's
-default applies and refresh tokens are not rotated: one stays valid for
-the life of the session rather than being invalidated at its first use.
-And the structural alternative, a backend-for-frontend holding the refresh
-token in an `httpOnly` cookie, is not here either; it would also bring
-CSRF protection back into scope. Both are decisions rather than
-oversights, and `auth.config.ts` says so at the point where the storage is
-configured.
+A fourth setting bounds it, and this one is aimed at portability rather
+than at time. `revokeRefreshToken` is on with `refreshTokenMaxReuse` at 0,
+so a refresh token is invalidated at its first use and the whole chain is
+revoked if it is presented twice. A copied token replayed from elsewhere
+therefore collides with the client it was copied from: whichever refreshes
+second presents a spent one, and the session ends. It does not stop script
+on this origin, which can refresh in place and keep the new pair. What it
+stops is a token walking out of the browser and staying useful.
+
+Rotation needs the client to hold exactly one refresh in flight, since
+with no reuse allowed a second concurrent attempt would revoke a live
+session. That is the library's job here rather than this application's:
+`PeriodicallyTokenCheckService` refuses to start a renew while one is
+running, sets the flag before the request and clears it afterwards, with a
+timeout for a process that dies mid-flight. The interceptor never
+refreshes at all; a 401 sends the person back to Keycloak. And
+`sessionStorage` is per tab, so two tabs hold two independent chains
+rather than competing over one.
+
+One thing is not in place. The structural alternative, a
+backend-for-frontend holding the refresh token in an `httpOnly` cookie, is
+not here; it would also bring CSRF protection back into scope. That is a
+decision rather than an oversight, and `runtime-config.ts` says so at the
+point where the storage is configured.
 
 **2. Rate-limit buckets are in memory, per instance.** Two instances
 behind a load balancer mean two allowances. A restart forgives everybody.
