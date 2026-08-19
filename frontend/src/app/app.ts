@@ -45,6 +45,14 @@ export class App {
     return runtimeConfig().demo;
   }
 
+  /**
+   * Whether the notice on the public instance's sign-in screen has been
+   * acknowledged. Nothing but the button depends on it: it is there so
+   * that nobody signs in to a shared sandbox without having been told it
+   * is one, not to keep anybody out.
+   */
+  protected readonly consented = signal(false);
+
   /** The membership panel, which opens over the current view rather than replacing it. */
   readonly membersOpen = signal(false);
 

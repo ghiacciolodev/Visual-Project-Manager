@@ -13,7 +13,16 @@
 
 .shell {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+
+  // A stated width, not `auto`.
+  //
+  // `auto` sizes the column to the rail's widest content, which for a long
+  // time was the project picker and so came out at about the intended 208px
+  // by coincidence. The rail carried `flex: 0 0 208px` as if that were the
+  // rule, and it did nothing at all: a grid item is not a flex item. The
+  // first piece of prose put in the rail was wider than the picker, the
+  // column followed it, and the schedule lost two thirds of the screen.
+  grid-template-columns: 208px minmax(0, 1fr);
   height: 100%;
 }
 
@@ -32,7 +41,9 @@
   display: flex;
   flex-direction: column;
   gap: calc(var(--u) * 2);
-  flex: 0 0 208px;
+  // No flex property here: the width is the grid column above. This is not
+  // a flex item, and saying otherwise is how the width came to be a
+  // coincidence rather than a rule.
   padding: calc(var(--u) * 4) calc(var(--u) * 3);
   background: var(--surface);
   border-right: 1px solid var(--border);
@@ -240,10 +251,65 @@
     color: var(--text-2);
   }
 
+  // The notice, and the box that says it has been read.
+  //
+  // Left-aligned inside a centred column, because it is the one thing on this
+  // screen meant to be read rather than glanced at, and three centred lines
+  // of prose are three ragged edges. Boxed for the same reason: it has to
+  // read as a condition of the button under it rather than as more of the
+  // paragraph above.
+  &__consent {
+    display: flex;
+    align-items: flex-start;
+    gap: calc(var(--u) * 2);
+    margin: 0 0 calc(var(--u) * 6);
+    padding: calc(var(--u) * 4);
+    text-align: left;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+
+    input {
+      flex: 0 0 auto;
+      // Onto the first line's optical centre. A box aligned to the top of the
+      // line sits high, being taller than the x-height beside it.
+      margin-top: 3px;
+      width: 15px;
+      height: 15px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    label {
+      font-size: var(--fs-sm);
+      line-height: 1.55;
+      color: var(--text-2);
+      cursor: pointer;
+      text-wrap: pretty;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+
+      &:hover {
+        color: var(--accent-hover);
+      }
+    }
+  }
+
   &__hint {
     margin: calc(var(--u) * 5) 0 0;
     font-size: var(--fs-base);
     color: var(--text-3);
+
+    // The demo credentials read as things to type, so they are set as such.
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.95em;
+      color: var(--text-2);
+    }
   }
 
   &__waiting {
@@ -299,7 +365,8 @@
     flex-direction: row;
     align-items: center;
     gap: calc(var(--u));
-    flex: 0 0 auto;
+    // Same again: the single-column grid above is what makes the rail a
+    // strip across the top.
     padding: 0 calc(var(--u) * 3);
     border-right: 0;
     border-bottom: 1px solid var(--border);
@@ -318,6 +385,14 @@
     &__mark {
       flex-shrink: 0;
       padding: 0 calc(var(--u) * 2) 0 0;
+    }
+
+    // Gone here. The rail is a row of tabs that slides sideways, and a
+    // sentence of prose in it is neither readable nor easy to scroll past.
+    // The notice itself is on the sign-in screen, which is where it was
+    // read and agreed to; this was only ever the reminder.
+    &__demo {
+      display: none;
     }
 
     &__group {

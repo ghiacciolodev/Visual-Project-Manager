@@ -119,15 +119,15 @@
             Sign out
           </button>
 
-          <!-- Only on the deployed instance, where it is true: four accounts
-               whose password is printed in a README, and a plan put back
-               several times a day. Said here rather than once at the door,
-               because somebody arriving at a shared account is most likely to
-               type something they should not several screens in. -->
+          <!-- Only on the deployed instance, where it is true. The full
+               wording is at the door, where it is agreed to; this is the
+               reminder for somebody five screens in who has stopped thinking
+               about which account they are using. Kept to a few words because
+               the rail is 208px and this is the one thing in it that is
+               prose. -->
           @if (isDemo) {
             <p class="rail__demo">
-              Public demo. These accounts are shared and everything is reset
-              every few hours, so please do not enter anything private.
+              Public demo. Shared accounts, reset every few hours.
               <a href="/privacy/" target="_blank" rel="noopener">Privacy</a>
             </p>
           }
@@ -185,10 +185,47 @@
       <p class="gate__eyebrow">Visual Project Manager</p>
       <h1 class="gate__title">Plan the work. See what it costs.</h1>
       <p class="gate__body">Sign in to open your schedule.</p>
-      <button type="button" class="action action--lg" (click)="session.signIn()">Sign in</button>
-      <!-- No shared demo account to borrow any more: the same button leads to
-           a sign-in form that offers registration. -->
-      <p class="gate__hint">No account yet? Register from the same screen.</p>
+
+      <!--
+        On the public instance, the terms of the place before the door opens.
+        This is where somebody decides whether to go in, so it is where the
+        notice belongs: telling them afterwards, once they are already looking
+        at a shared plan, is telling them too late.
+
+        stopPropagation on the link because a click inside a <label> activates
+        the control the label is for. Without it, reading the notice would
+        tick the box that says you have read it.
+      -->
+      @if (isDemo) {
+        <div class="gate__consent">
+          <input type="checkbox" id="gate-consent"
+                 [checked]="consented()"
+                 (change)="consented.set($any($event.target).checked)">
+          <label for="gate-consent">
+            This is a shared public demonstration: the accounts are shared with
+            everybody else here, the data is reset several times a day, and
+            nothing private belongs in it. I have read the
+            <a href="/privacy/" target="_blank" rel="noopener"
+               (click)="$event.stopPropagation()">privacy notice</a>.
+          </label>
+        </div>
+      }
+
+      <button type="button" class="action action--lg"
+              [disabled]="isDemo && !consented()"
+              (click)="session.signIn()">Sign in</button>
+
+      @if (isDemo) {
+        <p class="gate__hint">
+          Sign in as <code>harriet</code> with the password <code>demo</code>,
+          or as <code>tom</code> for the read-only view. Registration is
+          closed here.
+        </p>
+      } @else {
+        <!-- No shared demo account to borrow: the same button leads to a
+             sign-in form that offers registration. -->
+        <p class="gate__hint">No account yet? Register from the same screen.</p>
+      }
     </div>
   }
 } @else {
