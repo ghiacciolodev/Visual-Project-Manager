@@ -113,10 +113,13 @@ here and [there is not going to be one](#exports-are-mostly-small-print).
 ### Signing in
 
 Keycloak, with a login theme that matches the application rather than
-announcing that a different product is handling the password. Registration
-and password reset are both live, and reset messages land in Mailpit, a
-fake mail server in the compose file, so the whole flow can be followed on
-a laptop with no mail account anywhere.
+announcing that a different product is handling the password. On a local
+install, registration and password reset are both live, and reset messages
+land in Mailpit, a fake mail server in the compose file, so the whole flow
+can be followed on a laptop with no mail account anywhere.
+
+The public demo has both switched off. Its four accounts are the way in,
+and a reset message sent from it would have nowhere to arrive.
 
 ![The Keycloak sign-in screen in the VPM theme](docs/screenshots/sign-in.png)
 
@@ -533,6 +536,12 @@ that disagree about where the API is fail with every request blocked,
 nothing in the server log, and the explanation only in the browser
 console.
 
+A fourth value joined them later and is not an address: whether this
+instance is the public demo. It turns on the standing notice that the
+accounts are shared and the data does not survive the day, which is true
+of one deployment and false of every other copy of this application, so it
+belongs in the same file for the same reason the addresses do.
+
 Two details make it work rather than merely exist. The OIDC settings go
 through a `StsConfigHttpLoader`, so the library waits for the fetch itself
 rather than needing values at provider-construction time. And
@@ -540,6 +549,16 @@ rather than needing values at provider-construction time. And
 throwing, which is what lets a hundred and twenty-six unit tests keep
 asserting against real URLs without a network call any of them would have
 had to mock.
+
+The failure this arrangement can still produce is worth writing down,
+because it happened here. Reading the configuration in a field initialiser
+captures whatever was in force when that class was constructed, and one
+service was constructed inside the app initializer itself, before the
+fetch resolved. It then held the development default for the life of the
+page: a deployed browser calling `localhost`, the content security policy
+correctly refusing the connection, and a project list that came back empty
+with nothing in any server log, because the request never left the
+browser. Every service reads the address inside a method now.
 
 The policy itself took work for a different reason. A strict
 `script-src 'self'` is the defence in depth for tokens in
@@ -665,17 +684,24 @@ frontend/         Angular 21, standalone, zoneless
     features/     gantt · tasks · members · projects · history
     models/
   public/config.json               the development defaults
+  public/fonts/                    IBM Plex, served from here and not from Google
+  public/privacy/                  the notice, static so it needs no session
   nginx.conf                       how the built app is served
   security-headers.conf.template   CSP, with connect-src substituted at start
   docker-entrypoint.d/             writes config.json and fills the template
 
 keycloak/
   realm-export.json     the whole identity setup, version controlled
-  themes/vpm/           the login theme
+  themes/vpm/           the login theme, and the same two font files
 
-docs/             screenshots, and the brief this started as
-scripts/demo/     the plan in the screenshots
-docker-compose.yml
+scripts/demo/     the plan in the screenshots, and what puts it back
+scripts/deploy/   the systemd timer that runs that on a schedule
+
+docs/             screenshots, the deployment notes, and the brief this began as
+
+docker-compose.yml        the development stack
+docker-compose.prod.yml   what changes when it is reachable from the internet
+Caddyfile                 TLS, and which paths Keycloak is allowed to answer
 ```
 
 ---
