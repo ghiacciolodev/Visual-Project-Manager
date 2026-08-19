@@ -70,10 +70,14 @@ realm, and Caddy negotiates the certificate. Watch it with
 ## The demo data, and the settings that go with it
 
 ```bash
-PUBLIC_HOST=vpm.example.com bash scripts/demo/seed.sh
+bash scripts/demo/seed.sh
 ```
 
-`PUBLIC_HOST` is what makes this the production seed rather than the
+The script reads `.env` for the domain and the administrator credentials, the
+same file the stack reads, so there is nothing to pass on the command line and
+nothing that can disagree with what is already running.
+
+`PUBLIC_HOST` being set is what makes this the production seed rather than the
 development one. It does two jobs.
 
 It writes the plan and the four accounts, the same as on a laptop.

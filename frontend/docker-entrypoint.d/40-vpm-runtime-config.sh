@@ -40,7 +40,18 @@ origin_of() {
     echo "$1" | sed -E 's#^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+).*#\1#'
 }
 
-CSP_CONNECT_SRC="'self' $(origin_of "$API_BASE_URL") $(origin_of "$KEYCLOAK_AUTHORITY")"
+# Deduplicated, because on a laptop the two are different ports and deployed
+# they are the same host: Caddy puts the application and Keycloak behind one
+# origin so that the token's issuer is the address the browser used. Listing it
+# twice changes nothing a browser does, but a header that repeats itself reads
+# like a mistake, and the next person has to work out that it is not one.
+CSP_CONNECT_SRC="'self'"
+for origin in "$(origin_of "$API_BASE_URL")" "$(origin_of "$KEYCLOAK_AUTHORITY")"; do
+    case " $CSP_CONNECT_SRC " in
+        *" $origin "*) ;;
+        *) CSP_CONNECT_SRC="$CSP_CONNECT_SRC $origin" ;;
+    esac
+done
 export CSP_CONNECT_SRC
 
 envsubst '${CSP_CONNECT_SRC}' \

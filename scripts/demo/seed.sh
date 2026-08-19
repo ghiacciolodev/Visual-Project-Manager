@@ -18,6 +18,29 @@
 #
 set -euo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE_DIR="$(cd "$HERE/../.." && pwd)"
+
+# The same .env the stack reads, so the administrator password is written down
+# once. The systemd unit passes it with EnvironmentFile, but a run by hand gets
+# nothing, and without this that run would try admin/admin and stop at the
+# first request. Two ways of starting the same script should not need two
+# different things remembered about it.
+#
+# Parsed rather than sourced: sourcing hands the file's contents to the shell,
+# and a password is exactly the kind of value that should not be executable.
+# Anything already in the environment wins, so an explicit PUBLIC_HOST= in
+# front of the command still overrides the file.
+if [ -f "$COMPOSE_DIR/.env" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in ''|'#'*) continue ;; esac
+        key="${line%%=*}"
+        [ "$key" = "$line" ] && continue
+        [ -n "${!key-}" ] && continue
+        export "$key=${line#*=}"
+    done < "$COMPOSE_DIR/.env"
+fi
+
 KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8081}"
 REALM="${REALM:-vpm}"
 ADMIN_USER="${KEYCLOAK_ADMIN:-admin}"
@@ -31,9 +54,6 @@ PROJECT_NAME="${PROJECT_NAME:-Storefront Relaunch}"
 # Set to the public hostname to also harden the realm. Absent means a local
 # stack, where open registration and a reachable Mailpit are the point.
 PUBLIC_HOST="${PUBLIC_HOST:-}"
-
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_DIR="$(cd "$HERE/../.." && pwd)"
 
 command -v jq >/dev/null || {
     echo "jq is required (sudo apt install -y jq)" >&2
