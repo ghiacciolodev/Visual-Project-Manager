@@ -27,12 +27,32 @@
 
 BEGIN;
 
+-- Everything the demo people can reach, not only the project written
+-- below. A visitor signs in as Harriet and is free to create projects of
+-- their own, and matching on the name alone would leave those standing
+-- for the next visitor to find on the same account.
+--
 -- Order matters. Projects first, so the cascade clears tasks,
--- memberships and history while the users those rows point at still
--- exist; deleting the users first would trip nothing, but it would
--- leave the project standing with its owner set to NULL.
-DELETE FROM projects WHERE name = :'project_name';
-DELETE FROM users    WHERE email LIKE '%@northwind.example';
+-- memberships and history while the memberships that identify them still
+-- exist. The other way round there would be nothing left to match on.
+DELETE FROM projects p
+ WHERE EXISTS (SELECT 1
+                 FROM project_members m
+                 JOIN users u ON u.id = m.user_id
+                WHERE m.project_id = p.id
+                  AND u.email LIKE '%@northwind.example');
+
+DELETE FROM users WHERE email LIKE '%@northwind.example';
+
+-- And the ones earlier runs left behind. projects.created_by is ON
+-- DELETE SET NULL while project_members.user_id is ON DELETE CASCADE, so
+-- deleting the demo people turned any project of theirs into one with no
+-- owner and no members: unreachable through the application, and
+-- permanent, because nothing else ever looks for it. A project nobody is
+-- a member of cannot be opened by anyone, which makes this safe to run
+-- against a database that has other things in it.
+DELETE FROM projects p
+ WHERE NOT EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id);
 
 INSERT INTO users (keycloak_sub, email, display_name) VALUES
     (:'sub_harriet', 'harriet.vance@northwind.example',   'Harriet Vance'),
