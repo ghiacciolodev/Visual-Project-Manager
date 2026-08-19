@@ -69,7 +69,13 @@ services:
     # deliberately does not route; and the administration console is one
     # `ssh -L 8081:localhost:8081` away when it is genuinely needed, rather
     # than a second compose file somebody has to remember to take back out.
-    ports:
+    #
+    # !override, not a plain list. Compose concatenates sequences across
+    # overlays, so without it the base file's 8081 on every interface survives
+    # alongside this one, the container tries to bind the port twice, and the
+    # start fails on the second. Which is the good outcome: the failure is
+    # loud, whereas the merge quietly reinstates the binding this replaces.
+    ports: !override
       - "127.0.0.1:8081:8080"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?set KEYCLOAK_ADMIN}
