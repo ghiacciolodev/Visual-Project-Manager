@@ -20,7 +20,13 @@
 	# rather than proxying everything unmatched, so a future Keycloak endpoint
 	# does not silently start answering for a path this application meant to
 	# keep.
-	handle /realms/* {
+	#
+	# The realm is named, not globbed. /realms/* would also expose
+	# /realms/master/protocol/openid-connect/token, which is where the
+	# administrator's password is checked: no console, but an endpoint on the
+	# public internet that answers yes or no to a guess. The application never
+	# touches the master realm, so it has no business being routed.
+	handle /realms/vpm/* {
 		reverse_proxy keycloak:8080
 	}
 	handle /resources/* {
@@ -30,14 +36,15 @@
 		reverse_proxy keycloak:8080
 	}
 
-	# The administration console is not published. It is reachable over an SSH
-	# tunnel when it is needed:
+	# Belt and braces. Nothing routes here any more now that the realm is named
+	# above, but /admin is the path worth being explicit about: this is the
+	# administration console and the admin REST API, and leaving it on the
+	# public host means the only thing between a stranger and every account on
+	# the instance is one password. It is reachable over an SSH tunnel:
 	#
 	#   ssh -L 8081:localhost:8081 ubuntu@the-host
-	#   docker compose exec -T caddy true   # then browse localhost:8081
 	#
-	# Leaving it on the public host means the only thing between a stranger and
-	# the realm is one password.
+	# then browse http://localhost:8081/admin.
 	handle /admin/* {
 		respond "Not found" 404
 	}

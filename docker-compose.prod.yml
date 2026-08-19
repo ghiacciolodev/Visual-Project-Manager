@@ -60,7 +60,17 @@ services:
     # only correct after `kc.sh build` has run against this exact
     # configuration. Starting without it costs a few seconds once.
     command: start --import-realm
-    ports: !reset null
+
+    # Bound to the loopback interface, which is not the same as published. The
+    # host can reach it and nothing else can, because 127.0.0.1 is not an
+    # address that exists outside this machine.
+    #
+    # Two things need it. The seed script talks to the admin API, which Caddy
+    # deliberately does not route; and the administration console is one
+    # `ssh -L 8081:localhost:8081` away when it is genuinely needed, rather
+    # than a second compose file somebody has to remember to take back out.
+    ports:
+      - "127.0.0.1:8081:8080"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?set KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD}

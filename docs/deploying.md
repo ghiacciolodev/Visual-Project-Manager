@@ -129,20 +129,22 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec keycloak \
   /opt/keycloak/bin/kcadm.sh get realms/vpm --fields sslRequired,registrationAllowed
 ```
 
-If you want the console itself, publish the port on the loopback interface
-only and reach it through a tunnel. Add to a local `docker-compose.admin.yml`:
+If you want the console itself, the overlay already binds Keycloak to
+`127.0.0.1:8081` on the host, which is reachable from the machine and from
+nowhere else. Tunnel to it:
 
-```yaml
-services:
-  keycloak:
-    ports:
-      - "127.0.0.1:8081:8080"
+```bash
+ssh -L 8081:localhost:8081 ubuntu@the-host
 ```
 
-then `up -d` with that third file, `ssh -L 8081:localhost:8081 ubuntu@the-host`,
-and browse `http://localhost:8081/admin`. Take the file back out afterwards:
-bound to `127.0.0.1` it is not reachable from outside the machine, but a port
-opened for one afternoon is a port somebody forgets.
+and browse `http://localhost:8081/admin` while that stays open.
+
+Two paths are closed on the public host, and they are closed for different
+reasons. `/admin/*` is the console and the admin REST API. `/realms/master/*`
+is subtler: it holds the token endpoint where the administrator's password is
+checked, so routing it would put no console on the internet, but it would put
+there an endpoint that answers yes or no to a guessed password. Caddy names
+the application's realm, `/realms/vpm/*`, rather than globbing `/realms/*`.
 
 ---
 
