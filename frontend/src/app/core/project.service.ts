@@ -19,7 +19,16 @@ import { ProblemDetail } from '../models/task.model';
 export class ProjectService {
 
   private readonly http = inject(HttpClient);
-  private readonly url = `${apiBaseUrl()}/projects`;
+  // A getter, not a field. A field is evaluated when the service is built,
+  // and this one is built inside the app initializer: SessionService injects
+  // it, and that injection happens before config.json has been fetched. The
+  // development default is then baked in for the life of the page, which on a
+  // deployed instance means a browser calling localhost and a content
+  // security policy correctly refusing to let it. Every other service builds
+  // its URL inside a method, which is why this was the only one.
+  private get url(): string {
+    return `${apiBaseUrl()}/projects`;
+  }
 
   private readonly _projects = signal<Project[]>([]);
   private readonly _currentId = signal<number | null>(null);
