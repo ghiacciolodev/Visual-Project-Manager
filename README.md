@@ -206,32 +206,6 @@ its committed values are the ones above. In a container the entrypoint
 overwrites it, so [one image runs
 anywhere](#one-image-three-addresses-one-file).
 
-### Putting it online
-
-`docker-compose.prod.yml` overlays the lot for a public host: Caddy in
-front with a certificate it renews itself, Keycloak on `start` rather than
-`start-dev`, nothing published but 80 and 443, every secret required with
-no default, and registration closed because the demo accounts are the way
-in. Caddy names the realm it serves, `/realms/vpm/*`, rather than globbing
-`/realms/*`: that keeps the master realm's token endpoint off the public
-internet alongside the administration console, which is where an
-administrator password would otherwise be checked by anyone who asked.
-
-Nothing there is fetched from anybody else either. The typeface is served
-from this application rather than from Google, on both the sign-in page and
-the application itself, so opening it introduces the visitor's browser to one
-host and no others. That also lets the policy's `style-src` and `font-src` say
-`'self'` and mean it.
-
-[vpm-demo.duckdns.org](https://vpm-demo.duckdns.org) is that overlay running,
-with a systemd timer putting the plan back four times a day and a
-[privacy page](https://vpm-demo.duckdns.org/privacy/) saying what it keeps.
-[docs/deploying.md](docs/deploying.md) is the walkthrough, written for an
-Oracle Cloud Always Free instance because four services and two databases want
-more memory than most free tiers give.
-
----
-
 ## Architecture
 
 ```mermaid
