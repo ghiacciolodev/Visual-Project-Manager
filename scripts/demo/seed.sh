@@ -79,14 +79,24 @@ api() {
 
 echo "Keycloak $KEYCLOAK_URL (realm: $REALM)"
 
-TOKEN=$(curl -sS -X POST \
+# --data-urlencode for the credentials, not -d. curl sends -d exactly as
+# given and the server reads it as a form, where + means space: a password
+# from `openssl rand -base64 32` contains + about half the time and then
+# arrives as a different password. Locally it is `admin` and nothing shows.
+response=$(curl -sS -X POST \
     "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
     -d grant_type=password -d client_id=admin-cli \
-    -d "username=$ADMIN_USER" -d "password=$ADMIN_PASSWORD" \
-    | jq -r '.access_token // empty')
+    --data-urlencode "username=$ADMIN_USER" \
+    --data-urlencode "password=$ADMIN_PASSWORD" || true)
 
+TOKEN=$(printf '%s' "$response" | jq -r '.access_token // empty' 2>/dev/null || true)
+
+# Repeating what Keycloak said, because the two failures here need opposite
+# responses and the old message guessed at one of them. Nothing at all means
+# the port is not there; invalid_grant means it is, and the password is wrong.
 [ -n "$TOKEN" ] || {
-    echo "Could not authenticate against Keycloak. Is the stack up?" >&2
+    echo "Could not authenticate against Keycloak at $KEYCLOAK_URL." >&2
+    echo "  Keycloak said: ${response:-nothing; the connection itself failed}" >&2
     exit 1
 }
 
