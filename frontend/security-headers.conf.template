@@ -48,7 +48,11 @@
 # A mismatch here is the least helpful failure available: every request
 # blocked, nothing in the server log, and the reason only in the browser
 # console. Deriving both from one value is what removes the possibility.
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src ${CSP_CONNECT_SRC}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+# style-src and font-src used to name two Google domains, because the typeface
+# was fetched from fonts.googleapis.com. It is served from here now, so both
+# say 'self' and mean it: apart from the API, which connect-src names, there is
+# no host in this policy but this one.
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src ${CSP_CONNECT_SRC}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
 
 # Stops a browser second-guessing a Content-Type. Without it a file served as
 # text/plain that happens to contain markup can be sniffed into HTML.

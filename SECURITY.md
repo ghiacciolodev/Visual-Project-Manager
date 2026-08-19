@@ -8,8 +8,8 @@ lists strengths is a marketing page.
 **Status:** this began as a classroom brief and was rebuilt on a different
 stack. It has never held anybody's real data. Where a public instance is
 running it is a demonstration: it holds the seeded plan and nothing else,
-its sign-in credentials are printed in the README on purpose, and a
-nightly job restores both the plan and the realm settings. Several
+its sign-in credentials are printed in the README on purpose, and a job
+every six hours restores both the plan and the realm settings. Several
 decisions below are correct for that setting and would need revisiting
 before this held data belonging to anyone; each one says so where it
 applies.
@@ -478,8 +478,9 @@ set out the whole difference in a table.
 What that leaves is a public instance whose sign-in credentials are
 printed in a README, on purpose. It survives because those accounts can
 reach nothing but their own demo project, because the creation ceilings
-bound what anybody can add, and because a nightly timer puts the plan back
-and re-asserts the realm settings. Configuration applied once drifts.
+bound what anybody can add, and because a timer every six hours puts the
+plan back and re-asserts the realm settings. Configuration applied once
+drifts.
 
 **4. Inviting somebody tells you whether their address has an account.**
 `POST /projects/{id}/members` answers with `signedUp` and, for an address
@@ -497,6 +498,16 @@ identity unrevealed until they do, and that is a feature rather than a
 patch. Slack, Notion and Linear all behave the way this does, which
 explains the choice without excusing it. The ceilings above bound how far
 the enumeration scales; they do not close it.
+
+On the public instance the same feature has a second consequence, and this
+one is about the invitee rather than the inviter. The row it writes holds a
+real address belonging to somebody who never came here, entered by a
+stranger. What bounds it is the reset: the seed deletes every account with
+no `keycloak_sub` and no membership, which is exactly an invitation nobody
+took up, so such a row survives at most six hours. That is why the timer
+runs four times a day rather than once, and why the instance carries a
+privacy notice saying so where the people concerned would look for it. It
+bounds the exposure. It does not make it consented.
 
 What used to sit on the end of this was worse than disclosure, and is
 fixed. Provisioning claims a placeholder row by email, so an invitation

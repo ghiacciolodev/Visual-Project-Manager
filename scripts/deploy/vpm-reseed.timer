@@ -2,10 +2,20 @@
 Description=Restore the demo plan nightly
 
 [Timer]
-# Half past four, when nobody is looking at it. RandomizedDelaySec so that a
-# fleet of these would not all hit at once, which costs nothing here and is
-# the habit worth having.
-OnCalendar=*-*-* 04:30:00
+# Four times a day rather than once.
+#
+# The plan itself would be fine going back overnight; the members panel is
+# what changed the arithmetic. It writes a row for any address typed into it,
+# so that somebody can be invited before they have an account, which on a
+# public instance means a visitor can put a real address belonging to a real
+# person into this database. The reset is what takes it out again, and how
+# often it runs is therefore how long that address sits there. Six hours is a
+# quarter of what it was.
+#
+# Half past the hour, so it is not sharing a minute with everything else on
+# the machine that runs on the hour. RandomizedDelaySec for the same reason,
+# which costs nothing here and is the habit worth having.
+OnCalendar=*-*-* 00,06,12,18:30:00
 RandomizedDelaySec=15m
 
 # If the machine was asleep or the timer was missed, run once on the next

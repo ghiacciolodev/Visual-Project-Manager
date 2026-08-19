@@ -87,6 +87,19 @@ services:
       KC_HOSTNAME: https://${PUBLIC_HOST}
       KC_HOSTNAME_STRICT: "true"
 
+      # The administration console has its own address, and it is not on the
+      # public one.
+      #
+      # With only KC_HOSTNAME set, Keycloak builds every URL from it, the
+      # console included: reached through the SSH tunnel on localhost:8081 it
+      # would still send the browser to the public host to authenticate, where
+      # Caddy routes /realms/vpm and nothing else, so the console would stall
+      # against a realm that is deliberately not published. Naming the admin
+      # address separately keeps that traffic on the loopback binding, where
+      # it reaches Keycloak directly and the master realm is reachable because
+      # only this machine can get to it.
+      KC_HOSTNAME_ADMIN: http://localhost:8081
+
       # TLS ends at Caddy, so Keycloak speaks plain HTTP on the inside and has
       # to be told to trust the forwarded headers. Without this it builds
       # http:// URLs and the redirect back from the login page downgrades the
@@ -117,6 +130,12 @@ services:
       API_BASE_URL: https://${PUBLIC_HOST}/api/v1
       KEYCLOAK_AUTHORITY: https://${PUBLIC_HOST}/realms/vpm
       KEYCLOAK_CLIENT_ID: vpm-frontend
+
+      # The standing notice: shared accounts, data thrown away periodically,
+      # nothing private belongs in it. True here and nowhere else, which is
+      # why it is switched on by the file that knows this is the public host
+      # rather than compiled into the image.
+      DEMO_INSTANCE: "true"
 
   # Kept, and kept private. Password reset is switched off on the public realm
   # because the messages would have nowhere to go, and a working "forgot

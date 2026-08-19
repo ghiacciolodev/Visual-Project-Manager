@@ -9,15 +9,17 @@
   <!-- SVG rather than .ico: one file that stays sharp at every size a tab,
        a bookmark or a pinned shortcut asks for. -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Every weight the stylesheet asks for, and nothing it does not.
-       Plex Sans was being loaded at 400 and 500 while the CSS set headings,
-       buttons and badges at 600 and 700, so the browser synthesised those by
-       smearing the 500 — which is why the type looked slightly wrong
-       everywhere without any single rule being wrong. Condensed was loaded in
-       three weights and used by nothing at all. -->
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- The typeface is served from this host. It came from Google until the
+       demo went public, and a tool that says the data stays here should not
+       open by introducing the visitor's browser to somebody else. The
+       @font-face rules and the reasoning are at the top of styles.scss.
+
+       Preloaded because it is discovered late otherwise: the browser only
+       learns the font exists after it has fetched and parsed the stylesheet
+       that names it, which is one round trip of unstyled text. Only the one
+       file almost every visitor needs; the rest are fetched when a character
+       calls for them. -->
+  <link rel="preload" href="fonts/ibm-plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
   <app-root></app-root>

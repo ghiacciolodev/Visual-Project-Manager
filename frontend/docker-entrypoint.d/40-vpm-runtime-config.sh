@@ -15,6 +15,20 @@ API_BASE_URL="${API_BASE_URL:-http://localhost:8080/api/v1}"
 KEYCLOAK_AUTHORITY="${KEYCLOAK_AUTHORITY:-http://localhost:8081/realms/vpm}"
 KEYCLOAK_CLIENT_ID="${KEYCLOAK_CLIENT_ID:-vpm-frontend}"
 
+# Turns on the standing notice that the accounts are shared and the data does
+# not survive the night. Off unless asked for: the notice is true of the public
+# instance and false of anywhere else, and one that appears on a developer's
+# laptop is one that ends up in the screenshots.
+#
+# Normalised to a JSON literal rather than interpolated, because config.json is
+# parsed, not sourced: "yes" or "1" written straight into it is a string, and a
+# non-empty string is truthy, so every value including "false" would switch the
+# notice on.
+case "${DEMO_INSTANCE:-}" in
+    true|TRUE|True|1|yes|on) DEMO_JSON=true ;;
+    *)                       DEMO_JSON=false ;;
+esac
+
 # --- what the application reads at start-up --------------------------------
 
 cat > /usr/share/nginx/html/config.json <<JSON
@@ -23,7 +37,8 @@ cat > /usr/share/nginx/html/config.json <<JSON
   "keycloak": {
     "authority": "${KEYCLOAK_AUTHORITY}",
     "clientId": "${KEYCLOAK_CLIENT_ID}"
-  }
+  },
+  "demo": ${DEMO_JSON}
 }
 JSON
 
@@ -61,3 +76,4 @@ envsubst '${CSP_CONNECT_SRC}' \
 echo "[vpm] API ${API_BASE_URL}"
 echo "[vpm] Keycloak ${KEYCLOAK_AUTHORITY}"
 echo "[vpm] connect-src ${CSP_CONNECT_SRC}"
+echo "[vpm] demo notice ${DEMO_JSON}"

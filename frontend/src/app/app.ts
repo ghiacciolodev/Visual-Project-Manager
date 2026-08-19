@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { apiBaseUrl } from './core/api.config';
 import { Profile, SessionService } from './core/session.service';
+import { runtimeConfig } from './core/runtime-config';
 import { MemberService } from './core/member.service';
 import { ProjectService } from './core/project.service';
 import { TaskService } from './core/task.service';
@@ -29,6 +30,20 @@ export class App {
   readonly members = inject(MemberService);
   private readonly audit = inject(AuditService);
   private readonly http = inject(HttpClient);
+
+  /**
+   * Whether to stand a warning at the bottom of the rail.
+   *
+   * A getter rather than a field, for the reason set out in ProjectService:
+   * config.json is fetched by the app initializer, and a value read while a
+   * class is being constructed can be the default that was in force before
+   * the fetch returned. This component is built after the initializer has
+   * finished, so a field would work today, which is exactly what makes it
+   * worth not writing.
+   */
+  protected get isDemo(): boolean {
+    return runtimeConfig().demo;
+  }
 
   /** The membership panel, which opens over the current view rather than replacing it. */
   readonly membersOpen = signal(false);

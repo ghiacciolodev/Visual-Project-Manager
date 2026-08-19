@@ -89,19 +89,29 @@ admin API rather than baked into `realm-export.json`, so the committed realm
 stays the one a developer wants on a laptop, with registration open and
 Mailpit reachable.
 
-Then install the timer that runs it every night:
+Then install the timer that runs it every six hours:
 
 ```bash
 sudo cp scripts/deploy/vpm-reseed.* /etc/systemd/system/
 sudo systemctl enable --now vpm-reseed.timer
 ```
 
-This is not housekeeping, it is what makes the demo safe to leave alone. The
-credentials are printed in the README, so anybody can sign in as the owner and
-delete the project, and a demo whose first impression is an empty schedule is
-worse than no demo. The nightly run puts the plan back, and re-applies the
-realm settings while it is there, because configuration applied once drifts
-and configuration applied every night does not.
+This is not housekeeping, it is what makes the demo safe to leave alone, and
+it does three jobs.
+
+It puts the plan back. The credentials are printed in the README, so anybody
+can sign in as the owner and delete the project, and a demo whose first
+impression is an empty schedule is worse than no demo.
+
+It re-applies the realm settings, because configuration applied once drifts
+and configuration applied on a schedule does not.
+
+And it is what bounds how long a stranger's email address can sit in the
+database. The members panel writes a row for any address typed into it, so
+that somebody can be invited before they have an account; that is the
+feature working, and on a public instance it means a visitor can enter an
+address belonging to a person who never asked to be here. Six hours rather
+than overnight is that window, made a quarter of what it was.
 
 ---
 

@@ -6,12 +6,12 @@
 # public demo it has a second job: it is the thing that undoes whatever a
 # visitor did. The credentials are printed in a README, so anybody can sign in
 # as the owner and delete the project, and a demo whose first impression is an
-# empty schedule is worse than no demo. Run nightly, this puts the plan back.
+# empty schedule is worse than no demo. Run on a timer, this puts it back.
 #
 # While it is there it also re-asserts the realm settings that make the
 # instance safe to leave running, because those are equally reachable by
 # anyone who finds the administration console password. Configuration that is
-# applied once drifts; configuration that is applied every night does not.
+# applied once drifts; configuration applied on a timer does not.
 #
 #   ./seed.sh                              development, localhost, no realm changes
 #   PUBLIC_HOST=vpm.example.com ./seed.sh  production, and hardens the realm
@@ -164,7 +164,7 @@ if [ -n "$PUBLIC_HOST" ]; then
             | .resetPasswordAllowed = false
 
             # Re-asserted rather than assumed, because these are the settings
-            # worth being sure about after a night of strangers clicking.
+            # worth being sure about after hours of strangers clicking.
             | .revokeRefreshToken   = true
             | .refreshTokenMaxReuse = 0
             | .verifyEmail          = true

@@ -11,7 +11,8 @@ PostgreSQL underneath, and one `docker compose up` to run all of it.
 **[Try it](https://vpm-demo.duckdns.org)**, signed in as `harriet` with the
 password `demo`. That account owns the plan below and can change all of it;
 `tom`, same password, sees the same plan read only. Everything is put back
-every night, so nothing you do to it lasts.
+every six hours, so nothing you do to it lasts, and nothing anybody else did
+is waiting for you.
 
 ![The chart: bars, dependency arrows, hatched float tails and today's line, zoomed to single days over the first five weeks of the plan](docs/screenshots/chart.png)
 
@@ -176,10 +177,13 @@ and any project left with no members at all. On a database of your own,
 anything those four are not a member of is untouched.
 
 Clearing more than it wrote is the point on the public instance, where the
-same script runs every night: a visitor signed in as Harriet is free to make
-projects of their own, and by morning they are gone.
-[SECURITY.md](SECURITY.md) sets out what a password printed in a README does
-and does not put at risk.
+same script runs every six hours. A visitor signed in as Harriet can make
+projects of their own, and can type any address into the members panel, which
+writes a row for a person who has not asked to be here. How often this runs is
+how long that row exists. [SECURITY.md](SECURITY.md) sets out what a password
+printed in a README does and does not put at risk, and
+[the privacy page](https://vpm-demo.duckdns.org/privacy/) says the same thing
+to the people it concerns.
 
 ### Developing
 
@@ -210,11 +214,18 @@ in. Caddy names the realm it serves, `/realms/vpm/*`, rather than globbing
 internet alongside the administration console, which is where an
 administrator password would otherwise be checked by anyone who asked.
 
-[vpm-demo.duckdns.org](https://vpm-demo.duckdns.org) is that overlay
-running, with a systemd timer putting the plan back at half past four each
-morning. [docs/deploying.md](docs/deploying.md) is the walkthrough, written
-for an Oracle Cloud Always Free instance because four services and two
-databases want more memory than most free tiers give.
+Nothing there is fetched from anybody else either. The typeface is served
+from this application rather than from Google, on both the sign-in page and
+the application itself, so opening it introduces the visitor's browser to one
+host and no others. That also lets the policy's `style-src` and `font-src` say
+`'self'` and mean it.
+
+[vpm-demo.duckdns.org](https://vpm-demo.duckdns.org) is that overlay running,
+with a systemd timer putting the plan back four times a day and a
+[privacy page](https://vpm-demo.duckdns.org/privacy/) saying what it keeps.
+[docs/deploying.md](docs/deploying.md) is the walkthrough, written for an
+Oracle Cloud Always Free instance because four services and two databases want
+more memory than most free tiers give.
 
 ---
 

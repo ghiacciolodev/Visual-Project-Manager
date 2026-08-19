@@ -138,6 +138,32 @@
     padding-top: calc(var(--u) * 3);
     border-top: 1px solid var(--border);
   }
+
+  // The public demo's standing warning. Quiet on purpose: it has to be
+  // readable by anybody who looks for it and easy to stop noticing for
+  // anybody who has already read it, because it never goes away. --text-3 on
+  // the rail's --surface measures 5.72:1, so quiet is not the same as faint.
+  // 12px is not large text by any definition, so the bar is the full 4.5:1
+  // and this clears it.
+  &__demo {
+    margin: calc(var(--u) * 2) 0 0;
+    padding: 0 calc(var(--u) * 2);
+    font-size: var(--fs-xs);
+    line-height: 1.45;
+    color: var(--text-3);
+    text-wrap: pretty;
+
+    a {
+      color: var(--text-3);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+
+      &:hover,
+      &:focus-visible {
+        color: var(--text);
+      }
+    }
+  }
 }
 
 .who {

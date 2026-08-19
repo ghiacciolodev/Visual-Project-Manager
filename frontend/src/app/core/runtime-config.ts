@@ -21,6 +21,18 @@ export interface RuntimeConfig {
     authority: string;
     clientId: string;
   };
+
+  /**
+   * Whether this instance is the public demo.
+   *
+   * It turns on a standing notice that the accounts are shared, that the data
+   * is periodically thrown away, and that nothing private belongs in it. That
+   * warning is true of the deployed instance and false of a laptop, so it is
+   * configuration rather than a constant: shown always, it would be a lie on
+   * every development machine and would follow the application into its own
+   * screenshots.
+   */
+  demo: boolean;
 }
 
 /**
@@ -38,6 +50,7 @@ const DEFAULTS: RuntimeConfig = {
     authority: 'http://localhost:8081/realms/vpm',
     clientId: 'vpm-frontend',
   },
+  demo: false,
 };
 
 let current: RuntimeConfig = DEFAULTS;

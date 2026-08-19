@@ -3,5 +3,6 @@
   "keycloak": {
     "authority": "http://localhost:8081/realms/vpm",
     "clientId": "vpm-frontend"
-  }
+  },
+  "demo": false
 }

@@ -118,6 +118,19 @@
           <button type="button" class="rail__tab" (click)="session.signOut()">
             Sign out
           </button>
+
+          <!-- Only on the deployed instance, where it is true: four accounts
+               whose password is printed in a README, and a plan put back
+               several times a day. Said here rather than once at the door,
+               because somebody arriving at a shared account is most likely to
+               type something they should not several screens in. -->
+          @if (isDemo) {
+            <p class="rail__demo">
+              Public demo. These accounts are shared and everything is reset
+              every few hours, so please do not enter anything private.
+              <a href="/privacy/" target="_blank" rel="noopener">Privacy</a>
+            </p>
+          }
         </div>
       </nav>
 
