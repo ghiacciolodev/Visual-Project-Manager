@@ -66,10 +66,19 @@
 		Strict-Transport-Security "max-age=15768000"
 	}
 
+	# An access log holds client IP addresses, which are personal data, so how
+	# long it is kept is a decision rather than a default. A week is long
+	# enough to look into something that happened over a weekend and short
+	# enough that nothing accumulates.
+	#
+	# roll_keep alone bounds the log by size, not by time: a quiet week never
+	# fills 10 MiB, and the file sits there indefinitely. roll_keep_for is the
+	# one that expires it.
 	log {
 		output file /data/access.log {
 			roll_size 10MiB
 			roll_keep 5
+			roll_keep_for 168h
 		}
 	}
 }

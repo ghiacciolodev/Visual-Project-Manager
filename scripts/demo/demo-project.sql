@@ -54,6 +54,22 @@ DELETE FROM users WHERE email LIKE '%@northwind.example';
 DELETE FROM projects p
  WHERE NOT EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id);
 
+-- And the people somebody invited. The members panel takes an address rather
+-- than picking from a list, because an invitation that only works for people
+-- who already have an account is not much of an invitation; the row it writes
+-- has no keycloak_sub until they sign in and claim it. On a public demo that
+-- row can hold a real address belonging to someone who never asked to be
+-- here, typed in by a stranger, and until this ran it outlived every reset
+-- because it is not a @northwind.example address and no project points at it
+-- any more.
+--
+-- No keycloak_sub means nobody has ever signed in as them. No membership
+-- means they are attached to nothing. Together that is an invitation nobody
+-- took up, and there is nothing in it worth keeping.
+DELETE FROM users u
+ WHERE u.keycloak_sub IS NULL
+   AND NOT EXISTS (SELECT 1 FROM project_members m WHERE m.user_id = u.id);
+
 INSERT INTO users (keycloak_sub, email, display_name) VALUES
     (:'sub_harriet', 'harriet.vance@northwind.example',   'Harriet Vance'),
     (:'sub_marcus',  'marcus.bell@northwind.example',     'Marcus Bell'),
