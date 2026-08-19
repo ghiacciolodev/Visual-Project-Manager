@@ -16,11 +16,12 @@
     subject id is what CurrentUser looks a person up by, so it has to be
     the real one, which means the accounts must exist first.
 
-    Nothing here touches data that is not the demo's. The project is
-    matched by name and the people by their @northwind.example address,
-    so running this against a database you are already using adds a
-    project and leaves the rest alone. Run it twice and the second run
-    replaces the first.
+    Run it twice and the second run replaces the first. It clears every
+    project the four @northwind.example accounts belong to, not only the
+    one it wrote, and any project left with no members at all, which is
+    what an earlier run turned a visitor's project into. Against a
+    database you are already using, anything those four are not a member
+    of is left alone.
 
     Safe to run only against a local development stack. It uses the
     Keycloak bootstrap admin from docker-compose and writes directly to

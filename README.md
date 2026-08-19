@@ -8,6 +8,11 @@ slips by a day, moves the finish date by a day.
 Angular 21 in front, Spring Boot 4.1 behind, Keycloak for identity,
 PostgreSQL underneath, and one `docker compose up` to run all of it.
 
+**[Try it](https://vpm-demo.duckdns.org)**, signed in as `harriet` with the
+password `demo`. That account owns the plan below and can change all of it;
+`tom`, same password, sees the same plan read only. Everything is put back
+every night, so nothing you do to it lasts.
+
 ![The chart: bars, dependency arrows, hatched float tails and today's line, zoomed to single days over the first five weeks of the plan](docs/screenshots/chart.png)
 
 ---
@@ -165,10 +170,16 @@ They all see the same plan. What differs is what the interface lets them
 do with it: sign in as Tom for the read-only view, as Harriet for the
 members panel the editors are not offered.
 
-Run it twice and the second run replaces the first. It writes only its own
-project and its own four `@northwind.example` accounts, so a database
-already in use keeps everything else. Local development only, and
-[SECURITY.md](SECURITY.md) says why.
+Run it twice and the second run replaces the first. It clears every project
+the four `@northwind.example` accounts belong to, not only the one it wrote,
+and any project left with no members at all. On a database of your own,
+anything those four are not a member of is untouched.
+
+Clearing more than it wrote is the point on the public instance, where the
+same script runs every night: a visitor signed in as Harriet is free to make
+projects of their own, and by morning they are gone.
+[SECURITY.md](SECURITY.md) sets out what a password printed in a README does
+and does not put at risk.
 
 ### Developing
 
@@ -194,8 +205,15 @@ anywhere](#one-image-three-addresses-one-file).
 front with a certificate it renews itself, Keycloak on `start` rather than
 `start-dev`, nothing published but 80 and 443, every secret required with
 no default, and registration closed because the demo accounts are the way
-in. [docs/deploying.md](docs/deploying.md) is the walkthrough, written for
-an Oracle Cloud Always Free instance because four services and two
+in. Caddy names the realm it serves, `/realms/vpm/*`, rather than globbing
+`/realms/*`: that keeps the master realm's token endpoint off the public
+internet alongside the administration console, which is where an
+administrator password would otherwise be checked by anyone who asked.
+
+[vpm-demo.duckdns.org](https://vpm-demo.duckdns.org) is that overlay
+running, with a systemd timer putting the plan back at half past four each
+morning. [docs/deploying.md](docs/deploying.md) is the walkthrough, written
+for an Oracle Cloud Always Free instance because four services and two
 databases want more memory than most free tiers give.
 
 ---
