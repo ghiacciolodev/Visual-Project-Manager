@@ -1,0 +1,17 @@
+[Unit]
+Description=Restore the demo plan nightly
+
+[Timer]
+# Half past four, when nobody is looking at it. RandomizedDelaySec so that a
+# fleet of these would not all hit at once, which costs nothing here and is
+# the habit worth having.
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=15m
+
+# If the machine was asleep or the timer was missed, run once on the next
+# start rather than waiting a further day. A demo that has been broken since
+# yesterday is the case this exists for.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

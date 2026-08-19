@@ -1,0 +1,68 @@
+# One host, three back ends, and a certificate nobody has to renew.
+#
+# Caddy asks Let's Encrypt for the certificate on first start and keeps it
+# renewed, which is the whole reason it is here rather than nginx: the
+# alternative is a second nginx, certbot, and a cron job to reload it.
+#
+# The paths matter more than they look. Keycloak has to live under the same
+# origin as the application, because that origin is what goes into config.json
+# and into the policy's connect-src, and because a token's issuer has to be
+# the address the browser used.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_HOST} {
+	encode zstd gzip
+
+	# Keycloak owns these three prefixes and nothing else. Named explicitly
+	# rather than proxying everything unmatched, so a future Keycloak endpoint
+	# does not silently start answering for a path this application meant to
+	# keep.
+	handle /realms/* {
+		reverse_proxy keycloak:8080
+	}
+	handle /resources/* {
+		reverse_proxy keycloak:8080
+	}
+	handle /js/* {
+		reverse_proxy keycloak:8080
+	}
+
+	# The administration console is not published. It is reachable over an SSH
+	# tunnel when it is needed:
+	#
+	#   ssh -L 8081:localhost:8081 ubuntu@the-host
+	#   docker compose exec -T caddy true   # then browse localhost:8081
+	#
+	# Leaving it on the public host means the only thing between a stranger and
+	# the realm is one password.
+	handle /admin/* {
+		respond "Not found" 404
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	# Everything else is the application, whose own nginx already sends the
+	# security headers and does the single-page fallback.
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	# Caddy adds HSTS on its own once TLS is working. Six months, and
+	# deliberately without preload: preload is a one-way door, and a portfolio
+	# demo is not where to walk through it.
+	header {
+		Strict-Transport-Security "max-age=15768000"
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

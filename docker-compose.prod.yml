@@ -1,0 +1,114 @@
+# Production overlay.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# An overlay rather than a second stack, so there is one definition of what
+# the services are and this file holds only what changes when the thing is
+# reachable from the internet. What changes turns out to be most of the
+# assumptions:
+#
+#   nothing is published except Caddy, so the database, Keycloak and the API
+#   are reachable only over the compose network;
+#   Keycloak runs `start` rather than `start-dev`, which enables the HTTPS
+#   requirement and template caching;
+#   every address the browser is told about is the public one;
+#   and no password has a default any more. A default that works is a default
+#   nobody changes.
+services:
+
+  # Terminates TLS, gets and renews the certificate on its own, and is the
+  # only thing with a port on the host.
+  caddy:
+    image: caddy:2-alpine
+    container_name: vpm-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The certificate and the account key. Losing these means asking Let's
+      # Encrypt for a new certificate on every restart, which has rate limits
+      # that are easy to reach while getting a deployment right.
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST to the domain, e.g. vpm.example.com}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL for certificate expiry notices}
+    depends_on:
+      - frontend
+      - backend
+      - keycloak
+
+  db:
+    # Unpublished. It was on the host only so a developer could reach it with
+    # psql; in production that is an open door for the sake of convenience
+    # nobody needs here. `docker compose exec db psql` still works.
+    ports: !reset null
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+
+  keycloak-db:
+    environment:
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD}
+
+  keycloak:
+    # `start`, not `start-dev`. The development mode disables the HTTPS
+    # requirement, caches nothing, and says so in its own startup banner.
+    #
+    # --optimized is deliberately absent: it skips the build step, which is
+    # only correct after `kc.sh build` has run against this exact
+    # configuration. Starting without it costs a few seconds once.
+    command: start --import-realm
+    ports: !reset null
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?set KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD}
+
+      # The public address, because it is what goes into every token's issuer
+      # and every redirect Keycloak builds.
+      KC_HOSTNAME: https://${PUBLIC_HOST}
+      KC_HOSTNAME_STRICT: "true"
+
+      # TLS ends at Caddy, so Keycloak speaks plain HTTP on the inside and has
+      # to be told to trust the forwarded headers. Without this it builds
+      # http:// URLs and the redirect back from the login page downgrades the
+      # whole flow.
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+
+  backend:
+    ports: !reset null
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-vpm}
+
+      # The issuer as the browser sees it, which is what the tokens will say.
+      KEYCLOAK_ISSUER: https://${PUBLIC_HOST}/realms/vpm
+      # And the address this container can actually reach to fetch the keys.
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/vpm/protocol/openid-connect/certs
+
+      CORS_ALLOWED_ORIGIN: https://${PUBLIC_HOST}
+
+  frontend:
+    ports: !reset null
+    environment:
+      # Written into config.json at start-up, and the policy's connect-src is
+      # derived from the same two values.
+      API_BASE_URL: https://${PUBLIC_HOST}/api/v1
+      KEYCLOAK_AUTHORITY: https://${PUBLIC_HOST}/realms/vpm
+      KEYCLOAK_CLIENT_ID: vpm-frontend
+
+  # Kept, and kept private. Password reset is switched off on the public realm
+  # because the messages would have nowhere to go, and a working "forgot
+  # password" link that silently posts into a container nobody can read is
+  # worse than one that is not offered.
+  mailpit:
+    ports: !reset null
+
+volumes:
+  caddy-data:
+  caddy-config:

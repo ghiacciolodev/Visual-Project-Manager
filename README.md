@@ -188,6 +188,16 @@ its committed values are the ones above. In a container the entrypoint
 overwrites it, so [one image runs
 anywhere](#one-image-three-addresses-one-file).
 
+### Putting it online
+
+`docker-compose.prod.yml` overlays the lot for a public host: Caddy in
+front with a certificate it renews itself, Keycloak on `start` rather than
+`start-dev`, nothing published but 80 and 443, every secret required with
+no default, and registration closed because the demo accounts are the way
+in. [docs/deploying.md](docs/deploying.md) is the walkthrough, written for
+an Oracle Cloud Always Free instance because four services and two
+databases want more memory than most free tiers give.
+
 ---
 
 ## Architecture

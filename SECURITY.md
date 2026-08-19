@@ -6,10 +6,13 @@ The second list matters more than the first. A security document that only
 lists strengths is a marketing page.
 
 **Status:** this began as a classroom brief and was rebuilt on a different
-stack. It runs against a local development stack and has never held
-anybody's real data. Several decisions below are correct for that setting
-and would need revisiting before it held anybody else's; each one says so
-where it applies.
+stack. It has never held anybody's real data. Where a public instance is
+running it is a demonstration: it holds the seeded plan and nothing else,
+its sign-in credentials are printed in the README on purpose, and a
+nightly job restores both the plan and the realm settings. Several
+decisions below are correct for that setting and would need revisiting
+before this held data belonging to anyone; each one says so where it
+applies.
 
 ---
 
@@ -17,8 +20,9 @@ where it applies.
 
 If you find a vulnerability, open a
 [GitHub issue](https://github.com/ghiacciolodev/Visual-Project-Manager/issues)
-describing it. Given what this project is, there is no embargo process and
-nothing to coordinate: there are no deployments and no users to protect.
+describing it. There is no embargo process and nothing to coordinate: any
+instance you can reach holds seeded demonstration data and no account
+belonging to anyone, so there is nobody to warn first.
 
 ---
 
@@ -455,18 +459,29 @@ behind a load balancer mean two allowances. A restart forgives everybody.
 Acceptable for a burst limit; it would not be for a quota. A shared store
 (Redis, or Bucket4j's JDBC backend) is the fix.
 
-**3. The Keycloak development stack is not hardened.** `start-dev`
-disables HTTPS enforcement, the realm sets `sslRequired: none`, and the
-bootstrap administrator is `admin`/`admin` from `docker-compose.yml`.
-These are development settings; a deployment uses `start` with a
-certificate and an administrator that is not in a file.
+**3. The development stack is not hardened, and is not meant to be.**
+`start-dev` disables the HTTPS requirement, the bootstrap administrator is
+`admin`/`admin` from `docker-compose.yml`, registration is open, and five
+ports are published on the host. Every one of those is right for a laptop
+and wrong on the internet.
 
-**4. Registration is open.** `registrationAllowed: true` on the realm, so
-anybody who can reach the sign-in screen can create an account and create
-projects. Correct for a demo people are invited to try; a real deployment
-would restrict registration to an identity provider or an invitation.
+They are not left to be remembered. `docker-compose.prod.yml` overlays the
+lot: `start` instead of `start-dev`, `sslRequired` at `external`, no
+published port but Caddy's, every secret required with no default so the
+stack refuses to come up rather than come up weak, and registration and
+password reset switched off because the four demo accounts are the way in
+and Mailpit is not reachable. The realm changes are applied by the seed
+script rather than baked into `realm-export.json`, so the committed realm
+stays the one a developer wants. [The deployment notes](docs/deploying.md)
+set out the whole difference in a table.
 
-**5. Inviting somebody tells you whether their address has an account.**
+What that leaves is a public instance whose sign-in credentials are
+printed in a README, on purpose. It survives because those accounts can
+reach nothing but their own demo project, because the creation ceilings
+bound what anybody can add, and because a nightly timer puts the plan back
+and re-asserts the realm settings. Configuration applied once drifts.
+
+**4. Inviting somebody tells you whether their address has an account.**
 `POST /projects/{id}/members` answers with `signedUp` and, for an address
 that already exists, that person's real display name rather than the email
 that was submitted. So anybody who can create a project, which with open
@@ -493,23 +508,23 @@ than being given a second row, because the address is unique and the
 alternative was a 500 with no explanation. `PlaceholderClaimIT` pins all
 three paths.
 
-**6. The demo seed writes directly to the database.** `scripts/demo/`
+**5. The demo seed writes directly to the database.** `scripts/demo/`
 takes the Keycloak bootstrap admin and a database container name and
 bypasses the API entirely. That is the only way to seed a history with
 dates in the past, and also why it must never be pointed at anything real.
 
-**7. The audit log is append-only by convention, not by grant.** Nothing
+**6. The audit log is append-only by convention, not by grant.** Nothing
 in the application deletes or updates a row in `audit_log`, and no
 endpoint exposes a way to. But the application's database user is the
 owner of the table and could. A real tamper-evident log needs either a
 restricted grant or somewhere the application cannot write at all.
 
-**8. Soft-deleted tasks are kept forever.** `deleted_at` is set and the row
+**7. Soft-deleted tasks are kept forever.** `deleted_at` is set and the row
 stays, deliberately: it is what keeps dependency references and history
 readable. There is no retention policy, and under GDPR "we keep it
 indefinitely because it was convenient" is not one of the lawful bases.
 
-**9. Four advisories in the dependency tree**, two moderate and two high
+**8. Four advisories in the dependency tree**, two moderate and two high
 as of the last `npm audit`. All four (`undici`, `hono`, `fast-uri`) arrive
 through `@angular/build` and `@angular/cli`, which are `devDependencies`:
 they are part of the build toolchain and none of them reaches the shipped

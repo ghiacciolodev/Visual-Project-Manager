@@ -1,0 +1,39 @@
+# Puts the demo plan back, and the realm settings with it.
+#
+# The credentials are printed in a public README, so anybody can sign in as
+# the owner and delete the project. That is not a flaw to be closed, it is the
+# arrangement: the demo is meant to be poked at. What it needs is for the
+# poking to be undone before the next person arrives.
+#
+# Install:
+#   sudo cp scripts/deploy/vpm-reseed.* /etc/systemd/system/
+#   sudo systemctl enable --now vpm-reseed.timer
+#
+# Watch:
+#   systemctl list-timers vpm-reseed
+#   journalctl -u vpm-reseed -n 50
+
+[Unit]
+Description=Restore the Visual Project Manager demo plan and realm settings
+# Nothing to seed if the stack is not up, and starting it here would hide a
+# failure that deserves to be noticed on its own.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+
+# The directory holding docker-compose.yml and .env. Change if you cloned
+# somewhere else.
+WorkingDirectory=/home/ubuntu/Visual-Project-Manager
+User=ubuntu
+
+# PUBLIC_HOST is what turns the seed into the production one: it re-applies
+# the realm hardening as well as the data. Read from the same .env the stack
+# uses, so there is one place where the domain is written down.
+EnvironmentFile=/home/ubuntu/Visual-Project-Manager/.env
+
+ExecStart=/bin/bash scripts/demo/seed.sh
+
+[Install]
+WantedBy=multi-user.target
