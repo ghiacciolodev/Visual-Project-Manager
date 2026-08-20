@@ -12,7 +12,9 @@
   flex: 1;
   min-height: 0;
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  // No rule on top. The filter strip below the toolbar already ends in one,
+  // and two lines a few pixels apart read as a mistake rather than as two
+  // divisions.
 
   /**
    * One element scrolls, in both directions, and three of its four cells
@@ -53,12 +55,22 @@
 
     height: var(--head-h);
     padding: 0 calc(var(--u) * 3) calc(var(--u) * 1.5);
+
+    // Set as labels rather than as small text. Sentence case at the row
+    // font's weight made the head read as a sixteenth row that happened to
+    // say "Task"; letter-spaced capitals are a different kind of thing on
+    // the page, which is what a column head is.
     font-size: var(--fs-xs);
     font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--text-3);
     background: var(--surface);
-    border-right: 1px solid var(--border-2);
-    border-bottom: 1px solid var(--border-2);
+    // The frozen edge keeps its rule, because it marks the thing that does
+    // not move. It drops a weight: --border-2 is the weight of an input's
+    // outline, and this is a division inside one surface.
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
 
   &__corner-right {
@@ -84,6 +96,13 @@
       // rule on its right edge divided it from a pane that is no longer there.
       left: auto;
       border-right: 0;
+
+      // Nor is there a timeline to line up with. --head-h is the height of
+      // the month row plus the day row opposite, and with those gone it was
+      // forty-six pixels of empty band standing over the first task. A head
+      // here is one line of labels, so it is as tall as one line of labels.
+      height: auto;
+      padding-top: calc(var(--u) * 3);
     }
 
     .chart__table {
@@ -106,7 +125,7 @@
 
     // Opaque, and it has to be: the bars scroll underneath it.
     background: var(--surface);
-    border-right: 1px solid var(--border-2);
+    border-right: 1px solid var(--border);
   }
 }
 
@@ -158,19 +177,37 @@
     pointer-events: none;
   }
 
+  /**
+   * The grid, with the days taken out of it.
+   *
+   * There used to be a rule between every pair of days: ninety of them on a
+   * quarter's plan, drawn at the weight of an ordinary divider, and the eye
+   * had to look past all of them to find a bar. Nothing is read off those
+   * lines. The dates are in the header, and a bar is placed by the grid
+   * whether the grid is drawn or not.
+   *
+   * Three divisions survive, in three weights, and each one is a real
+   * boundary rather than a tick: the weekend, the week and the month.
+   */
   &__col {
-    border-right: 1px solid var(--border);
-
     // Weekends are shaded because they explain the gap between a bar's length
     // and the working days inside it. Information, not decoration.
     &--weekend {
       background: rgb(41 37 30 / 5%);
     }
 
-    // A month boundary is a bigger division than a day, so it gets a heavier
-    // rule. Line weight encodes hierarchy.
+    // The week, drawn on the second weekend day's right edge rather than on
+    // the Monday's left edge. Same pixel either way, and this one is a
+    // border-right, so it cannot collide with the month's border-left when a
+    // month happens to start on a Monday.
+    &--weekend + &--weekend {
+      border-right: 1px solid var(--hairline);
+    }
+
+    // A month boundary is a bigger division than a week, so it gets the
+    // heavier rule. Line weight encodes hierarchy.
     &--month {
-      border-left: 1px solid var(--border-2);
+      border-left: 1px solid var(--border);
     }
   }
 
@@ -200,7 +237,7 @@
     top: 0;
     z-index: 3;
     height: var(--head-h);
-    border-bottom: 1px solid var(--border-2);
+    border-bottom: 1px solid var(--border);
     background: var(--surface);
   }
 
@@ -220,7 +257,7 @@
     padding-left: calc(var(--u) * 1.5);
     font-size: 13px;
     color: var(--text-2);
-    border-left: 1px solid var(--border-2);
+    border-left: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     overflow: hidden;
     white-space: nowrap;
@@ -459,9 +496,11 @@
   align-items: baseline;
   gap: calc(var(--u) * 5);
   flex: 0 0 auto;
-  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  padding: calc(var(--u) * 4) calc(var(--u) * 4) calc(var(--u) * 2);
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  // No rule under it. The filter strip is the same band continued, and the
+  // two were divided from each other by a line that divided nothing: the
+  // title and the controls that narrow what is under it belong together.
 
   &__title {
     margin: 0;
@@ -521,16 +560,31 @@
     align-items: center;
     gap: calc(var(--u) * 1.5);
 
+    // Underlined, not boxed.
+    //
+    // Six outlined controls over a list of fifteen rows put six rectangles on
+    // the screen before the plan got any. The line under the value is enough
+    // to say it can be changed, and it leaves the boxes to the one control
+    // that makes something.
+    //
+    // The border stays declared on all four sides and is transparent on
+    // three, so focus and hover can light an edge without the control
+    // changing size.
     select,
     input {
       font-family: inherit;
       font-size: var(--fs-xs);
       color: var(--text);
-      background: var(--surface);
-      border: 1px solid var(--border-2);
-      border-radius: var(--radius-sm);
-      padding: calc(var(--u)) calc(var(--u) * 1.5);
+      background: transparent;
+      border: 1px solid transparent;
+      border-bottom-color: var(--border-2);
+      border-radius: 0;
+      padding: calc(var(--u)) calc(var(--u) * 0.5);
       cursor: pointer;
+
+      &:hover {
+        border-bottom-color: var(--text-3);
+      }
       // Date inputs claim an intrinsic width wider than a phone, and without
       // this they push the strip past the viewport.
       min-width: 0;
@@ -593,33 +647,22 @@
   }
 }
 
-// Two segmented groups now, sharing one outline: zoom, which changes how the
-// plan is drawn, and export, which takes it somewhere else. Neither segment is
-// ever lit — export has no state to show — but the shape is the same, and two
-// groups that look alike in a toolbar are read as one kind of thing.
+// Two groups: zoom, which changes how the plan is drawn, and export, which
+// takes it somewhere else. They used to share an outline and internal
+// dividers, which made two more rectangles in a band that already had six.
+//
+// What made the segments read as a group was never the box around them. It
+// was that they sit together and look alike, which they still do, and the lit
+// segment below says which one is on without needing a frame to be lit inside.
 .zoom,
 .export {
   display: flex;
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-sm);
-  // So the lit segment's fill stops at the group's corner instead of squaring
-  // it off.
-  overflow: hidden;
+  gap: 2px;
 }
 
 .zoom__step,
-.export__step {
-  border-right: 1px solid var(--border-2);
-
-  &:last-child {
-    border-right: 0;
-  }
-}
-
-// Sits outside the zoom group and carries the outline the group draws for its
-// segments.
+.export__step,
 .float-toggle {
-  border: 1px solid var(--border-2);
   border-radius: var(--radius-sm);
 }
 

@@ -24,6 +24,10 @@
   // column followed it, and the schedule lost two thirds of the screen.
   grid-template-columns: 208px minmax(0, 1fr);
   height: 100%;
+
+  // The paper. The rail no longer paints its own background, so this is what
+  // shows behind it, and what the working area is laid on.
+  background: var(--bg);
 }
 
 /**
@@ -45,8 +49,10 @@
   // a flex item, and saying otherwise is how the width came to be a
   // coincidence rather than a rule.
   padding: calc(var(--u) * 4) calc(var(--u) * 3);
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+
+  // Neither a background nor a border. The rail sits on the paper and the
+  // working area is a card laid beside it, so the edge between them is the
+  // card's own, and one line does the work two used to.
   overflow-y: auto;
 
   &__mark {
@@ -71,13 +77,14 @@
     color: var(--text);
   }
 
-  // Groups separated by a rule rather than by extra space: the distinction is
-  // between kinds of destination, and a gap alone reads as an accident.
+  // Groups separated by space rather than by a rule. The rule was there
+  // because a gap alone reads as an accident, which is true of a small gap;
+  // at this size it reads as a decision, and the rail is now the quietest
+  // surface on the screen and should not have the most lines on it.
   &__group {
     display: flex;
     flex-direction: column;
-    padding-top: calc(var(--u) * 2);
-    border-top: 1px solid var(--border);
+    padding-top: calc(var(--u) * 4);
   }
 
   &__tab {
@@ -96,11 +103,11 @@
     cursor: pointer;
     padding: calc(var(--u) * 2) calc(var(--u) * 2);
 
-    // The current view is marked by a bar in the gutter, which is the vertical
-    // equivalent of the underline a tab bar uses. Drawn in the same place
-    // whether or not it is lit, so nothing shifts sideways when it comes on.
-    border-left: 2px solid transparent;
-    padding-left: calc(var(--u) * 2 - 2px);
+    // The current view is marked by its fill and nothing else. There used to
+    // be a bar in the gutter as well, on the argument that it is the vertical
+    // equivalent of a tab bar's underline; against a rail that no longer has
+    // a background of its own, the fill alone already reads, and the bar was
+    // a second mark saying the first one's job.
     transition: color 0.15s ease, background 0.15s ease;
 
     &:hover {
@@ -110,7 +117,6 @@
 
     &.is-current {
       color: var(--accent);
-      border-left-color: var(--accent);
       background: var(--accent-soft);
       font-weight: 600;
     }
@@ -146,8 +152,7 @@
     // Pinned to the bottom of the rail: it is who you are, not where you are
     // going, and it should not sit in the path of the things that are.
     margin-top: auto;
-    padding-top: calc(var(--u) * 3);
-    border-top: 1px solid var(--border);
+    padding-top: calc(var(--u) * 4);
   }
 
   // The public demo's standing warning. Quiet on purpose: it has to be
@@ -218,7 +223,13 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg);
+
+  // A card on the paper, rather than the other half of a split frame. The
+  // inset is what turns the edge between rail and work from a rule into a
+  // margin, and the margin is the whole reason the screen reads quieter.
+  margin: calc(var(--u) * 3) calc(var(--u) * 3) calc(var(--u) * 3) 0;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
 }
 
 /* --- the sign-in screen ------------------------------------------------- */
@@ -349,6 +360,13 @@
     display: block;
     overflow: visible;
     background: #fff;
+
+    // On screen the working area is a card inset from the paper. On paper the
+    // sheet is the paper: an inset would be a blank band down three edges of
+    // every page, and a rounded corner is a thing a printer has no reason to
+    // draw.
+    margin: 0;
+    border-radius: 0;
   }
 }
 
@@ -359,6 +377,14 @@
   .shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  // The card goes back to being the page. An inset on a phone spends the
+  // width the schedule is already short of, and rounds a corner nobody can
+  // see because the frame it would round against is the screen.
+  .main {
+    margin: 0;
+    border-radius: 0;
   }
 
   .rail {

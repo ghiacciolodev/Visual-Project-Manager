@@ -138,6 +138,12 @@
   --border:      #dfdcd4;   /* the ordinary divider */
   --border-2:    #c4bfb4;   /* inputs, stronger separation */
 
+  /* Between rows of the same table, where a divider only has to say that one
+     row ended and the next began. --border is the right weight for an edge
+     between two different things; repeated fifteen times down a list it
+     builds a grid nobody asked for. */
+  --hairline:    #ebe8e2;
+
   /* --- text ------------------------------------------------------- */
   --text:        #1b1a17;   /* 16.4:1 on white */
   --text-2:      #57534a;   /*  7.7:1 on white — secondary prose */
@@ -226,10 +232,23 @@
   --fs-2xl:  28px;  /* the sign-in screen, and nothing else */
 
   /* --- shape and depth -------------------------------------------- */
-  /* Squarer. 10px on every surface is a consumer radius; at 6 the
-     corner still reads as deliberate without softening a grid. */
-  --radius:    6px;
-  --radius-sm: 4px;
+  /*
+    Two scales, because two different things are being rounded.
+
+    Controls stay nearly square: at 8 a button or a field has a corner
+    you notice only if you go looking for one, and a grid of dates does
+    not want softening.
+
+    The working area is not a control. It is the sheet the plan sits
+    on, and at 12 it reads as something laid on the paper rather than
+    bolted to the frame. The note that stood here argued for 6
+    everywhere, on the grounds that 10 is a consumer radius. That was
+    right about surfaces at rest and wrong about the container, which
+    is the one thing on the screen that should look set down.
+  */
+  --radius:     8px;
+  --radius-sm:  6px;
+  --radius-lg: 12px;
   --radius-pill: 999px;
 
   /*

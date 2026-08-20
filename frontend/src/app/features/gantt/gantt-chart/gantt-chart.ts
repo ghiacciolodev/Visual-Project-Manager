@@ -88,7 +88,7 @@ const MIN_TABLE_WIDTH = 168;
  * from it, and a value that disagreed with the rendered rows would draw every
  * arrow at the wrong height.
  */
-const ROW_HEIGHT = 34;
+const ROW_HEIGHT = 40;
 
 interface ChartRow {
   task: Task;

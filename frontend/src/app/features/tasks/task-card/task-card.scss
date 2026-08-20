@@ -18,8 +18,10 @@
   background: var(--surface);
 
   // A hairline between rows, not a border around each one. Rows in a table
-  // share their edges; that is what makes them read as a table.
-  border-bottom: 1px solid var(--border);
+  // share their edges; that is what makes them read as a table. Drawn in
+  // --hairline rather than --border, because fifteen of these down a screen
+  // at the weight of an ordinary divider is a grid rather than a list.
+  border-bottom: 1px solid var(--hairline);
   transition: background 0.1s ease;
 
   &:hover {
