@@ -191,9 +191,9 @@
   --done-soft:   #ebe9e3;
 
   /* --- priority --------------------------------------------------- */
-  /* Only HIGH is emphasised, as before. MEDIUM used to be painted in
-     the brand blue, which made an ordinary priority the most colourful
-     thing in the row. */
+  /* Only HIGH is emphasised. A colour on MEDIUM makes an ordinary priority
+     the most colourful thing in the row, which is the opposite of what a
+     priority is for. */
   --prio-low:    #6b6659;
   --prio-medium: #57534a;
   --prio-high:   #a3302a;
@@ -295,9 +295,14 @@ body {
 /**
  * A field or section label.
  *
- * Sentence case at 13px, where it used to be uppercase at 10 with letter
- * spacing. Capitals cost about a fifth of reading speed on anything longer
- * than a word, and at ten pixels the tracking made it worse.
+ * Sentence case at 13px, and not uppercase: capitals cost about a fifth of
+ * reading speed on anything longer than a word, and small sizes with tracking
+ * make that worse.
+ *
+ * The chart's column heads are set in capitals and are not a contradiction.
+ * They are one word each, which is the case the penalty does not reach, and
+ * they have to read as a different kind of thing from the rows beneath them.
+ * A label sits beside the field it names and has no such job.
  */
 .label {
   font-size: var(--fs-sm);

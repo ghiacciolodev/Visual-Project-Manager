@@ -45,11 +45,11 @@ public record TaskResponse(
     /**
      * What the client must hand back on its next write.
      *
-     * This used to be updatedAt, which was wrong in a way that only showed up
-     * as a spurious conflict: the timestamp is written during a flush, and the
-     * response was built before one was guaranteed, so it reported the value
-     * from before the write. A counter Hibernate maintains has no such
-     * ordering problem, and it is exact rather than merely precise.
+     * A version, and not updatedAt. The timestamp is written during a flush,
+     * so a response built before one is guaranteed reports the value from
+     * before the write, and the only symptom is a conflict nobody caused. A
+     * counter Hibernate maintains has no such ordering problem, and it is
+     * exact rather than merely precise.
      */
     Long version
 ) {

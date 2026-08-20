@@ -153,12 +153,10 @@ public class CurrentUser {
         // surface at commit, outside the catch, and the losing request would
         // fail anyway — which is the whole thing being prevented here.
         //
-        // No sample project is created here any more. One used to be, because
-        // a new account with no project landed on an application that showed
-        // nothing and let them create nothing. The rail can create a project
-        // now, so the argument for seeding fake work has gone with it — and an
-        // empty schedule that the person fills themselves says more about what
-        // this is for than four invented tasks do.
+        // No sample project is created here. The rail can create one, so a
+        // new account is not stranded on a screen that shows nothing and
+        // offers nothing — and an empty schedule the person fills themselves
+        // says more about what this is for than four invented tasks do.
         return users.saveAndFlush(user);
     }
 

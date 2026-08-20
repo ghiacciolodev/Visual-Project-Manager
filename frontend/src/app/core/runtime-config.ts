@@ -4,16 +4,15 @@ import { Observable, from, map, shareReplay } from 'rxjs';
 /**
  * The three addresses this application cannot know at build time.
  *
- * They used to be constants compiled into the bundle: the API in
- * api.config.ts, Keycloak in auth.config.ts, and the same two again in the
- * `connect-src` of the content security policy. All three said localhost, so
- * the Docker image was correct on the machine that built it and nowhere else.
- * The README admitted as much and did not fix it, which is the worst of both.
+ * Compiled in, they would be three copies of one fact — the API's address,
+ * Keycloak's, and the `connect-src` of the content security policy — all
+ * saying localhost, which makes a Docker image correct on the machine that
+ * built it and nowhere else.
  *
  * They are read from `config.json` at start-up instead, served from the
  * application's own origin. The container writes that file from environment
- * variables before nginx starts, so one image runs anywhere and the CSP is
- * generated from the same values.
+ * variables before nginx starts, so one image runs anywhere and the policy is
+ * generated from the same values the application reads.
  */
 export interface RuntimeConfig {
   apiBaseUrl: string;
@@ -38,11 +37,10 @@ export interface RuntimeConfig {
 /**
  * What to use when nothing has been loaded.
  *
- * The values a developer running `npm start` would have typed, which is what
- * the constants held before this file existed. Keeping them means the unit
- * tests need no fetch and no fixture: they exercise the same URLs they always
- * did, without a network call that would have to be mocked in ten specs to
- * assert nothing.
+ * The values a developer running `npm start` would have typed. Having them
+ * means the unit tests need no fetch and no fixture: they exercise real URLs
+ * without a network call that would have to be mocked in ten specs to assert
+ * nothing.
  */
 const DEFAULTS: RuntimeConfig = {
   apiBaseUrl: 'http://localhost:8080/api/v1',

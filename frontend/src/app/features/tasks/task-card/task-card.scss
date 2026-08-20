@@ -28,9 +28,9 @@
     background: var(--surface-2);
   }
 
-  // The task's colour, as a spine down the left edge. It used to be a filled
-  // block carrying the row number in reversed-out text, which meant computing
-  // a readable foreground for an arbitrary user-chosen hue. A spine says the
+  // The task's colour, as a spine down the left edge rather than a filled
+  // block with the row number reversed out of it. A block would mean
+  // computing a readable foreground for an arbitrary user-chosen hue. A spine
   // same thing and never has to be legible.
   &__spine {
     align-self: stretch;
@@ -205,13 +205,13 @@
  * are no longer aligned is worse than no head at all.
  */
 /**
- * No media query here any more.
+ * No media query here, deliberately.
  *
- * The row used to fold at a window width, which was the wrong question: the
- * row is as wide as the pane the divider left it, and the window can be huge
- * while the pane is 200px. The pane decides, through [compact], and drops the
- * columns from the markup rather than hiding them with CSS — a hidden cell
- * still occupies its track and still holds the grid to its width.
+ * The window is the wrong question: the row is as wide as the pane the
+ * divider left it, and the window can be huge while the pane is 200px. The
+ * pane decides, through [compact], and drops the columns from the markup
+ * rather than hiding them with CSS — a hidden cell still occupies its track
+ * and still holds the grid to its width.
  *
  * The row must never fold onto a second line whatever the width: it is one
  * line of a table whose other half is a bar drawn at a fixed height, and a

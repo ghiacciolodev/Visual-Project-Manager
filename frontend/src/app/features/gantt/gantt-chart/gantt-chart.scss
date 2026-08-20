@@ -20,11 +20,11 @@
    * One element scrolls, in both directions, and three of its four cells
    * refuse to move on one axis or the other.
    *
-   * The alternative — a fixed name column beside a strip that scrolls
-   * sideways, which is what this was — cannot keep the day header on screen,
-   * because the vertical scroll then belongs to an ancestor and a sticky
-   * child resolves against the nearest scrollport rather than against that.
-   * Putting both axes here is what makes `position: sticky` mean anything.
+   * The obvious arrangement — a fixed name column beside a strip that
+   * scrolls sideways — cannot keep the day header on screen: the vertical
+   * scroll then belongs to an ancestor, and a sticky child resolves against
+   * the nearest scrollport rather than against that. Both axes have to be
+   * here for `position: sticky` to mean anything.
    */
   &__scroll {
     display: grid;
@@ -56,10 +56,9 @@
     height: var(--head-h);
     padding: 0 calc(var(--u) * 3) calc(var(--u) * 1.5);
 
-    // Set as labels rather than as small text. Sentence case at the row
-    // font's weight made the head read as a sixteenth row that happened to
-    // say "Task"; letter-spaced capitals are a different kind of thing on
-    // the page, which is what a column head is.
+    // Labels, not small text. Sentence case at the rows' own weight reads as
+    // one more row that happens to say "Task"; capitals are a different kind
+    // of thing on the page, which is what a column head is.
     font-size: var(--fs-xs);
     font-weight: 500;
     letter-spacing: 0.06em;
@@ -92,15 +91,15 @@
     }
 
     .chart__corner {
-      // Nothing scrolls sideways, so nothing needs pinning sideways — and the
-      // rule on its right edge divided it from a pane that is no longer there.
+      // Nothing scrolls sideways, so nothing needs pinning sideways, and
+      // there is no pane on the right to be divided from.
       left: auto;
       border-right: 0;
 
-      // Nor is there a timeline to line up with. --head-h is the height of
-      // the month row plus the day row opposite, and with those gone it was
-      // forty-six pixels of empty band standing over the first task. A head
-      // here is one line of labels, so it is as tall as one line of labels.
+      // Nor a timeline to line up with. --head-h is the month row plus the
+      // day row opposite; with neither drawn it would stand forty-six pixels
+      // of empty band over the first task. A head of one line of labels is
+      // as tall as one line of labels.
       height: auto;
       padding-top: calc(var(--u) * 3);
     }
@@ -178,16 +177,15 @@
   }
 
   /**
-   * The grid, with the days taken out of it.
+   * The grid, with no rule between one day and the next.
    *
-   * There used to be a rule between every pair of days: ninety of them on a
-   * quarter's plan, drawn at the weight of an ordinary divider, and the eye
-   * had to look past all of them to find a bar. Nothing is read off those
-   * lines. The dates are in the header, and a bar is placed by the grid
-   * whether the grid is drawn or not.
+   * A quarter's plan is ninety of them, and nothing is read off any of them:
+   * the dates are in the header, and a bar is placed by the grid whether the
+   * grid is drawn or not. What they cost is a screen the eye has to look
+   * past to find a bar.
    *
-   * Three divisions survive, in three weights, and each one is a real
-   * boundary rather than a tick: the weekend, the week and the month.
+   * Three divisions are drawn, in three weights, and each is a boundary
+   * rather than a tick: the weekend, the week and the month.
    */
   &__col {
     // Weekends are shaded because they explain the gap between a bar's length
@@ -460,9 +458,9 @@
 /* --- page furniture ----------------------------------------------------- */
 
 /**
- * The view fills the frame. The chart is the only part that scrolls, and the
- * max-width that used to sit here was the worst line in the file: a chart of
- * time on a screen 1900px wide, told to stop at 1200.
+ * The view fills the frame, and takes no max-width. The chart is the only
+ * part that scrolls, and a plan is one thing on the screen that should have
+ * every pixel of width it is given.
  */
 :host {
   display: flex;
@@ -484,12 +482,10 @@
  * because the zoom group's outline is a pixel taller than the schedule's one
  * button — not worth chasing, and recorded here so nobody re-measures it.
  *
- * Named `toolbar` and not `bar`, which it was for one commit and which broke
- * it. `.bar` in this file is the task bar in the chart — 18px tall, clipped,
- * grab cursor — and a component stylesheet is one namespace, so the header
- * inherited a height smaller than its own padding and collapsed to 25px with
- * its contents hanging out of it. The schedule had no such collision, which is
- * exactly why the same band looked right there and wrong here.
+ * Named `toolbar`, and not `bar`. `.bar` in this file is the task bar in the
+ * chart: 18px tall, clipped, grab cursor. A component stylesheet is one
+ * namespace, so a header called `.bar` inherits a height smaller than its own
+ * padding and collapses to 25px with its contents hanging out.
  */
 .toolbar {
   display: flex;
@@ -616,13 +612,12 @@
 }
 
 /**
- * The two switches in the toolbar, stated once.
+ * The switches in the toolbar, stated once and shared.
  *
- * Float used to carry a border and nothing else, on a comment that said it
- * borrowed the zoom group's shape. It did not: a bare <button> inherits none
- * of the page's typography, so it drew itself in the browser's own font at
- * whatever size that is, with the browser's padding, beside three segments set
- * in Plex at 13px. Sharing the rule is what the comment was describing.
+ * Shared rather than each borrowing the others' shape: a bare <button>
+ * inherits none of the page's typography, so one left out of this rule draws
+ * itself in the browser's own face, at the browser's size, with the browser's
+ * padding, beside three segments set in Plex at 13px.
  */
 .zoom__step,
 .float-toggle,
@@ -648,12 +643,9 @@
 }
 
 // Two groups: zoom, which changes how the plan is drawn, and export, which
-// takes it somewhere else. They used to share an outline and internal
-// dividers, which made two more rectangles in a band that already had six.
-//
-// What made the segments read as a group was never the box around them. It
-// was that they sit together and look alike, which they still do, and the lit
-// segment below says which one is on without needing a frame to be lit inside.
+// takes it somewhere else. Neither is boxed. What makes segments read as a
+// group is that they sit together and look alike, not a rectangle around
+// them, and the lit segment below says which one is on.
 .zoom,
 .export {
   display: flex;
@@ -798,8 +790,8 @@
       overflow: visible;
     }
 
-    // Sticky resolves against a scrollport, and there is no longer one to
-    // resolve against. Left as-is, the header and the frozen column pin
+    // Sticky resolves against a scrollport, and the rule above has taken
+    // theirs away. Left sticky, the header and the frozen column pin
     // themselves to the top of the first page and the rows print underneath
     // them.
     &__corner,

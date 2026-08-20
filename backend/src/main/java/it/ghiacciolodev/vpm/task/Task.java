@@ -74,13 +74,13 @@ public class Task {
     private Instant updatedAt;
 
     /**
-     * The optimistic lock, and the reason updatedAt is no longer it.
+     * The optimistic lock, and the reason updatedAt cannot be it.
      *
-     * @UpdateTimestamp is written during a flush. A response assembled
-     * before the flush therefore carried the value the row held *before* the
-     * write, and a client that echoed it back on its next edit was told
-     * somebody else had got there first. Two consecutive edits of the same
-     * task produced a 409 with one person at the keyboard.
+     * @UpdateTimestamp is written during a flush, so a response assembled
+     * before the flush carries the value the row held *before* the write. A
+     * client echoing that back on its next edit is told somebody else got
+     * there first, and two consecutive edits of one task produce a 409 with
+     * one person at the keyboard.
      *
      * @Version is handled by Hibernate rather than by a comparison this code
      * has to remember to make: it goes into the UPDATE's WHERE clause, so a

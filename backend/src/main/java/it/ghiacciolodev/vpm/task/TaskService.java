@@ -28,10 +28,10 @@ import java.util.stream.Collectors;
 /**
  * Every method takes the project explicitly and is guarded by @PreAuthorize.
  *
- * The project used to be resolved from the caller's account, which made
- * authorisation impossible to get wrong and impossible to demonstrate: a check
- * that cannot fail is not a check. Now the id arrives from the URL, so
- * "am I allowed?" has an answer that can be no.
+ * Explicitly, and not resolved from the caller's account. A project derived
+ * from whoever is asking makes authorisation impossible to get wrong and
+ * impossible to demonstrate, and a check that cannot fail is not a check.
+ * The id arrives from the URL, so "am I allowed?" has an answer that can be no.
  *
  * The guards sit on the service rather than the controller — one layer closer
  * to the data, and still enforced if a second controller, a scheduled job or a
@@ -268,10 +268,10 @@ public class TaskService {
     public TaskResponse removeDependency(Long projectId, Long taskId, Long predecessorId) {
         Task task = loadOrThrow(projectId, taskId);
 
-        // Loaded for its title alone, and worth the query. The entry used to
-        // read "no longer waits for task 34", which is a sentence nobody can
-        // act on without going to look up 34 — in a log whose only job is to
-        // be readable later.
+        // Loaded for its title alone, and worth the query. Without it the
+        // entry reads "no longer waits for task 34", which nobody can act on
+        // without going to look up 34 — in a log whose only job is to be
+        // readable later.
         String predecessor = repository
             .findByIdAndProjectIdAndDeletedAtIsNull(predecessorId, projectId)
             .map(Task::getTitle)
@@ -293,15 +293,15 @@ public class TaskService {
     /**
      * Refuses a write built from a version of the task somebody has replaced.
      *
-     * Two people editing one task ended in last-write-wins, silently: whoever
-     * saved second overwrote the other with a form filled in before their
-     * change existed, and nothing said so. The person whose work disappeared
-     * had no way to find out, because the schedule only ever shows the current
-     * state.
+     * Without it, two people editing one task end in last-write-wins,
+     * silently: whoever saves second overwrites the other with a form filled
+     * in before their change existed, and nothing says so. The person whose
+     * work disappears has no way to find out, because the schedule only ever
+     * shows the current state.
      *
-     * Required rather than optional now. While it was optional the guarantee
-     * was a convention: any client could omit the field and get the old
-     * behaviour without being told.
+     * The version is required rather than optional. Optional would make the
+     * guarantee a convention, which any client could opt out of by omitting
+     * the field, without being told what it had given up.
      *
      * This check is not the only line of defence, and it is not the strongest
      * one. @Version puts the same number in the UPDATE's WHERE clause, so a

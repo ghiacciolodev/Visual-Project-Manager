@@ -17,10 +17,10 @@ public interface ProjectMemberRepository
     /**
      * Every membership belonging to one person.
      *
-     * findMine used to call findAll() and filter in memory, which reads every
-     * membership row in the database — every project of every user — to answer
-     * a question about one of them. Harmless with three accounts and quadratic
-     * nonsense with three thousand.
+     * Filtered by the database, not in memory. findAll() and a stream would
+     * read every membership row there is — every project of every user — to
+     * answer a question about one of them: harmless with three accounts and
+     * quadratic nonsense with three thousand.
      */
     List<ProjectMember> findByUserId(Long userId);
 

@@ -62,17 +62,16 @@ public record TaskRequest(
     /**
      * The version this payload was built from.
      *
-     * Required on update, and it was not always. It used to be an optional
-     * timestamp, which made the protection a convention: a client that left
-     * it out got last-write-wins with no warning, and the excuse was that
-     * requiring it would break existing callers. There are no external
-     * callers, so that excuse was doing no work.
+     * Required on update. Optional would make the protection a convention: a
+     * client that left it out would get last-write-wins with no warning, and
+     * the usual argument for optional — that requiring it breaks existing
+     * callers — buys nothing where there are no external callers.
      *
-     * It is a version rather than a timestamp because the timestamp could not
-     * be reported honestly. @UpdateTimestamp is written during a flush, and
-     * the response was assembled before one was guaranteed, so a PUT handed
-     * back the value from before its own write; a client echoing that back was
-     * refused for a conflict that had not happened.
+     * A version rather than a timestamp, because a timestamp cannot be
+     * reported honestly here. @UpdateTimestamp is written during a flush, so a
+     * PUT whose response is assembled before one hands back the value from
+     * before its own write, and a client echoing that back is refused for a
+     * conflict that never happened.
      *
      * Not If-Match, which would be the tidier HTTP answer and is the obvious
      * next step: it needs an ETag on every read and a header on every write,

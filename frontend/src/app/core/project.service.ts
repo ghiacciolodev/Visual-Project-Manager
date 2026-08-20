@@ -20,12 +20,10 @@ export class ProjectService {
 
   private readonly http = inject(HttpClient);
   // A getter, not a field. A field is evaluated when the service is built,
-  // and this one is built inside the app initializer: SessionService injects
-  // it, and that injection happens before config.json has been fetched. The
-  // development default is then baked in for the life of the page, which on a
-  // deployed instance means a browser calling localhost and a content
-  // security policy correctly refusing to let it. Every other service builds
-  // its URL inside a method, which is why this was the only one.
+  // and this one is built inside the app initializer, where SessionService
+  // injects it before config.json has been fetched. It would hold the
+  // development default for the life of the page: a deployed browser calling
+  // localhost, and a content security policy correctly refusing it.
   private get url(): string {
     return `${apiBaseUrl()}/projects`;
   }

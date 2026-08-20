@@ -14,45 +14,40 @@
 .shell {
   display: grid;
 
-  // A stated width, not `auto`.
-  //
-  // `auto` sizes the column to the rail's widest content, which for a long
-  // time was the project picker and so came out at about the intended 208px
-  // by coincidence. The rail carried `flex: 0 0 208px` as if that were the
-  // rule, and it did nothing at all: a grid item is not a flex item. The
-  // first piece of prose put in the rail was wider than the picker, the
-  // column followed it, and the schedule lost two thirds of the screen.
+  // A stated width, not `auto`. `auto` sizes the column to the rail's widest
+  // content, so the first sentence of prose put in the rail takes the width
+  // off the schedule. The rail is not a flex item and cannot set this from
+  // its own side.
   grid-template-columns: 208px minmax(0, 1fr);
   height: 100%;
 
-  // The paper. The rail no longer paints its own background, so this is what
+  // The paper. The rail paints no background of its own, so this is what
   // shows behind it, and what the working area is laid on.
   background: var(--bg);
 }
 
 /**
- * A rail down the side, where this was a strip across the top.
+ * A rail down the side rather than a bar across the top.
  *
- * The top bar spent its full width on four words and then handed the view a
- * page that scrolled the bar away. Down the side it costs 200px of a screen
- * that is far wider than it is tall — the dimension a schedule does not want —
- * and it stays put while forty rows go past it.
+ * Across the top it would spend its full width on four words, and scroll away
+ * with the page. Down the side it costs 200px of a screen that is far wider
+ * than it is tall — the dimension a schedule does not want — and it stays put
+ * while forty rows go past it.
  *
- * Light, as the top bar was. The dark version this replaced was the strongest
- * element on the screen and carried the least important content.
+ * Light, because it carries the least important content on the screen and
+ * should not be the strongest thing on it.
  */
 .rail {
   display: flex;
   flex-direction: column;
   gap: calc(var(--u) * 2);
-  // No flex property here: the width is the grid column above. This is not
-  // a flex item, and saying otherwise is how the width came to be a
-  // coincidence rather than a rule.
+  // No flex property here. The width is the grid column above, and a flex
+  // rule on a grid item does nothing but look like it is in charge.
   padding: calc(var(--u) * 4) calc(var(--u) * 3);
 
   // Neither a background nor a border. The rail sits on the paper and the
   // working area is a card laid beside it, so the edge between them is the
-  // card's own, and one line does the work two used to.
+  // card's own and one line does the whole job.
   overflow-y: auto;
 
   &__mark {
@@ -103,11 +98,9 @@
     cursor: pointer;
     padding: calc(var(--u) * 2) calc(var(--u) * 2);
 
-    // The current view is marked by its fill and nothing else. There used to
-    // be a bar in the gutter as well, on the argument that it is the vertical
-    // equivalent of a tab bar's underline; against a rail that no longer has
-    // a background of its own, the fill alone already reads, and the bar was
-    // a second mark saying the first one's job.
+    // The current view is marked by its fill and nothing else. Against a rail
+    // with no background of its own the fill reads on its own, and a bar in
+    // the gutter beside it would be a second mark doing the first one's job.
     transition: color 0.15s ease, background 0.15s ease;
 
     &:hover {
@@ -415,8 +408,8 @@
 
     // Gone here. The rail is a row of tabs that slides sideways, and a
     // sentence of prose in it is neither readable nor easy to scroll past.
-    // The notice itself is on the sign-in screen, which is where it was
-    // read and agreed to; this was only ever the reminder.
+    // This is only the reminder: the notice itself is on the sign-in screen,
+    // where it is read and agreed to.
     &__demo {
       display: none;
     }

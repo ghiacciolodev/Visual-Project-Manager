@@ -1,6 +1,6 @@
-// The panel shell, the fields and the buttons come from styles.scss —
-// including .action--danger, which used to be defined here and is now shared.
-// What is left belongs to deleting, which nothing else in the application does.
+// The panel shell, the fields and the buttons come from styles.scss,
+// .action--danger included. What is left here belongs to deleting, which
+// nothing else in the application does.
 
 .danger {
   margin: 0 calc(var(--u) * 6) calc(var(--u) * 8);

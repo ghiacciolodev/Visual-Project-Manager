@@ -466,9 +466,9 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     /**
      * How many backward routes already run between a given pair of rows.
      *
-     * Two connectors travelling the same corridor used to be drawn on exactly
-     * the same line, which reads as one arrow and hides the other. Each
-     * subsequent lane is nudged a little further out.
+     * Two connectors travelling the same corridor would otherwise be drawn on
+     * exactly the same line, which reads as one arrow and hides the other.
+     * Each subsequent lane is nudged a little further out.
      */
     const laneUse = new Map<string, number>();
 
@@ -566,11 +566,10 @@ export class GanttChart implements OnInit, AfterViewInit, OnDestroy {
     void this.taskService.load();
     this.taskService.startPolling();
 
-    // On both routes now. It used to be only where the window decides the
-    // columns, on the argument that beside a timeline the divider decides and
-    // listening answered a question nobody asked. The question is asked: the
-    // divider's own maximum is measured against the window, and without this
-    // it would go on quoting the width the window had when the view opened.
+    // On both routes, including the one where the divider rather than the
+    // window decides the columns: the divider's own maximum is measured
+    // against the window, so without this it goes on quoting the width the
+    // window had when the view opened.
     window.addEventListener('resize', this.onResize);
 
     window.addEventListener('beforeprint', this.onBeforePrint);

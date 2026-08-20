@@ -76,10 +76,10 @@ public class TaskController {
         int pageNumber = Math.max(0, page == null ? 0 : page);
         int pageSize = Math.clamp(size == null ? DEFAULT_PAGE_SIZE : size, 1, MAX_PAGE_SIZE);
 
-        // Paged in the query rather than in memory. This used to read the
-        // whole project and call subList, which produced correct headers over
-        // work that had not been reduced at all: asking for ten rows out of
-        // two thousand was served two thousand and shown ten.
+        // Paged in the query rather than in memory. Reading the whole project
+        // and calling subList produces correct headers over work that has not
+        // been reduced at all: ten rows out of two thousand, with two thousand
+        // fetched to serve them.
         Page<TaskResponse> result = service.findPage(projectId,
             PageRequest.of(pageNumber, pageSize, Sort.by("startDate").and(Sort.by("id"))));
 
