@@ -1,0 +1,18 @@
+/* The end-to-end run compiles on its own.
+ *
+ * It sits outside src/, so neither tsconfig.app.json nor tsconfig.spec.json
+ * reaches it, and both are right not to: this code never ships and never runs
+ * under the unit test runner. Playwright transpiles it itself; this file is
+ * what makes an editor and `tsc --noEmit` agree with Playwright about it. */
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../out-tsc/e2e",
+    "types": ["node"],
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "**/*.ts"
+  ]
+}

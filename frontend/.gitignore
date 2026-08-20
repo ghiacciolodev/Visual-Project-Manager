@@ -42,3 +42,9 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Playwright: the browsers it drives, and what a failed run leaves behind.
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache

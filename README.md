@@ -606,6 +606,7 @@ caller already has, which is why they can follow the filter on screen.
 ```bash
 cd backend  && ./mvnw verify      # 62 tests
 cd frontend && npm test           # 126 tests, 10 files
+cd frontend && npm run test:e2e   # 3, against a stack that is already up
 ```
 
 **Backend.** Unit tests for the parts with logic worth testing alone, and
@@ -632,8 +633,26 @@ pins that an unverified address cannot inherit an invitation.
 execute in a spreadsheet, that `DTEND` lands the day after the task, and
 that forty emoji fold without a character being cut in half.
 
-CI runs both on every push, plus a job that builds the images, starts the
-stack and checks the security headers are still being sent.
+**End to end.** One person signs in and sees the plan, which is the one
+thing neither of the above can prove. Both can pass while the screen is
+empty, because what joins them is a browser fetching `config.json`,
+signing in through Keycloak, and calling an address it was told at
+start-up. Every defect this project has had in production lived in that
+seam: a redirect URI the realm did not accept, a service holding the
+development API address because it was constructed before the fetch
+resolved, a content security policy correctly refusing the request that
+address produced. None of them broke a test, and none of them reached a
+server log, because the request never left the browser.
+
+Playwright, three tests, and a listener on the console and the network
+that fails the run on anything the browser refused. That listener is the
+point: a blocked request leaves the screen merely empty, and an empty
+screen is what an application with no data legitimately looks like.
+
+It expects a stack that is already up and seeded, because a test that
+starts one would be a third place that knows the order to start things
+in. CI runs everything on every push and every pull request: the two
+suites above, then the images, then the stack, then the browser.
 
 ---
 
