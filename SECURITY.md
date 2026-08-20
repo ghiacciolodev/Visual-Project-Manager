@@ -472,8 +472,7 @@ stack refuses to come up rather than come up weak, and registration and
 password reset switched off because the four demo accounts are the way in
 and Mailpit is not reachable. The realm changes are applied by the seed
 script rather than baked into `realm-export.json`, so the committed realm
-stays the one a developer wants. [The deployment notes](docs/deploying.md)
-set out the whole difference in a table.
+stays the one a developer wants.
 
 What that leaves is a public instance whose sign-in credentials are
 printed in a README, on purpose. It survives because those accounts can

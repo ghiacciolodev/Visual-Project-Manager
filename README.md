@@ -671,7 +671,7 @@ keycloak/
 scripts/demo/     the plan in the screenshots, and what puts it back
 scripts/deploy/   the systemd timer that runs that on a schedule
 
-docs/             screenshots, the deployment notes, and the brief this began as
+docs/             screenshots, and the brief this began as
 
 docker-compose.yml        the development stack
 docker-compose.prod.yml   what changes when it is reachable from the internet
