@@ -14,10 +14,12 @@ import java.time.LocalDate;
  * Maps the "tasks" table from V1__init.sql.
  *
  * Note on foreign keys: project_id and assignee_id are mapped as plain Long
- * columns rather than @ManyToOne associations. There is no Project or User
- * entity yet — they arrive in phase 5 with authentication — and a bare id is
- * all the code needs until then. Promoting them to associations later is a
- * local change to this class, not a rewrite.
+ * columns rather than @ManyToOne associations, the same way every other
+ * entity here holds its relations. Nothing navigates from a task to its
+ * project or its assignee as an object: repository queries filter on the
+ * ids, access checks take the project id, and assignee names are loaded
+ * explicitly through UserRepository, with one findAllById for a whole list
+ * of tasks rather than one lookup per row.
  */
 @Entity
 @Table(name = "tasks")

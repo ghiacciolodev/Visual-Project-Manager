@@ -760,6 +760,7 @@ and Lombok is MIT. On the frontend, all 471 packages in the tree resolve
 to MIT, ISC, Apache 2.0, BSD, BlueOak, CC0 or 0BSD, with no copyleft at
 any depth.
 
-IBM Plex is under the SIL Open Font Licence and is fetched from Google
-Fonts at runtime rather than redistributed here, so it carries its own
-terms and none of this repository's.
+IBM Plex is under the SIL Open Font License 1.1 and is redistributed here:
+the WOFF2 files sit in `frontend/public/fonts/` and, for the sign-in page,
+in `keycloak/themes/vpm/login/resources/fonts/`, each with the licence text
+beside them. It carries its own terms and none of this repository's.
