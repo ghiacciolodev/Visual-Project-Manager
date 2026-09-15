@@ -59,9 +59,12 @@ would exclude it.
 The same plan, drawn. Bars can be dragged to move a task and grabbed at
 either end to resize it, optimistically: the bar follows the pointer and
 rolls back if the server refuses. Arrows connect each task to what it
-waits for. Days, weeks and months are the three scales. The hatched tail
-on a bar is how far that task can slip before it moves something else, and
-the tasks with no tail are the critical path.
+waits for. Days, weeks and months are the three scales. A heavy rule marks
+the critical path, the tasks that set the finish date. The hatched tail on
+a bar is a separate measure: how far that task can slip *from where it is
+drawn* before it moves something else. Every critical task has no tail, but
+so does any task already drawn as late as it can go, so an absent tail is
+the margin running out, not by itself the mark of being critical.
 
 The table beside it can be widened or narrowed with the divider and sheds
 columns as it shrinks. Dates go first, because the bar next to them is

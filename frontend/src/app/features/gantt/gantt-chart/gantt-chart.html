@@ -398,8 +398,11 @@
               <!--
                 The float tail sits in its own grid cell immediately after the
                 bar: hatched, unfilled, showing how far the task could slide
-                before the project's end date moves. Critical tasks have none,
-                which is precisely what makes them critical.
+                before the project's end date moves. A critical task has none,
+                but so does any task already drawn as late as it can go — its
+                slipOf is zero without its total float being zero. So the tail
+                is the residual margin, not the criticality marker; the heavy
+                rule (bar--critical, from the schedule's own float) is that.
               -->
               @if (floatColumns(row) > 0) {
                 <div class="tail"

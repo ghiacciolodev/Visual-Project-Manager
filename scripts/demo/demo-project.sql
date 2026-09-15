@@ -207,11 +207,14 @@ LEFT JOIN users u ON u.email = t.assignee_email;
 
 -- --- what waits on what ----------------------------------------------
 --
--- The chain that decides the launch date runs discovery → checkout
--- contract → catalogue migration → payments → load testing → rehearsal
--- → go live. Everything else hangs off it with real slack, which is what
--- makes the critical path worth drawing: a plan where every task is
--- critical is just a list.
+-- The chain that decides the launch date is the interface one: discovery
+-- → information architecture → design system → page templates →
+-- accessibility pass → rehearsal → go live. The backend chain that reads
+-- as central — checkout contract → catalogue migration → payments → load
+-- testing — looks like the one that sets the date but carries nine days of
+-- float, so it is not on the critical path. That gap between the obvious
+-- reading and the arithmetic is the point the README makes, and the reason
+-- a plan where every task is critical is just a list.
 
 INSERT INTO task_dependencies (predecessor_id, successor_id)
 SELECT pre.id, suc.id
